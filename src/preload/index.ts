@@ -545,10 +545,14 @@ const api = {
       ipcRenderer.invoke('localTasks:createSubtask', args),
     updateSubtask: (args: Parameters<LocalTaskApi['updateSubtask']>[0]) =>
       ipcRenderer.invoke('localTasks:updateSubtask', args),
-    updateStep: (args: Parameters<LocalTaskApi['updateStep']>[0]) =>
-      ipcRenderer.invoke('localTasks:updateStep', args),
-    reportCompleted: (args: Parameters<LocalTaskApi['reportCompleted']>[0]) =>
-      ipcRenderer.invoke('localTasks:reportCompleted', args),
+    editStepTitle: (args: Parameters<LocalTaskApi['editStepTitle']>[0]) =>
+      ipcRenderer.invoke('localTasks:editStepTitle', args),
+    accept: (args: Parameters<LocalTaskApi['accept']>[0]) =>
+      ipcRenderer.invoke('localTasks:accept', args),
+    archive: (args: Parameters<LocalTaskApi['archive']>[0]) =>
+      ipcRenderer.invoke('localTasks:archive', args),
+    restore: (args: Parameters<LocalTaskApi['restore']>[0]) =>
+      ipcRenderer.invoke('localTasks:restore', args),
     onChanged: (callback: Parameters<LocalTaskApi['onChanged']>[0]): (() => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,

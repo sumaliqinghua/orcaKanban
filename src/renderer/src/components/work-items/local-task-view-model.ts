@@ -18,6 +18,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     description: task.description,
     status: task.status,
     workspace: task.workspaceLabel,
+    workspaceId: task.workspaceId,
     project: task.projectId,
     updated: new Date(task.updatedAt).toLocaleString(),
     sessions: task.sessions.length,
@@ -33,9 +34,12 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
         }
       : { session: '暂无会话', text: '尚未开始。' },
     sessionsList: task.sessions.map((session) => ({
+      id: session.id,
       title: session.title,
       status: session.status,
       time: new Date(session.updatedAt).toLocaleString()
-    }))
+    })),
+    titleSource: task.titleSource,
+    titleSuggestion: task.titleSuggestion
   }
 }

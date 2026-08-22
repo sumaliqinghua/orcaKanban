@@ -36,6 +36,7 @@ export type LocalTaskSession = {
   latestOutput: string | null
   createdAt: number
   updatedAt: number
+  associationSource: 'task-center' | 'explicit'
 }
 
 export type LocalTask = {
@@ -50,6 +51,7 @@ export type LocalTask = {
   updatedAt: number
   archivedAt: number | null
   titleSource: 'first-line' | 'ai-suggestion' | 'user'
+  titleSuggestion: string | null
   subtasks: LocalTaskSubtask[]
   sessions: LocalTaskSession[]
   latestOutput: { sessionId: string; text: string; updatedAt: number } | null
@@ -74,8 +76,14 @@ export type UpdateLocalTaskArgs = {
 
 export type CreateLocalTaskSessionArgs = {
   taskId: string
+  sessionId?: string
+  workspaceId?: string
   title?: string
+  associationSource?: 'task-center' | 'explicit'
 }
+
+export type AcceptLocalTaskArgs = { taskId: string }
+export type ArchiveLocalTaskArgs = { taskId: string }
 
 export type CreateLocalTaskSubtaskArgs = {
   taskId: string
@@ -97,8 +105,16 @@ export type UpdateLocalTaskStepArgs = {
   status?: LocalTaskStepStatus
 }
 
+export type EditLocalTaskStepTitleArgs = {
+  subtaskId: string
+  stepId: string
+  title: string
+}
+
 export type ReportLocalTaskCompletedArgs = {
   taskId: string
   sessionId: string
   latestOutput?: string
+  titleSuggestion?: string
+  description?: string
 }

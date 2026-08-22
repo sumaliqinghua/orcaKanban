@@ -16,6 +16,7 @@ export type WorkItem = {
   description: string
   status: WorkItemStatus
   workspace: string
+  workspaceId?: string
   project: string
   updated: string
   sessions: number
@@ -23,7 +24,9 @@ export type WorkItem = {
   waitingReason?: string
   subtasks: Subtask[]
   latestOutput: { session: string; text: string }
-  sessionsList: { title: string; status: 'working' | 'idle' | 'done'; time: string }[]
+  sessionsList: { id?: string; title: string; status: 'working' | 'idle' | 'done'; time: string }[]
+  titleSource?: 'first-line' | 'ai-suggestion' | 'user'
+  titleSuggestion?: string | null
 }
 
 export const STATUS_ORDER: WorkItemStatus[] = [

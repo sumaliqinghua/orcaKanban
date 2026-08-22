@@ -2,11 +2,10 @@ import type {
   CreateLocalTaskArgs,
   CreateLocalTaskSessionArgs,
   CreateLocalTaskSubtaskArgs,
+  EditLocalTaskStepTitleArgs,
   LocalTask,
   LocalTaskSession,
-  ReportLocalTaskCompletedArgs,
   UpdateLocalTaskArgs,
-  UpdateLocalTaskStepArgs,
   UpdateLocalTaskSubtaskArgs
 } from '../../shared/local-task-types'
 
@@ -18,7 +17,9 @@ export type LocalTaskApi = {
   createSession: (args: CreateLocalTaskSessionArgs) => Promise<LocalTaskSession>
   createSubtask: (args: CreateLocalTaskSubtaskArgs) => Promise<LocalTask>
   updateSubtask: (args: UpdateLocalTaskSubtaskArgs) => Promise<LocalTask>
-  updateStep: (args: UpdateLocalTaskStepArgs) => Promise<LocalTask>
-  reportCompleted: (args: ReportLocalTaskCompletedArgs) => Promise<LocalTask>
+  editStepTitle: (args: EditLocalTaskStepTitleArgs) => Promise<LocalTask>
+  accept: (args: { taskId: string }) => Promise<LocalTask>
+  archive: (args: { taskId: string }) => Promise<LocalTask>
+  restore: (args: { taskId: string }) => Promise<LocalTask>
   onChanged: (callback: (task: LocalTask) => void) => () => void
 }

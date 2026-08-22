@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  Archive,
-  ChevronDown,
-  PanelRight,
-  Plus,
-  Search,
-  Sparkles,
-  SquareArrowOutUpRight,
-  TerminalSquare
-} from 'lucide-react'
+import { Archive, ChevronDown, Plus, Search, Sparkles, SquareArrowOutUpRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/store'
+import type { LocalTask } from '../../../../shared/local-task-types'
 import type { WorkItem } from './mock-data'
-import { DetailPanel, LocalTaskActions, StatusBadge } from './work-item-pieces'
+import { LocalTaskDetailAside } from './LocalTaskDetailAside'
+import { LocalTaskCenterHeader } from './LocalTaskCenterHeader'
+import { createLocalTaskCenterActions } from './local-task-center-actions'
 import { BoardView, ListView, SubtaskBoardView, SubtaskListView } from './work-item-views'
 import { localTaskToViewModel } from './local-task-view-model'
 import { LocalTaskCreateDialog } from './LocalTaskCreateDialog'
@@ -22,6 +17,21 @@ type ViewMode = 'board' | 'list'
 type BoardPerspective = 'subtasks' | 'tasks'
 
 export default function WorkItemsPrototypePage(): React.JSX.Element {
+  const activeRepoId = useAppStore((state) => state.activeRepoId)
+  const activeWorktreeId = useAppStore((state) => state.activeWorktreeId)
+  const activeWorktree = useAppStore((state) =>
+    state.activeWorktreeId
+      ? state.getKnownWorktreeById(
+          state.activeWorktreeId,
+          state.activeWorkspaceExecutionHostId ?? undefined
+        )
+      : null
+  )
+  const createProjectId = activeRepoId ?? 'local'
+  const createWorkspaceId = activeWorktreeId ?? 'local'
+  const createWorkspaceLabel = activeWorktree
+    ? `${activeWorktree.displayName} · ${activeWorktree.branch || `HEAD ${activeWorktree.head.slice(0, 7)}`}`
+    : 'local · 当前 HEAD'
   const [items, setItems] = useState<WorkItem[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -78,7 +88,8 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         taskId: selected.id,
         updates: {
           ...(updates.status ? { status: updates.status } : {}),
-          ...(updates.description ? { description: updates.description } : {})
+          ...(updates.description ? { description: updates.description } : {}),
+          ...(updates.waitingReason !== undefined ? { waitingReason: updates.waitingReason } : {})
         }
       })
       .then((task) =>
@@ -96,9 +107,15 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
     }
   }
   const onTaskCreated = (task: WorkItem): void => {
-    setItems((current) => [task, ...current])
+    setItems((current) => [task, ...current.filter((item) => item.id !== task.id)])
     setSelectedId(task.id)
   }
+  const taskActions = createLocalTaskCenterActions({
+    selected,
+    setItems,
+    setSelectedId,
+    setLoadError
+  })
   const completeSubtask = (subtaskId: string): void => {
     if (!selected) {
       return
@@ -149,46 +166,39 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   }
   if (!selected) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-xs text-muted-foreground">
-        <p>还没有本地任务</p>
-        <Button size="sm" onClick={() => setShowCreate(true)}>
-          <Plus className="size-3.5" />
-          新建本地任务
-        </Button>
+      <div className="flex min-h-0 flex-1 flex-col bg-background">
+        <header className="flex h-14 shrink-0 items-center border-b border-border px-6">
+          <div>
+            <h1 className="text-[15px] font-semibold tracking-tight">任务中心</h1>
+            <p className="text-[11px] text-muted-foreground">本地任务</p>
+          </div>
+          <Button className="ml-auto gap-1.5 text-xs" onClick={() => setShowCreate(true)}>
+            <Plus className="size-3.5" />
+            新建本地任务
+          </Button>
+        </header>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-xs text-muted-foreground">
+          <p>还没有本地任务</p>
+          <Button variant="outline" size="sm" onClick={() => setShowCreate(true)}>
+            <Plus className="size-3.5" />
+            新建本地任务
+          </Button>
+        </div>
+        <LocalTaskCreateDialog
+          open={showCreate}
+          onOpenChange={setShowCreate}
+          onCreated={onTaskCreated}
+          projectId={createProjectId}
+          workspaceId={createWorkspaceId}
+          workspaceLabel={createWorkspaceLabel}
+        />
       </div>
     )
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-      <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-8 items-center justify-center rounded-md bg-foreground text-background">
-            <Sparkles className="size-4" />
-          </div>
-          <div>
-            <h1 className="text-[15px] font-semibold tracking-tight">任务中心</h1>
-            <p className="text-[11px] text-muted-foreground">
-              把 AI 的并行工作变成可验收的研发目标
-            </p>
-          </div>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
-            <TerminalSquare className="size-3.5" />
-            Workspace 看板
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={() => setShowCreate(true)}
-          >
-            <Plus className="size-3.5" />
-            新建本地任务
-          </Button>
-        </div>
-      </header>
+      <LocalTaskCenterHeader onCreate={() => setShowCreate(true)} />
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-5 border-b border-border px-6 pt-3">
           <button
@@ -201,7 +211,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
                 : 'border-transparent text-muted-foreground'
             )}
           >
-            本地任务 <span className="ml-1 text-[10px] text-muted-foreground">7</span>
+            本地任务 <span className="ml-1 text-[10px] text-muted-foreground">{items.length}</span>
           </button>
           <button
             type="button"
@@ -216,9 +226,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
             外部工单{' '}
             <span className="ml-1 text-[10px] text-muted-foreground">GitHub · Linear · Jira</span>
           </button>
-          <span className="ml-auto pb-2 text-[10px] text-muted-foreground">
-            Mock 原型 · 数据不会保存
-          </span>
+          <span className="ml-auto pb-2 text-[10px] text-muted-foreground">本地数据</span>
         </div>
         {tab === 'external' ? (
           <div className="flex flex-1 items-center justify-center p-8">
@@ -246,7 +254,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="搜索事项"
+                  placeholder="搜索本地任务"
                   className="h-8 pl-8 text-xs"
                 />
               </div>
@@ -342,42 +350,27 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
           </>
         )}
       </div>
-      {detailOpen ? (
-        <aside className="fixed inset-y-0 right-0 z-20 flex w-[420px] max-w-[calc(100vw-24px)] flex-col border-l border-border bg-background shadow-xl">
-          <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-3">
-            <span className="font-mono text-[10px] text-muted-foreground">{selected.id}</span>
-            <StatusBadge status={selected.status} />
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="ml-auto"
-              onClick={() => setDetailOpen(false)}
-              aria-label="收起事项详情"
-            >
-              <PanelRight className="size-4" />
-            </Button>
-          </div>
-          <DetailPanel item={selected} onCompleteSubtask={completeSubtask} />
-          <LocalTaskActions
-            item={selected}
-            onStatus={(status, waitingReason) => updateSelected({ status, waitingReason })}
-          />
-        </aside>
-      ) : (
-        <Button
-          variant="secondary"
-          size="icon-sm"
-          className="fixed right-4 top-14 z-10 shadow-sm"
-          onClick={() => setDetailOpen(true)}
-          aria-label="展开事项详情"
-        >
-          <PanelRight className="size-4" />
-        </Button>
-      )}
+      <LocalTaskDetailAside
+        item={selected}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onCompleteSubtask={completeSubtask}
+        onEditTitle={taskActions.editTitle}
+        onEditStep={taskActions.editStep}
+        onOpenSession={taskActions.openSession}
+        onOpenWorkspace={taskActions.openWorkspace}
+        onCreateSession={taskActions.createRelatedSession}
+        onStatus={(status, waitingReason) => updateSelected({ status, waitingReason })}
+        onAccept={taskActions.acceptSelected}
+        onArchive={taskActions.archiveSelected}
+      />
       <LocalTaskCreateDialog
         open={showCreate}
         onOpenChange={setShowCreate}
         onCreated={onTaskCreated}
+        projectId={createProjectId}
+        workspaceId={createWorkspaceId}
+        workspaceLabel={createWorkspaceLabel}
       />
     </div>
   )

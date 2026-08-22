@@ -9,17 +9,20 @@ import type {
   CreateLocalTaskArgs,
   CreateLocalTaskSessionArgs,
   CreateLocalTaskSubtaskArgs,
+  EditLocalTaskStepTitleArgs,
   UpdateLocalTaskArgs,
   UpdateLocalTaskStepArgs,
   UpdateLocalTaskSubtaskArgs
 } from '../../shared/local-task-types'
-import { createLocalTaskSchema } from './store-schema'
-import { projectLocalTaskRows, type LocalTaskRows } from './store-projection'
+import { createLocalTaskSchema, migrateLocalTaskSchema } from './store-schema'
+import { readLocalTask } from './store-read'
+import type { LocalTaskRows } from './store-projection'
+import { editLocalTaskStepTitle, updateLocalTaskStep } from './store-step-mutations'
 
 let singleton: LocalTaskStore | null = null
 const timestamp = (): number => Date.now()
-const text = (value: string | undefined, fallback: string): string => value?.trim() || fallback
-
+const text = (value: string | null | undefined, fallback: string): string =>
+  value?.trim() || fallback
 export class LocalTaskStore {
   private readonly db: SyncDatabase.Database
 
@@ -28,13 +31,14 @@ export class LocalTaskStore {
     this.db.pragma('journal_mode = WAL')
     this.db.pragma('synchronous = NORMAL')
     this.db.pragma('busy_timeout = 5000')
+    this.db.pragma('foreign_keys = ON')
     this.db.exec(createLocalTaskSchema())
+    migrateLocalTaskSchema(this.db)
   }
 
   close(): void {
     this.db.close()
   }
-
   list(projectId?: string): LocalTask[] {
     const rows = (
       projectId
@@ -47,13 +51,12 @@ export class LocalTaskStore {
             .prepare('SELECT * FROM local_tasks WHERE archived_at IS NULL ORDER BY updated_at DESC')
             .all()
     ) as LocalTaskRows['tasks']
-    return rows.map((task) => this.read(task.id)!).filter(Boolean)
+    return rows.map((task) => readLocalTask(this.db, task.id)!).filter(Boolean)
   }
 
   get(id: string): LocalTask | null {
-    return this.read(id)
+    return readLocalTask(this.db, id)
   }
-
   create(args: CreateLocalTaskArgs): LocalTask {
     const time = timestamp()
     const description = args.description.trim()
@@ -68,7 +71,7 @@ export class LocalTaskStore {
     }
     this.db
       .prepare(
-        'INSERT INTO local_tasks (id, project_id, title, description, status, workspace_id, workspace_label, created_at, updated_at, archived_at, title_source, waiting_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO local_tasks (id, project_id, title, description, status, workspace_id, workspace_label, created_at, updated_at, archived_at, title_source, title_suggestion, waiting_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       )
       .run(
         task.id,
@@ -82,49 +85,104 @@ export class LocalTaskStore {
         time,
         null,
         task.titleSource,
+        null,
         null
       )
-    return this.read(task.id)!
+    return readLocalTask(this.db, task.id)!
   }
 
   update(id: string, updates: UpdateLocalTaskArgs): LocalTask {
-    const current = this.read(id)
+    const current = readLocalTask(this.db, id)
     if (!current) {
       throw new Error(`Local task not found: ${id}`)
     }
+    if (updates.status === 'Done' || updates.status === 'Needs review') {
+      throw new Error('This status is controlled by the review lifecycle')
+    }
+    if (updates.status === 'Waiting' && !text(updates.waitingReason, current.waitingReason ?? '')) {
+      throw new Error('Waiting status requires a reason')
+    }
     const time = timestamp()
+    const nextStatus = updates.status ?? current.status
+    const nextWaitingReason =
+      nextStatus === 'Waiting'
+        ? updates.waitingReason === undefined
+          ? current.waitingReason
+          : updates.waitingReason
+        : null
     this.db
       .prepare(
-        'UPDATE local_tasks SET title = ?, description = ?, status = ?, updated_at = ?, archived_at = ?, waiting_reason = ?, title_source = ? WHERE id = ?'
+        'UPDATE local_tasks SET title = ?, description = ?, status = ?, updated_at = ?, archived_at = ?, waiting_reason = ?, title_source = ?, title_suggestion = CASE WHEN ? THEN NULL ELSE title_suggestion END WHERE id = ?'
       )
       .run(
         updates.title?.trim() || current.title,
         updates.description ?? current.description,
-        updates.status ?? current.status,
+        nextStatus,
         time,
         updates.archived === true ? time : updates.archived === false ? null : current.archivedAt,
-        updates.waitingReason === undefined ? current.waitingReason : updates.waitingReason,
+        nextWaitingReason,
         updates.title?.trim() ? 'user' : current.titleSource,
+        updates.title?.trim() ? 1 : 0,
         id
       )
-    return this.read(id)!
+    return readLocalTask(this.db, id)!
   }
 
-  createSession(args: CreateLocalTaskSessionArgs): LocalTaskSession {
-    const task = this.read(args.taskId)
-    if (!task) {
-      throw new Error(`Local task not found: ${args.taskId}`)
+  accept(id: string): LocalTask {
+    const current = readLocalTask(this.db, id)
+    if (!current) {
+      throw new Error(`Local task not found: ${id}`)
     }
-    const time = timestamp()
-    const session = {
-      id: `lts_${randomUUID()}`,
-      taskId: task.id,
-      workspaceId: task.workspaceId,
-      title: text(args.title, '自动创建会话')
+    if (current.status !== 'Needs review') {
+      throw new Error('Only a local task awaiting review can be accepted')
     }
     this.db
       .prepare(
-        'INSERT INTO local_task_sessions (id, task_id, workspace_id, title, status, latest_output, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        'UPDATE local_tasks SET status = ?, waiting_reason = NULL, updated_at = ? WHERE id = ?'
+      )
+      .run('Done', timestamp(), id)
+    return readLocalTask(this.db, id)!
+  }
+
+  archive(id: string): LocalTask {
+    return this.update(id, { archived: true })
+  }
+  restore(id: string): LocalTask {
+    return this.update(id, { archived: false })
+  }
+
+  createSession(args: CreateLocalTaskSessionArgs): LocalTaskSession {
+    const task = readLocalTask(this.db, args.taskId)
+    if (!task) {
+      throw new Error(`Local task not found: ${args.taskId}`)
+    }
+    const existingSessionId = args.sessionId?.trim()
+    const sessionId = existingSessionId || `lts_${randomUUID()}`
+    const existingSession = this.db
+      .prepare('SELECT task_id FROM local_task_sessions WHERE id = ?')
+      .get(sessionId) as { task_id: string } | undefined
+    if (existingSession) {
+      if (existingSession.task_id === task.id) {
+        const existing = readLocalTask(this.db, task.id)?.sessions.find(
+          (session) => session.id === sessionId
+        )
+        if (existing) {
+          return existing
+        }
+      }
+      throw new Error('Session is already associated with another local task')
+    }
+    const time = timestamp()
+    const session = {
+      id: sessionId,
+      taskId: task.id,
+      workspaceId: text(args.workspaceId, task.workspaceId),
+      title: text(args.title, '自动创建会话'),
+      associationSource: args.associationSource ?? 'task-center'
+    }
+    this.db
+      .prepare(
+        'INSERT INTO local_task_sessions (id, task_id, workspace_id, title, status, latest_output, created_at, updated_at, association_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
       )
       .run(
         session.id,
@@ -134,14 +192,21 @@ export class LocalTaskStore {
         'working',
         null,
         time,
-        time
+        time,
+        session.associationSource
       )
     this.update(task.id, { status: 'In progress' })
-    return { ...session, status: 'working', latestOutput: null, createdAt: time, updatedAt: time }
+    return {
+      ...session,
+      status: 'working',
+      latestOutput: null,
+      createdAt: time,
+      updatedAt: time
+    }
   }
 
   createSubtask(args: CreateLocalTaskSubtaskArgs): LocalTask {
-    const task = this.read(args.taskId)
+    const task = readLocalTask(this.db, args.taskId)
     if (!task) {
       throw new Error(`Local task not found: ${args.taskId}`)
     }
@@ -170,7 +235,7 @@ export class LocalTaskStore {
         )
         .run(`ltstep_${randomUUID()}`, subtaskId, text(step, '未命名执行步骤'), 'todo', time)
     }
-    return this.read(task.id)!
+    return readLocalTask(this.db, task.id)!
   }
 
   updateSubtask(args: UpdateLocalTaskSubtaskArgs): LocalTask {
@@ -183,28 +248,19 @@ export class LocalTaskStore {
     this.db
       .prepare('UPDATE local_task_subtasks SET title = ?, status = ?, updated_at = ? WHERE id = ?')
       .run(args.title?.trim() || row.title, args.status ?? row.status, timestamp(), row.id)
-    return this.read(row.task_id)!
+    return readLocalTask(this.db, row.task_id)!
   }
 
   updateStep(args: UpdateLocalTaskStepArgs): LocalTask {
-    const row = this.db
-      .prepare(
-        'SELECT step.*, subtask.task_id FROM local_task_steps step JOIN local_task_subtasks subtask ON subtask.id = step.subtask_id WHERE step.id = ? AND step.subtask_id = ?'
-      )
-      .get(args.stepId, args.subtaskId) as
-      | (LocalTaskRows['steps'][number] & { task_id: string })
-      | undefined
-    if (!row) {
-      throw new Error(`Local task step not found: ${args.stepId}`)
-    }
-    this.db
-      .prepare('UPDATE local_task_steps SET title = ?, status = ?, updated_at = ? WHERE id = ?')
-      .run(args.title?.trim() || row.title, args.status ?? row.status, timestamp(), row.id)
-    return this.read(row.task_id)!
+    return updateLocalTaskStep(this.db, args)
+  }
+
+  editStepTitle(args: EditLocalTaskStepTitleArgs): LocalTask {
+    return editLocalTaskStepTitle(this.db, args)
   }
 
   reportCompleted(args: ReportLocalTaskCompletedArgs): LocalTask {
-    const task = this.read(args.taskId)
+    const task = readLocalTask(this.db, args.taskId)
     if (!task || !task.sessions.some((session) => session.id === args.sessionId)) {
       throw new Error('Session is not associated with this local task')
     }
@@ -219,40 +275,30 @@ export class LocalTaskStore {
         'UPDATE local_task_sessions SET status = ?, latest_output = COALESCE(?, latest_output), updated_at = ? WHERE id = ?'
       )
       .run(unfinished ? 'idle' : 'done', args.latestOutput ?? null, time, args.sessionId)
-    this.db
-      .prepare('UPDATE local_tasks SET status = ?, updated_at = ? WHERE id = ?')
-      .run(unfinished ? 'In progress' : 'Needs review', time, args.taskId)
-    return this.read(args.taskId)!
-  }
-
-  private read(id: string): LocalTask | null {
-    const task = this.db.prepare('SELECT * FROM local_tasks WHERE id = ?').get(id) as
-      | LocalTaskRows['tasks'][number]
-      | undefined
-    if (!task) {
-      return null
+    if (args.titleSuggestion?.trim() && task.titleSource === 'first-line') {
+      const titleSuggestion = args.titleSuggestion.trim()
+      this.db
+        .prepare(
+          'UPDATE local_tasks SET title = ?, title_source = ?, title_suggestion = ?, updated_at = ? WHERE id = ? AND title_source = ?'
+        )
+        .run(titleSuggestion, 'ai-suggestion', titleSuggestion, time, args.taskId, 'first-line')
     }
-    const sessions = this.db
-      .prepare('SELECT * FROM local_task_sessions WHERE task_id = ? ORDER BY updated_at DESC')
-      .all(id) as LocalTaskRows['sessions']
-    const subtasks = this.db
-      .prepare('SELECT * FROM local_task_subtasks WHERE task_id = ? ORDER BY updated_at DESC')
-      .all(id) as LocalTaskRows['subtasks']
-    const steps = subtasks.length
-      ? (this.db
-          .prepare(
-            `SELECT * FROM local_task_steps WHERE subtask_id IN (${subtasks.map(() => '?').join(',')}) ORDER BY updated_at`
-          )
-          .all(...subtasks.map((subtask) => subtask.id)) as LocalTaskRows['steps'])
-      : []
-    return projectLocalTaskRows(task, sessions, subtasks, steps)
+    this.db
+      .prepare(
+        'UPDATE local_tasks SET description = COALESCE(?, description), status = ?, updated_at = ? WHERE id = ?'
+      )
+      .run(
+        args.description?.trim() || null,
+        unfinished ? 'In progress' : 'Needs review',
+        time,
+        args.taskId
+      )
+    return readLocalTask(this.db, args.taskId)!
   }
 }
 
-export function getLocalTaskStore(): LocalTaskStore {
-  return (singleton ??= new LocalTaskStore())
-}
-export function setLocalTaskStoreForTests(value: LocalTaskStore | null): void {
+export const getLocalTaskStore = (): LocalTaskStore => (singleton ??= new LocalTaskStore())
+export const setLocalTaskStoreForTests = (value: LocalTaskStore | null): void => {
   singleton?.close()
   singleton = value
 }

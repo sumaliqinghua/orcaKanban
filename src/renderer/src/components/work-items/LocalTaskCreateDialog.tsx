@@ -9,32 +9,48 @@ import type { WorkItem } from './mock-data'
 export function LocalTaskCreateDialog({
   open,
   onOpenChange,
-  onCreated
+  onCreated,
+  projectId = 'local',
+  workspaceId = 'local',
+  workspaceLabel = 'local · 当前 HEAD'
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: (item: WorkItem) => void
+  projectId?: string
+  workspaceId?: string
+  workspaceLabel?: string
 }): React.JSX.Element | null {
   const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [error, setError] = useState<string | null>(null)
   if (!open) {
     return null
   }
   const create = (): void => {
-    const description = title.trim()
-    if (!description) {
+    const normalizedTitle = title.trim()
+    const normalizedDescription = description.trim() || normalizedTitle
+    if (!normalizedDescription) {
+      setError('请填写任务描述')
       return
     }
+    setError(null)
     void window.api.localTasks
       .create({
-        projectId: 'local',
-        description,
-        workspaceId: 'local',
-        workspaceLabel: 'local · 当前 HEAD'
+        projectId,
+        title: normalizedTitle || undefined,
+        description: normalizedDescription,
+        workspaceId,
+        workspaceLabel
       })
       .then((task: LocalTask) => {
         onCreated(localTaskToViewModel(task))
         setTitle('')
+        setDescription('')
         onOpenChange(false)
+      })
+      .catch((reason: unknown) => {
+        setError(reason instanceof Error ? reason.message : '本地任务创建失败')
       })
   }
   return (
@@ -56,7 +72,7 @@ export function LocalTaskCreateDialog({
         </p>
         <Input
           className="mt-4"
-          placeholder="输入任务需求，第一行作为初始标题"
+          placeholder="标题（可留空，使用描述第一行）"
           autoFocus
           value={title}
           onChange={(event) => setTitle(event.target.value)}
@@ -64,9 +80,10 @@ export function LocalTaskCreateDialog({
         <textarea
           className="mt-3 min-h-24 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="任务描述（可选）"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
         />
+        {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             取消

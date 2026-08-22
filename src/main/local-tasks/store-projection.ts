@@ -13,6 +13,7 @@ export type LocalTaskRows = {
     updated_at: number
     archived_at: number | null
     title_source: LocalTask['titleSource']
+    title_suggestion: string | null
     waiting_reason: string | null
   }[]
   sessions: {
@@ -24,6 +25,7 @@ export type LocalTaskRows = {
     latest_output: string | null
     created_at: number
     updated_at: number
+    association_source: LocalTaskSession['associationSource']
   }[]
   subtasks: {
     id: string
@@ -57,7 +59,8 @@ export function projectLocalTaskRows(
     status: session.status,
     latestOutput: session.latest_output,
     createdAt: session.created_at,
-    updatedAt: session.updated_at
+    updatedAt: session.updated_at,
+    associationSource: session.association_source
   }))
   const taskSubtasks = subtasks.map((subtask) => ({
     id: subtask.id,
@@ -90,6 +93,7 @@ export function projectLocalTaskRows(
     updatedAt: task.updated_at,
     archivedAt: task.archived_at,
     titleSource: task.title_source,
+    titleSuggestion: task.title_suggestion,
     subtasks: taskSubtasks,
     sessions: taskSessions,
     latestOutput: latest?.latestOutput
