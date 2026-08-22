@@ -88,6 +88,7 @@ import type { GhosttyImportPreview } from '../shared/global-settings-types'
 import type { GitHubCreateIssueResult } from '../shared/issue-mutation-types'
 import type { JiraProjectStatusOrder } from '../shared/jira-types'
 import type { LinearProjectDetail } from '../shared/linear/project-types'
+import type { LocalTaskApi } from './api/local-task-api'
 import type {
   NotificationDeliveryProbeResult,
   NotificationDismissResult,
@@ -531,6 +532,34 @@ ipcRenderer.on('ui:findInBrowserPage', (_event, source: unknown) => {
 
 // Custom APIs for renderer
 const api = {
+  localTasks: {
+    list: (args?: { projectId?: string }) => ipcRenderer.invoke('localTasks:list', args),
+    get: (taskId: string) => ipcRenderer.invoke('localTasks:get', taskId),
+    create: (args: Parameters<LocalTaskApi['create']>[0]) =>
+      ipcRenderer.invoke('localTasks:create', args),
+    update: (args: Parameters<LocalTaskApi['update']>[0]) =>
+      ipcRenderer.invoke('localTasks:update', args),
+    createSession: (args: Parameters<LocalTaskApi['createSession']>[0]) =>
+      ipcRenderer.invoke('localTasks:createSession', args),
+    createSubtask: (args: Parameters<LocalTaskApi['createSubtask']>[0]) =>
+      ipcRenderer.invoke('localTasks:createSubtask', args),
+    updateSubtask: (args: Parameters<LocalTaskApi['updateSubtask']>[0]) =>
+      ipcRenderer.invoke('localTasks:updateSubtask', args),
+    updateStep: (args: Parameters<LocalTaskApi['updateStep']>[0]) =>
+      ipcRenderer.invoke('localTasks:updateStep', args),
+    reportCompleted: (args: Parameters<LocalTaskApi['reportCompleted']>[0]) =>
+      ipcRenderer.invoke('localTasks:reportCompleted', args),
+    onChanged: (callback: Parameters<LocalTaskApi['onChanged']>[0]): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        task: Parameters<LocalTaskApi['onChanged']>[0] extends (task: infer T) => unknown
+          ? T
+          : never
+      ): void => callback(task)
+      ipcRenderer.on('localTasks:changed', listener)
+      return () => ipcRenderer.removeListener('localTasks:changed', listener)
+    }
+  } satisfies PreloadApi['localTasks'],
   app: {
     getIdentity: (): Promise<AppIdentity> => ipcRenderer.invoke('app:getIdentity'),
     getFeatureWallAssetBaseUrl: (): Promise<string> =>

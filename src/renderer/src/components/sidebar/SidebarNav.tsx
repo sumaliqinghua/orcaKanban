@@ -1,5 +1,14 @@
 import React from 'react'
-import { Bell, BookOpen, CalendarClock, EyeOff, Files, Search, Smartphone } from 'lucide-react'
+import {
+  Bell,
+  BookOpen,
+  CalendarClock,
+  ClipboardList,
+  EyeOff,
+  Files,
+  Search,
+  Smartphone
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { cn } from '@/lib/utils'
@@ -66,6 +75,7 @@ const SidebarNav = React.memo(function SidebarNav() {
   const openActivityPage = useAppStore((s) => s.openActivityPage)
   const openMobilePage = useAppStore((s) => s.openMobilePage)
   const openArtifactsPage = useAppStore((s) => s.openArtifactsPage)
+  const openWorkItemsPage = useAppStore((s) => s.openWorkItemsPage)
   const openSkillsPage = useAppStore((s) => s.openSkillsPage)
   const openModal = useAppStore((s) => s.openModal)
   const updateSettings = useAppStore((s) => s.updateSettings)
@@ -85,6 +95,7 @@ const SidebarNav = React.memo(function SidebarNav() {
   const activityActive = activeView === 'activity'
   const mobileActive = activeView === 'mobile'
   const artifactsActive = activeView === 'artifacts'
+  const workItemsActive = activeView === 'work-items'
   const skillsActive = activeView === 'skills'
   const activityUnreadCount = useActivityUnreadCount(showAgentsButton, 'sidebar-badge')
   const mobileOnboardingBadge = useMobileSidebarOnboardingBadge(showMobileButton)
@@ -107,6 +118,29 @@ const SidebarNav = React.memo(function SidebarNav() {
       data-contextual-tour-target="sidebar-navigation"
     >
       <SetupGuideSidebarEntry />
+      <button
+        type="button"
+        onClick={openWorkItemsPage}
+        aria-current={workItemsActive ? 'page' : undefined}
+        className={cn(
+          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-medium tracking-tight transition-colors',
+          workItemsActive
+            ? 'bg-worktree-sidebar-accent text-worktree-sidebar-accent-foreground'
+            : 'text-worktree-sidebar-foreground/60 hover:bg-worktree-sidebar-foreground/8'
+        )}
+      >
+        <ClipboardList
+          className={cn(
+            'size-4 shrink-0',
+            !workItemsActive && 'text-worktree-sidebar-foreground/30'
+          )}
+          strokeWidth={workItemsActive ? 2.25 : 1.75}
+        />
+        <span className="flex-1">事项中心</span>
+        <span className="rounded bg-worktree-sidebar-foreground/8 px-1 text-[10px] text-worktree-sidebar-foreground/45">
+          7
+        </span>
+      </button>
       <SidebarTaskNavButton />
       {showArtifactsButton ? (
         <ContextMenu>

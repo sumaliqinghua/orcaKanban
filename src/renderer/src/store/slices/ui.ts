@@ -614,6 +614,7 @@ export type UISlice = {
   previousViewBeforeTasks:
     | 'terminal'
     | 'settings'
+    | 'work-items'
     | 'activity'
     | 'automations'
     | 'space'
@@ -623,6 +624,7 @@ export type UISlice = {
   previousViewBeforeSettings:
     | 'terminal'
     | 'tasks'
+    | 'work-items'
     | 'activity'
     | 'automations'
     | 'space'
@@ -633,6 +635,7 @@ export type UISlice = {
     | 'terminal'
     | 'settings'
     | 'tasks'
+    | 'work-items'
     | 'automations'
     | 'space'
     | 'skills'
@@ -642,6 +645,7 @@ export type UISlice = {
     | 'terminal'
     | 'settings'
     | 'tasks'
+    | 'work-items'
     | 'activity'
     | 'space'
     | 'skills'
@@ -651,6 +655,7 @@ export type UISlice = {
     | 'terminal'
     | 'settings'
     | 'tasks'
+    | 'work-items'
     | 'activity'
     | 'automations'
     | 'skills'
@@ -660,6 +665,7 @@ export type UISlice = {
     | 'terminal'
     | 'settings'
     | 'tasks'
+    | 'work-items'
     | 'activity'
     | 'automations'
     | 'space'
@@ -669,6 +675,7 @@ export type UISlice = {
     | 'terminal'
     | 'settings'
     | 'tasks'
+    | 'work-items'
     | 'activity'
     | 'automations'
     | 'space'
@@ -678,6 +685,7 @@ export type UISlice = {
     | 'terminal'
     | 'settings'
     | 'tasks'
+    | 'work-items'
     | 'activity'
     | 'automations'
     | 'space'
@@ -745,6 +753,18 @@ export type UISlice = {
     options?: { recordTasksInteraction?: boolean }
   ) => void
   closeTaskPage: () => void
+  previousViewBeforeWorkItems:
+    | 'terminal'
+    | 'settings'
+    | 'tasks'
+    | 'activity'
+    | 'automations'
+    | 'space'
+    | 'skills'
+    | 'artifacts'
+    | 'mobile'
+  openWorkItemsPage: () => void
+  closeWorkItemsPage: () => void
   openActivityPage: () => void
   closeActivityPage: () => void
   selectedAutomationId: string | null
@@ -1262,6 +1282,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
 
   activeView: 'terminal',
   previousViewBeforeTasks: 'terminal',
+  previousViewBeforeWorkItems: 'terminal',
   previousViewBeforeSettings: 'terminal',
   previousViewBeforeActivity: 'terminal',
   previousViewBeforeAutomations: 'terminal',
@@ -1454,6 +1475,17 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         worktreeNavHistoryIndex: nextHistoryIndex
       }
     }),
+  openWorkItemsPage: () => {
+    set((state) => ({
+      activeView: 'work-items',
+      previousViewBeforeWorkItems:
+        state.activeView === 'work-items' ? state.previousViewBeforeWorkItems : state.activeView
+    }))
+  },
+  closeWorkItemsPage: () =>
+    set((state) => ({
+      activeView: state.previousViewBeforeWorkItems
+    })),
   openActivityPage: () => {
     if (get().settings?.experimentalActivity !== true) {
       return

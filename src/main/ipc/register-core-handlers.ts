@@ -42,6 +42,7 @@ import { registerSkillsHandlers } from './skills'
 import { registerWorkspaceSpaceHandlers } from './workspace-space'
 import { registerWorkspacePortHandlers } from './workspace-ports'
 import { registerLocalhostWorktreeLabelHandlers } from './localhost-worktree-labels'
+import { registerLocalTaskHandlers } from './local-tasks'
 import { registerAutomationHandlers } from './automations'
 import { registerKeybindingHandlers } from './keybindings'
 import { registerTelemetryHandlers } from './telemetry'
@@ -203,6 +204,7 @@ export function registerCoreHandlers(
   registerWorkspaceSpaceHandlers(store)
   registerWorkspacePortHandlers(store)
   registerLocalhostWorktreeLabelHandlers(store)
+  registerLocalTaskHandlers()
   if (commitMessageAgentEnv) {
     registerFilesystemHandlers(store, commitMessageAgentEnv)
   } else {
