@@ -29,6 +29,45 @@ const statusTone: Record<WorkItemStatus, string> = {
   Done: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
 }
 
+export function LocalTaskActions({
+  item,
+  onStatus
+}: {
+  item: WorkItem
+  onStatus: (status: WorkItemStatus, waitingReason?: string) => void
+}): React.JSX.Element {
+  return (
+    <div className="flex shrink-0 gap-2 border-t border-border bg-background px-5 py-3">
+      {item.status === 'Needs review' ? (
+        <Button className="flex-1 gap-1.5 text-xs" onClick={() => onStatus('Done')}>
+          验收通过
+        </Button>
+      ) : (
+        <Button className="flex-1 gap-1.5 text-xs" onClick={() => onStatus('In progress')}>
+          <Play className="size-3.5" />
+          {item.status === 'Done' ? '要求修改' : '开始执行'}
+        </Button>
+      )}
+      <Button
+        variant="outline"
+        className="gap-1.5 text-xs"
+        onClick={() =>
+          onStatus(
+            item.status === 'Waiting' ? 'In progress' : 'Waiting',
+            item.status === 'Waiting' ? undefined : '等待你的确认'
+          )
+        }
+      >
+        <Clock3 className="size-3.5" />
+        {item.status === 'Waiting' ? '继续' : '等待'}
+      </Button>
+      <Button variant="ghost" size="icon" aria-label="归档本地任务">
+        <span className="text-sm">⌁</span>
+      </Button>
+    </div>
+  )
+}
+
 export function StatusIcon({ status }: { status: WorkItemStatus }): React.JSX.Element {
   if (status === 'Done') {
     return <CheckCircle2 className="size-3.5" />

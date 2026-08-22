@@ -1,39 +1,65 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Archive,
   ChevronDown,
-  Clock3,
   PanelRight,
-  Play,
   Plus,
   Search,
   Sparkles,
   SquareArrowOutUpRight,
-  TerminalSquare,
-  X
+  TerminalSquare
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { MOCK_ITEMS, type WorkItem } from './mock-data'
-import { DetailPanel, StatusBadge } from './work-item-pieces'
+import type { WorkItem } from './mock-data'
+import { DetailPanel, LocalTaskActions, StatusBadge } from './work-item-pieces'
 import { BoardView, ListView, SubtaskBoardView, SubtaskListView } from './work-item-views'
+import { localTaskToViewModel } from './local-task-view-model'
+import { LocalTaskCreateDialog } from './LocalTaskCreateDialog'
 
 type ViewMode = 'board' | 'list'
 type BoardPerspective = 'subtasks' | 'tasks'
 
 export default function WorkItemsPrototypePage(): React.JSX.Element {
-  const [items, setItems] = useState(MOCK_ITEMS)
-  const [selectedId, setSelectedId] = useState('LT-104')
+  const [items, setItems] = useState<WorkItem[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [perspective, setPerspective] = useState<BoardPerspective>('subtasks')
   const [tab, setTab] = useState<'work-items' | 'external'>('work-items')
   const [query, setQuery] = useState('')
   const [showCreate, setShowCreate] = useState(false)
-  const [newTaskTitle, setNewTaskTitle] = useState('')
   const [detailOpen, setDetailOpen] = useState(true)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
-  const selected = items.find((item) => item.id === selectedId) ?? items[0]
+  const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
+  const loadTasks = useCallback(async (): Promise<void> => {
+    setLoading(true)
+    try {
+      const tasks = (await window.api.localTasks.list()) as LocalTask[]
+      const viewItems = tasks.map(localTaskToViewModel)
+      setItems(viewItems)
+      setSelectedId((current) => current ?? viewItems[0]?.id ?? null)
+      setLoadError(null)
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : '本地任务加载失败')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+  useEffect(() => {
+    void loadTasks()
+    return window.api.localTasks.onChanged((task) => {
+      const viewItem = localTaskToViewModel(task)
+      setItems((current) => {
+        const existing = current.some((item) => item.id === viewItem.id)
+        return existing
+          ? current.map((item) => (item.id === viewItem.id ? viewItem : item))
+          : [viewItem, ...current]
+      })
+    })
+  }, [loadTasks])
   const filtered = useMemo(
     () =>
       items.filter(
@@ -43,63 +69,55 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
       ),
     [items, query]
   )
-  const updateSelected = (updates: Partial<WorkItem>): void =>
-    setItems((current) =>
-      current.map((item) =>
-        item.id === selected.id
-          ? {
-              ...item,
-              ...updates,
-              ...(updates.status === 'In progress' && item.sessions === 0
-                ? {
-                    sessions: 1,
-                    activeSessions: 1,
-                    sessionsList: [
-                      { title: '自动创建会话', status: 'working' as const, time: '刚刚' }
-                    ]
-                  }
-                : {}),
-              updated: '刚刚'
-            }
-          : item
-      )
-    )
-  const createMockTask = (): void => {
-    const title = newTaskTitle.trim()
-    if (!title) {
+  const updateSelected = (updates: Partial<WorkItem>): void => {
+    if (!selected) {
       return
     }
-    const id = `LT-${Math.floor(110 + Math.random() * 80)}`
-    const task: WorkItem = {
-      id,
-      title: title.split(/\r?\n/, 1)[0] ?? title,
-      description: title,
-      status: 'Open',
-      workspace: 'local · 当前 HEAD',
-      project: 'Orca',
-      updated: '刚刚',
-      sessions: 0,
-      activeSessions: 0,
-      subtasks: [],
-      latestOutput: {
-        session: '暂无会话',
-        text: '任务已创建，切换为 In progress 后自动创建会话。'
-      },
-      sessionsList: []
-    }
-    setItems((current) => [task, ...current])
-    setSelectedId(id)
-    setShowCreate(false)
-    setNewTaskTitle('')
-  }
-  const completeSubtask = (subtaskId: string): void =>
-    updateSelected({
-      subtasks: selected.subtasks.map((subtask) =>
-        subtask.id === subtaskId
-          ? { ...subtask, status: subtask.status === 'done' ? 'todo' : 'done' }
-          : subtask
+    void window.api.localTasks
+      .update({
+        taskId: selected.id,
+        updates: {
+          ...(updates.status ? { status: updates.status } : {}),
+          ...(updates.description ? { description: updates.description } : {})
+        }
+      })
+      .then((task) =>
+        setItems((current) =>
+          current.map((item) => (item.id === task.id ? localTaskToViewModel(task) : item))
+        )
       )
-    })
+      .catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : '本地任务更新失败')
+      )
+    if (updates.status === 'In progress' && selected.sessions === 0) {
+      void window.api.localTasks
+        .createSession({ taskId: selected.id, title: '自动创建会话' })
+        .catch(() => undefined)
+    }
+  }
+  const onTaskCreated = (task: WorkItem): void => {
+    setItems((current) => [task, ...current])
+    setSelectedId(task.id)
+  }
+  const completeSubtask = (subtaskId: string): void => {
+    if (!selected) {
+      return
+    }
+    const subtask = selected.subtasks.find((item) => item.id === subtaskId)
+    if (!subtask) {
+      return
+    }
+    void window.api.localTasks
+      .updateSubtask({ subtaskId, status: subtask.status === 'done' ? 'todo' : 'done' })
+      .then((task) =>
+        setItems((current) =>
+          current.map((item) => (item.id === task.id ? localTaskToViewModel(task) : item))
+        )
+      )
+      .catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : '子任务更新失败')
+      )
+  }
   const toggleExpanded = (id: string): void => {
     setExpandedIds((current) => {
       const next = new Set(current)
@@ -110,6 +128,35 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
       }
       return next
     })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
+        正在加载本地任务…
+      </div>
+    )
+  }
+  if (loadError) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-xs text-muted-foreground">
+        <p>{loadError}</p>
+        <Button variant="outline" size="sm" onClick={() => void loadTasks()}>
+          重试
+        </Button>
+      </div>
+    )
+  }
+  if (!selected) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-xs text-muted-foreground">
+        <p>还没有本地任务</p>
+        <Button size="sm" onClick={() => setShowCreate(true)}>
+          <Plus className="size-3.5" />
+          新建本地任务
+        </Button>
+      </div>
+    )
   }
 
   return (
@@ -311,40 +358,10 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
             </Button>
           </div>
           <DetailPanel item={selected} onCompleteSubtask={completeSubtask} />
-          <div className="flex shrink-0 gap-2 border-t border-border bg-background px-5 py-3">
-            {selected.status === 'Needs review' ? (
-              <Button
-                className="flex-1 gap-1.5 text-xs"
-                onClick={() => updateSelected({ status: 'Done' })}
-              >
-                验收通过
-              </Button>
-            ) : (
-              <Button
-                className="flex-1 gap-1.5 text-xs"
-                onClick={() => updateSelected({ status: 'In progress' })}
-              >
-                <Play className="size-3.5" />
-                {selected.status === 'Done' ? '要求修改' : '开始执行'}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className="gap-1.5 text-xs"
-              onClick={() =>
-                updateSelected({
-                  status: selected.status === 'Waiting' ? 'In progress' : 'Waiting',
-                  waitingReason: selected.status === 'Waiting' ? undefined : '等待你的确认'
-                })
-              }
-            >
-              <Clock3 className="size-3.5" />
-              {selected.status === 'Waiting' ? '继续' : '等待'}
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="归档事项">
-              <Archive className="size-4" />
-            </Button>
-          </div>
+          <LocalTaskActions
+            item={selected}
+            onStatus={(status, waitingReason) => updateSelected({ status, waitingReason })}
+          />
         </aside>
       ) : (
         <Button
@@ -357,45 +374,11 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
           <PanelRight className="size-4" />
         </Button>
       )}
-      {showCreate ? (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-xl">
-            <div className="flex items-center">
-              <h2 className="text-sm font-semibold">新建本地任务</h2>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="ml-auto"
-                onClick={() => setShowCreate(false)}
-              >
-                <X className="size-4" />
-              </Button>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              创建时绑定执行上下文；未选择时默认使用 local + 当前 HEAD。
-            </p>
-            <Input
-              className="mt-4"
-              placeholder="例如：补充登录刷新测试"
-              autoFocus
-              value={newTaskTitle}
-              onChange={(event) => setNewTaskTitle(event.target.value)}
-            />
-            <textarea
-              className="mt-3 min-h-24 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="描述这个研发目标（可选）"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowCreate(false)}>
-                取消
-              </Button>
-              <Button size="sm" onClick={createMockTask}>
-                创建本地任务
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <LocalTaskCreateDialog
+        open={showCreate}
+        onOpenChange={setShowCreate}
+        onCreated={onTaskCreated}
+      />
     </div>
   )
 }
