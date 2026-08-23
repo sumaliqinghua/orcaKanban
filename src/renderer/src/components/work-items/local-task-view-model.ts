@@ -19,6 +19,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     status: task.status,
     workspace: task.workspaceLabel,
     workspaceId: task.workspaceId,
+    projectPath: task.projectPath,
     project: task.projectId,
     updated: new Date(task.updatedAt).toLocaleString(),
     sessions: task.sessions.length,

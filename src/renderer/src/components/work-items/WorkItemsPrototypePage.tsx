@@ -18,6 +18,9 @@ type BoardPerspective = 'subtasks' | 'tasks'
 
 export default function WorkItemsPrototypePage(): React.JSX.Element {
   const activeRepoId = useAppStore((state) => state.activeRepoId)
+  const activeRepoPath = useAppStore(
+    (state) => state.repos.find((repo) => repo.id === state.activeRepoId)?.path ?? null
+  )
   const createProjectId = activeRepoId ?? 'local'
   const [items, setItems] = useState<WorkItem[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -44,7 +47,10 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const loadTasks = useCallback(async (): Promise<void> => {
     setLoading(true)
     try {
-      const tasks = (await window.api.localTasks.list()) as LocalTask[]
+      const tasks = (await window.api.localTasks.list({
+        ...(createProjectId !== 'local' ? { projectId: createProjectId } : {}),
+        ...(activeRepoPath ? { projectPath: activeRepoPath } : {})
+      })) as LocalTask[]
       const viewItems = tasks.map(localTaskToViewModel)
       setItems(viewItems)
       setSelectedId((current) => current ?? viewItems[0]?.id ?? null)
@@ -54,7 +60,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeRepoPath, createProjectId])
   useEffect(() => {
     void loadTasks()
     return window.api.localTasks.onChanged((task) => {

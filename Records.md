@@ -201,3 +201,27 @@
   - 任务数据库仍位于 Orca 用户数据目录的 `local-tasks.db`；项目文档只有在用户明确要求时才由 Agent 维护。
 - **已知限制**：provider hook 目前不会自动从每条模型输出推断步骤，Agent 需要按提示主动调用 CLI；文件锁、provider 自动汇报和 `.orca/tasks/` 镜像仍是后置能力。
 - **关联假设**：`ASSUMPTIONS.md` 的“本地数据库作为任务状态真相”“文件锁后置”“Agent 通过当前会话绑定任务工具”。
+## [2026-08-23] 将本地任务真相迁移到项目文件
+- **What（做了什么）**：
+  - `src/main/local-tasks/file-store-format.ts`：新增任务文件格式和原子写入工具，任务目录固定为项目根目录 `orca/<task-id>/`，包含 `task.json`、`plan.json`、`prd.md`、`records.md`。
+  - `src/main/local-tasks/store.ts`：将 `LocalTaskStore` 从 SQLite 改为项目文件 Store；任务、会话、子任务、步骤、状态和最新输出全部写入 `task.json`；完成报告追加到 `records.md`；读取时重新扫描项目文件；监听外部文件变化并广播任务快照。
+  - 删除 `store-schema.ts`、`store-read.ts`、`store-projection.ts`、`store-step-mutations.ts`：不再创建、读取或迁移 `local-tasks.db`，旧测试数据按用户要求不保留。
+  - `src/shared/local-task-types.ts`、preload/IPC 校验：增加 `projectPath`，让任务文件位置成为任务创建和 Agent 上下文的一部分。
+  - `useLocalTaskComposer.ts`、`WorkItemsPrototypePage.tsx`、任务视图模型：创建任务时传入当前项目路径，任务中心按当前项目扫描 `orca/`。
+  - `launch-agent-in-new-tab.ts`、`QuickLaunchButton.tsx`、`LocalTaskAgentPicker.tsx`、SSH/WSL 环境透传：向 Agent 注入 `ORCA_LOCAL_TASK_ROOT`，CLI 可从当前项目任务目录读取上下文。
+  - `package.json`：`pnpm dev` 启动前先执行 `build:cli`，避免 Electron 已更新但 `orca local-task` 仍使用旧 CLI。
+- **Why（为什么这么做）**：
+  - 用户的任务上下文需要跟项目 Git 一起提交，让其他 worktree、协作者和其他 AI 不依赖某台机器的 Orca 数据库。
+  - 不同 worktree 不共享同一任务目录；workspace 删除后，只要文件已提交，任务历史仍可从项目和 Git 恢复。
+  - `project_status.md` 是跨任务共享文件，多个 Agent 并行更新容易冲突，因此不再由任务系统自动维护。
+  - 用户或 Agent 手动修改任务文件是合法上下文，系统只重新读取，不自动恢复或覆盖；JSON 损坏时显示错误。
+- **How（怎么实现的）**：
+  - 创建：任务表单携带项目路径 → `LocalTaskStore.create` → 创建 `orca/<task-id>/` → 原子写入 `task.json` 和初始化文档。
+  - Agent：任务中心启动 → 注入 `ORCA_LOCAL_TASK_ID`/`ORCA_LOCAL_TASK_ROOT` → `orca local-task` → runtime RPC → 文件 Store → `task.json` → 变更广播。
+  - 外部修改：文件监听 → 重新读取 `task.json` → 发送 `localTasks:changed` → 任务中心更新卡片。
+- **用户须知**：
+  - 新任务文件会进入项目 Git 工作区，是否提交由用户按正常 Git 流程决定。
+  - Agent 会自行判断是否需要修改 `prd.md`、`plan.json`、`records.md`；不会自动更新共享 `project_status.md`。
+  - 任务状态查看不再依赖 `~/Library/Application Support/orca-dev/local-tasks.db`。
+- **已知限制**：当前只扫描任务中心选中的本地项目路径；远程 SSH 项目的文件写入和跨项目全局索引仍是后置能力。
+- **关联假设**：`ASSUMPTIONS.md` 的“任务上下文跟随项目文件”和“Agent 通过当前会话绑定任务工具”。

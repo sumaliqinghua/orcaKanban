@@ -6,13 +6,19 @@ const shortText = z.string().trim().min(1).max(500)
 const longText = z.string().trim().min(1).max(100_000)
 const taskStatus = z.enum(LOCAL_TASK_STATUSES)
 
-export const localTaskListArgsSchema = z.object({ projectId: id.optional() }).strict().optional()
+export const localTaskListArgsSchema = z
+  .object({ projectId: id.optional(), projectPath: z.string().trim().min(1).max(4_096).optional() })
+  .strict()
+  .optional()
 
-export const localTaskIdSchema = id
+export const localTaskIdSchema = z
+  .object({ taskId: id, projectPath: z.string().trim().min(1).max(4_096).optional() })
+  .strict()
 
 export const createLocalTaskArgsSchema = z
   .object({
     projectId: id,
+    projectPath: z.string().trim().min(1).max(4_096),
     title: shortText.optional(),
     description: longText,
     workspaceId: id.optional(),

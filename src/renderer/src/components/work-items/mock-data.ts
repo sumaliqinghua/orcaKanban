@@ -17,6 +17,7 @@ export type WorkItem = {
   status: WorkItemStatus
   workspace: string
   workspaceId?: string
+  projectPath?: string
   project: string
   updated: string
   sessions: number

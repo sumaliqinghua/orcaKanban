@@ -533,8 +533,10 @@ ipcRenderer.on('ui:findInBrowserPage', (_event, source: unknown) => {
 // Custom APIs for renderer
 const api = {
   localTasks: {
-    list: (args?: { projectId?: string }) => ipcRenderer.invoke('localTasks:list', args),
-    get: (taskId: string) => ipcRenderer.invoke('localTasks:get', taskId),
+    list: (args?: { projectId?: string; projectPath?: string }) =>
+      ipcRenderer.invoke('localTasks:list', args),
+    get: (taskId: string, projectPath?: string) =>
+      ipcRenderer.invoke('localTasks:get', { taskId, projectPath }),
     create: (args: Parameters<LocalTaskApi['create']>[0]) =>
       ipcRenderer.invoke('localTasks:create', args),
     update: (args: Parameters<LocalTaskApi['update']>[0]) =>

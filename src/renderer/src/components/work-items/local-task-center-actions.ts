@@ -103,7 +103,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
         workspaceId,
         associationSource: 'task-center'
       })
-      .then(() => window.api.localTasks.get(selected.id))
+      .then(() => window.api.localTasks.get(selected.id, selected.projectPath))
       .then((task) => {
         if (task) {
           replaceTask(setItems, task)

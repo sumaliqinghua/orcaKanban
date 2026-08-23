@@ -28,13 +28,15 @@ export function registerLocalTaskHandlers(): void {
   }
   registered = true
   const store = getLocalTaskStore()
+  store.setOnChanged(publishLocalTaskChange)
   ipcMain.handle('localTasks:list', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(localTaskListArgsSchema, args)
-    return store.list(parsed?.projectId)
+    return store.list(parsed?.projectId, parsed?.projectPath)
   })
-  ipcMain.handle('localTasks:get', (_event, taskId: unknown) =>
-    store.get(parseLocalTaskIpcArgs(localTaskIdSchema, taskId))
-  )
+  ipcMain.handle('localTasks:get', (_event, args: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(localTaskIdSchema, args)
+    return store.get(parsed.taskId, parsed.projectPath)
+  })
   ipcMain.handle('localTasks:create', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(createLocalTaskArgsSchema, args)
     const task = store.create(parsed)

@@ -52,6 +52,8 @@ export type LaunchAgentInNewTabArgs = {
   onPromptDelivered?: () => void
   /** Binds the spawned Agent shell to a local task tool context. */
   localTaskId?: string
+  /** Absolute project root containing `orca/<task-id>/task.json`. */
+  localTaskRoot?: string
 }
 
 export type LaunchAgentInNewTabResult = {
@@ -84,7 +86,8 @@ export function launchAgentInNewTab(args: LaunchAgentInNewTabArgs): LaunchAgentI
     quickCommandLabel,
     launchPlatform,
     onPromptDelivered,
-    localTaskId
+    localTaskId,
+    localTaskRoot
   } = args
   const store = useAppStore.getState()
   const worktree = store.allWorktrees?.().find((entry: { id: string }) => entry.id === worktreeId)
@@ -111,7 +114,8 @@ export function launchAgentInNewTab(args: LaunchAgentInNewTabArgs): LaunchAgentI
       : resolveTuiAgentLaunchArgs(agent, store.settings?.agentDefaultArgs)
   const agentEnv = {
     ...resolveTuiAgentLaunchEnv(agent, store.settings?.agentDefaultEnv),
-    ...(localTaskId ? { ORCA_LOCAL_TASK_ID: localTaskId } : {})
+    ...(localTaskId ? { ORCA_LOCAL_TASK_ID: localTaskId } : {}),
+    ...(localTaskRoot ? { ORCA_LOCAL_TASK_ROOT: localTaskRoot } : {})
   }
   const trimmedPrompt = prompt?.trim() ?? ''
   const hasPrompt = trimmedPrompt.length > 0

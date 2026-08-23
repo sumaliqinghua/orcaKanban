@@ -7,7 +7,12 @@ import { defineMethod, InvalidArgumentError, type RpcAnyMethod } from '../core'
 const Id = z.string().trim().min(1).max(512)
 const Description = z.string().trim().min(1).max(100_000)
 const Context = z
-  .object({ taskId: Id, sessionId: Id.optional(), worktreeId: Id.optional() })
+  .object({
+    taskId: Id,
+    sessionId: Id.optional(),
+    worktreeId: Id.optional(),
+    projectPath: z.string().trim().min(1).max(4_096).optional()
+  })
   .strict()
 const CreateSubtask = Context.extend({
   title: z.string().trim().min(1).max(1_000),
@@ -32,8 +37,8 @@ const ReportCompleted = Context.extend({
   description: Description.optional()
 })
 
-function getTask(taskId: string): LocalTask {
-  const task = getLocalTaskStore().get(taskId)
+function getTask(taskId: string, projectPath?: string): LocalTask {
+  const task = getLocalTaskStore().get(taskId, projectPath)
   if (!task) {
     throw new InvalidArgumentError(`Local task not found: ${taskId}`)
   }
@@ -41,10 +46,10 @@ function getTask(taskId: string): LocalTask {
 }
 
 function ensureContext(
-  params: { taskId: string; sessionId?: string; worktreeId?: string },
+  params: { taskId: string; sessionId?: string; worktreeId?: string; projectPath?: string },
   requireSession = true
 ): { task: LocalTask; session: LocalTaskSession | null } {
-  let task = getTask(params.taskId)
+  let task = getTask(params.taskId, params.projectPath)
   // "local" means the task follows the workspace from which the Agent was launched.
   // Concrete workspace IDs remain strict so a session cannot update a sibling worktree.
   if (params.worktreeId && task.workspaceId !== 'local' && task.workspaceId !== params.worktreeId) {
@@ -63,6 +68,7 @@ function ensureContext(
     try {
       session = getLocalTaskStore().createSession({
         taskId: task.id,
+        projectPath: params.projectPath,
         sessionId: params.sessionId,
         title: 'Agent 会话',
         workspaceId: params.worktreeId ?? task.workspaceId,
@@ -71,7 +77,7 @@ function ensureContext(
     } catch (error) {
       throw new InvalidArgumentError(error instanceof Error ? error.message : String(error))
     }
-    task = getTask(task.id)
+    task = getTask(task.id, params.projectPath)
     session = task.sessions.find((candidate) => candidate.id === params.sessionId) ?? null
     if (!session) {
       throw new InvalidArgumentError(
@@ -124,6 +130,7 @@ export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
       return result(
         getLocalTaskStore().createSubtask({
           taskId: params.taskId,
+          projectPath: params.projectPath,
           title: params.title,
           steps: params.steps,
           sessionId: params.sessionId
@@ -177,6 +184,7 @@ export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
       return result(
         getLocalTaskStore().reportCompleted({
           taskId: params.taskId,
+          projectPath: params.projectPath,
           sessionId: params.sessionId,
           latestOutput: params.latestOutput,
           titleSuggestion: params.titleSuggestion,

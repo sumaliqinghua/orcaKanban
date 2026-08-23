@@ -78,6 +78,7 @@ export function useLocalTaskComposer({
     void window.api.localTasks
       .create({
         projectId: workspace?.repoId ?? repoId,
+        projectPath: workspace?.path ?? cardProps.selectedRepoPath ?? '',
         title: taskTitle.trim() || undefined,
         description,
         workspaceId,
@@ -91,6 +92,7 @@ export function useLocalTaskComposer({
       )
   }, [
     cardProps.repoId,
+    cardProps.selectedRepoPath,
     modalData.initialRepoId,
     onClose,
     selectedWorkspaceId,
@@ -119,6 +121,7 @@ export function useLocalTaskComposer({
       void window.api.localTasks
         .create({
           projectId: workspace?.repoId ?? modalData.initialRepoId ?? state.activeRepoId ?? 'local',
+          projectPath: workspace?.path ?? cardProps.selectedRepoPath ?? '',
           title: taskTitle.trim() || undefined,
           description,
           workspaceId: completion.worktreeId,
@@ -144,7 +147,7 @@ export function useLocalTaskComposer({
           setTaskError(error instanceof Error ? error.message : '本地任务创建失败')
         )
     },
-    [modalData.initialRepoId, onClose, taskDescription, taskTitle]
+    [cardProps.selectedRepoPath, modalData.initialRepoId, onClose, taskDescription, taskTitle]
   )
 
   const openModalWithTaskDraft = useCallback(

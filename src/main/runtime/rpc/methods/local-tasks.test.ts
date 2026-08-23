@@ -14,14 +14,18 @@ import { LOCAL_TASK_METHODS } from './local-tasks'
 
 const registry = buildRegistry(LOCAL_TASK_METHODS)
 const directories: string[] = []
+const roots = new WeakMap<LocalTaskStore, string>()
 
 function setupStore(): LocalTaskStore {
   const directory = mkdtempSync(join(tmpdir(), 'orca-local-task-rpc-'))
   directories.push(directory)
-  const store = new LocalTaskStore(join(directory, 'local-tasks.db'))
+  const store = new LocalTaskStore()
+  roots.set(store, directory)
   setLocalTaskStoreForTests(store)
   return store
 }
+
+const rootOf = (store: LocalTaskStore): string => roots.get(store)!
 
 function call(name: string, params: Record<string, unknown>): unknown {
   const method = registry.get(name)
@@ -43,12 +47,14 @@ describe('local task Agent RPC', () => {
     const store = setupStore()
     const task = store.create({
       projectId: 'orca',
+      projectPath: rootOf(store),
       description: '分析资源加载差异',
       workspaceId: 'wt-1'
     })
 
     const result = call('localTask.current', {
       taskId: task.id,
+      projectPath: rootOf(store),
       sessionId: 'tab-1',
       worktreeId: 'wt-1'
     }) as { task: typeof task; session: { id: string; taskId: string } }
@@ -66,16 +72,19 @@ describe('local task Agent RPC', () => {
     const store = setupStore()
     const task = store.create({
       projectId: 'orca',
+      projectPath: rootOf(store),
       description: '整理 YooAsset 差异',
       workspaceId: 'wt-1'
     })
     const session = store.createSession({
       taskId: task.id,
+      projectPath: rootOf(store),
       sessionId: 'tab-1',
       workspaceId: 'wt-1'
     })
     const created = call('localTask.createSubtask', {
       taskId: task.id,
+      projectPath: rootOf(store),
       sessionId: session.id,
       worktreeId: 'wt-1',
       title: '比较运行时加载入口',
@@ -87,6 +96,7 @@ describe('local task Agent RPC', () => {
 
     call('localTask.updateStep', {
       taskId: task.id,
+      projectPath: rootOf(store),
       sessionId: session.id,
       worktreeId: 'wt-1',
       subtaskId: subtask.id,
@@ -95,6 +105,7 @@ describe('local task Agent RPC', () => {
     })
     call('localTask.updateStep', {
       taskId: task.id,
+      projectPath: rootOf(store),
       sessionId: session.id,
       worktreeId: 'wt-1',
       subtaskId: subtask.id,
@@ -103,6 +114,7 @@ describe('local task Agent RPC', () => {
     })
     call('localTask.updateSubtask', {
       taskId: task.id,
+      projectPath: rootOf(store),
       sessionId: session.id,
       worktreeId: 'wt-1',
       subtaskId: subtask.id,
@@ -110,6 +122,7 @@ describe('local task Agent RPC', () => {
     })
     const completed = call('localTask.reportCompleted', {
       taskId: task.id,
+      projectPath: rootOf(store),
       sessionId: session.id,
       worktreeId: 'wt-1',
       latestOutput: '差异已整理完成'
@@ -122,14 +135,21 @@ describe('local task Agent RPC', () => {
 
   it('rejects a session from another workspace and editing a started step', () => {
     const store = setupStore()
-    const task = store.create({ projectId: 'orca', description: '任务', workspaceId: 'wt-1' })
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: rootOf(store),
+      description: '任务',
+      workspaceId: 'wt-1'
+    })
     const session = store.createSession({
       taskId: task.id,
+      projectPath: rootOf(store),
       sessionId: 'tab-1',
       workspaceId: 'wt-1'
     })
     const created = store.createSubtask({
       taskId: task.id,
+      projectPath: rootOf(store),
       sessionId: session.id,
       title: '步骤',
       steps: ['执行']
@@ -138,10 +158,16 @@ describe('local task Agent RPC', () => {
     const step = subtask.steps[0]!
 
     expect(() =>
-      call('localTask.current', { taskId: task.id, sessionId: session.id, worktreeId: 'wt-2' })
+      call('localTask.current', {
+        taskId: task.id,
+        projectPath: rootOf(store),
+        sessionId: session.id,
+        worktreeId: 'wt-2'
+      })
     ).toThrow('not bound')
     call('localTask.updateStep', {
       taskId: task.id,
+      projectPath: rootOf(store),
       sessionId: session.id,
       worktreeId: 'wt-1',
       subtaskId: subtask.id,
@@ -151,6 +177,7 @@ describe('local task Agent RPC', () => {
     expect(() =>
       call('localTask.updateStep', {
         taskId: task.id,
+        projectPath: rootOf(store),
         sessionId: session.id,
         worktreeId: 'wt-1',
         subtaskId: subtask.id,

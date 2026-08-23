@@ -13,10 +13,16 @@ describe('local task IPC validation', () => {
     expect(
       parseLocalTaskIpcArgs(createLocalTaskArgsSchema, {
         projectId: ' orca ',
+        projectPath: ' /tmp/orca-project ',
         description: '  修复登录  ',
         workspaceId: ' local '
       })
-    ).toMatchObject({ projectId: 'orca', description: '修复登录', workspaceId: 'local' })
+    ).toMatchObject({
+      projectId: 'orca',
+      projectPath: '/tmp/orca-project',
+      description: '修复登录',
+      workspaceId: 'local'
+    })
   })
 
   it('rejects missing descriptions, unknown fields and oversized IDs', () => {

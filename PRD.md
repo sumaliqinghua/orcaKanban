@@ -16,6 +16,7 @@
 | 2026-08-23 | v1.0 | 明确任务模式不创建新 worktree；项目选择后直接绑定现有 workspace，只有普通工作树入口才执行 branch/base 创建。 |
 | 2026-08-23 | v1.1 | 增加 workspace 下拉选择；任务可绑定当前项目已有 workspace，选择“新建 workspace”后再进入第二步创建表单。 |
 | 2026-08-23 | v1.2 | 增加 session-bound Agent CLI/RPC 工具桥接；Agent 可读取任务、维护子任务/执行步骤并报告完成，所有操作按当前会话和 workspace 校验。 |
+| 2026-08-23 | v1.3 | 改为项目文件优先：`orca/<task-id>/task.json` 是任务真相，初始化 `plan.json`、`prd.md`、`records.md`；不迁移旧测试数据库，不自动维护共享 `project_status.md`。 |
 
 历史版本中的“研发事项”“事项中心”“跟进项”“WorkItem”仅用于追溯，不再是当前产品名或数据模型。
 
@@ -247,18 +248,25 @@ AI 可以将事项推进到 `Waiting` 或 `Needs review`，但不能推进到 `D
 
 ## 7. 项目、workspace 与数据归属
 
-本地任务属于 Orca 的 Project，通过稳定的 `projectId` 关联项目。它不属于某一个 worktree 目录，也不随某个 worktree 的删除而消失。
+本地任务属于一个明确的项目 workspace，通过 `projectId` 和 `projectPath` 关联项目。不同 worktree 是不同代码环境，不共享同一个本地任务目录。
 
-MVP 的唯一真相存放在 Orca 用户数据目录中的本地数据库，例如：
+任务文件跟随项目和 Git 提交，是本期唯一真相：
 
 ```text
-Orca 用户数据目录/
-└── local-tasks.db
+项目根目录/
+└── orca/
+    └── <task-id>/
+        ├── task.json
+        ├── plan.json
+        ├── prd.md
+        └── records.md
 ```
 
-数据库保存本地任务、`projectId`、状态、标题、描述、单一 workspace 关联、会话、子任务、AI 执行步骤和归档信息。
+`task.json` 保存标题、描述、状态、workspace、会话、子任务、AI 执行步骤和归档信息；`plan.json` 保存可供其他 AI 快速读取的计划投影；`prd.md` 保存任务初始需求；`records.md` 保存本轮输出和执行记录。任务创建时初始化这些文件，之后用户或 Agent 可以按实际需要修改，不做自动恢复或强制覆盖。
 
-项目仓库中的 `.orca/` 文件不是 MVP 运行依赖，也不是状态唯一真相。后续可以把某个任务导出到指定 workspace 的 `.orca/tasks/<task-id>/`，但任务状态始终以 Orca 用户数据目录数据库为准。`PROJECT_STATUS.md` 可以继续作为项目级人工文档，但不会参与任务状态判定。
+`project_status.md` 不属于任何单个任务，不由任务面板或 Agent 自动维护，避免多个任务同时改同一份项目文件产生冲突。项目已有该文件时，Agent 可以自行读取；只有用户明确要求时才更新。
+
+Orca 任务中心每次从项目目录重新读取任务文件。任务文件被其他 AI、用户或 Git 操作修改后，任务中心以文件内容为准；JSON 损坏时显示错误，不覆盖原文件。
 
 ## 7.1 Agent 任务工具桥接
 
@@ -275,9 +283,9 @@ Agent 使用内置 CLI 更新任务：
 | `orca local-task step-update --subtask <id> --step <id> --status <todo\|doing\|done\|canceled>` | 更新 AI 执行步骤状态；未开始步骤才允许改标题 | AI 执行过程中 |
 | `orca local-task report-completed --output "..."` | 写入本轮最后输出，并按步骤完成情况推进到 `Needs review` 或保持 `In progress` | 本轮交付或阶段性总结 |
 
-CLI 通过 Orca runtime RPC 调用主进程 `LocalTaskStore`，SQLite 数据库仍是唯一真相。RPC 会检查任务存在、任务 workspace 与当前 workspace 一致、会话属于该任务，以及子任务/步骤属于该任务；不满足时拒绝写入。`localTask.current` 首次运行可以幂等登记当前真实 tab，以覆盖 Agent 先于 renderer 回调执行第一条命令的启动竞态。
+CLI 通过 Orca runtime RPC 调用项目文件 Store。RPC 会检查任务存在、任务 workspace 与当前 workspace 一致、会话属于该任务，以及子任务/步骤属于该任务；不满足时拒绝写入。`localTask.current` 首次运行可以幂等登记当前真实 tab，以覆盖 Agent 先于 renderer 回调执行第一条命令的启动竞态。
 
-这些命令只维护任务数据库，不会自动创建或修改 `PRD.md`、`plan.md`、`PROJECT_STATUS.md`、`Records.md` 或 `task.json`。只有用户明确要求项目文档交付时，Agent 才按项目约定读写这些文档。
+这些命令更新 `orca/<task-id>/task.json`；是否额外修改 `prd.md`、`plan.json` 或 `records.md`，由 Agent 根据需求变化自行判断，不自动维护共享的 `project_status.md`。
 
 ## 8. 界面设计
 
@@ -309,9 +317,9 @@ CLI 通过 Orca runtime RPC 调用主进程 `LocalTaskStore`，SQLite 数据库�
 
 ## 9. AI 更新通道
 
-AI 不通过修改 Markdown 文件来改变事项状态或步骤。状态、步骤和关系必须写入本地数据库。
+AI 可以直接读取和修改项目目录中的任务文件；任务状态、步骤和关系以 `task.json` 为准，Markdown 只承担需求、计划和记录表达。
 
-MVP 使用 `localTasks.*` 主进程通道；任务查询、创建、用户编辑和子任务完成由任务中心通过 preload API 调用。AI 专用的步骤更新和完成报告只允许主进程内部 agent bridge 调用，不暴露给 renderer 页面。
+MVP 使用 `localTasks.*` 主进程通道；任务查询、创建、用户编辑和子任务完成由任务中心通过 preload API 调用。AI 专用的步骤更新和完成报告只允许主进程内部 agent bridge 调用，不暴露给 renderer 页面，最终写入项目任务文件。
 
 AI 通道的最小能力包括：
 
@@ -326,7 +334,7 @@ localTasks.reportCompleted
 
 `localTasks.reportCompleted` 不能把任务推进到 `Done`。如果步骤尚未全部完成，任务保持 `In progress` 并返回未完成步骤列表。
 
-本期只针对本地运行时和本地数据库设计，不把 SSH、远程版本协商和新的终端流 opcode 纳入产品范围。未来支持远程运行时前，必须另行设计远程兼容方案。
+本期只针对本地运行时和本地项目文件设计，不把 SSH、远程版本协商和新的终端流 opcode 纳入产品范围。未来支持远程运行时前，必须另行设计远程兼容方案。
 
 ## 10. 外部工单关系
 
@@ -359,7 +367,7 @@ MVP 不实现双向状态同步。现有 Workspace 看板到 Linear 的可选同
 - 自动批量启动多个事项；
 - 跨事项正式依赖图；
 - 外部工单双向状态同步；
-- `.orca/tasks/` 自动同步和导出；
+- 跨项目任务索引和自动汇总；
 - 从未提交 diff 派生新 worktree；
 - 远程运行时事项同步；
 - 多人协作、权限、通知和完整 Linear 能力。
@@ -376,7 +384,7 @@ MVP 不实现双向状态同步。现有 Workspace 看板到 Linear 的可选同
 8. `Waiting` 有明确等待原因，解除等待后回到原工作状态。
 9. Done 事项继续追问保持 Done；用户明确要求修改时回到 In progress。
 10. 归档任务从默认视图隐藏，但任务、会话、子任务和步骤仍可恢复查看。
-11. 任务数据在 Orca 用户数据目录的 `local-tasks.db` 中，即使 workspace 被归档或项目存在多个 worktree，历史仍然保留。
+11. 任务数据在项目目录 `orca/<task-id>/` 中，并随 Git 提交；workspace 被删除后，只要任务文件已提交，其他 worktree 或其他 AI 仍能读取历史。
 12. 任务上下文可以被多个显式关联会话读取，至少包含子任务、AI 步骤、最近会话最后输出和 workspace；diff 与测试通过 workspace 查看。
 13. 本期不要求文件锁，不因多个任务共享 workspace 而阻止创建会话。
 
@@ -386,5 +394,5 @@ MVP 不实现双向状态同步。现有 Workspace 看板到 Linear 的可选同
 - 本地任务与 workspace 是多对一：一个任务最多一个 workspace，一个 workspace 可以有多个任务；
 - AI 可以报告执行完成并推动事项进入 Needs review，但用户验收才产生 Done；
 - Waiting 保留为正式状态，归档是独立操作，不设置 Canceled；
-- 事项状态、步骤和会话关系以 Orca 用户数据目录数据库为准；
-- 项目目录中的文档同步、文件锁和远程兼容属于后续阶段。
+- 事项状态、步骤和会话关系以项目目录 `task.json` 为准；
+- `project_status.md` 不由任务自动维护；文件锁和远程兼容属于后续阶段。

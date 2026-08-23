@@ -91,6 +91,7 @@ export function addOrcaWslInteropEnv(env: Record<string, string>): void {
     'ORCA_WORKTREE_ID/u',
     'ORCA_AGENT_LAUNCH_TOKEN/u',
     'ORCA_LOCAL_TASK_ID/u',
+    'ORCA_LOCAL_TASK_ROOT/u',
     `${SETUP_AGENT_SEQUENCE_STARTUP_COMMAND_ENV}/u`,
     `${SETUP_AGENT_SEQUENCE_STARTUP_SCRIPT_ENV}/u`,
     'ORCA_ORCHESTRATION_COMPATIBILITY_HOST_KIND/u',

@@ -40,8 +40,10 @@ export type LocalTaskSession = {
 }
 
 export type LocalTask = {
+  schemaVersion: 1
   id: string
   projectId: string
+  projectPath: string
   title: string
   description: string
   status: LocalTaskStatus
@@ -60,6 +62,7 @@ export type LocalTask = {
 
 export type CreateLocalTaskArgs = {
   projectId: string
+  projectPath: string
   title?: string
   description: string
   workspaceId?: string
@@ -76,6 +79,7 @@ export type UpdateLocalTaskArgs = {
 
 export type CreateLocalTaskSessionArgs = {
   taskId: string
+  projectPath?: string
   sessionId?: string
   workspaceId?: string
   title?: string
@@ -87,6 +91,7 @@ export type ArchiveLocalTaskArgs = { taskId: string }
 
 export type CreateLocalTaskSubtaskArgs = {
   taskId: string
+  projectPath?: string
   sessionId?: string | null
   title: string
   steps?: string[]
@@ -113,6 +118,7 @@ export type EditLocalTaskStepTitleArgs = {
 
 export type ReportLocalTaskCompletedArgs = {
   taskId: string
+  projectPath?: string
   sessionId: string
   latestOutput?: string
   titleSuggestion?: string
@@ -123,6 +129,7 @@ export type LocalTaskToolContext = {
   taskId: string
   sessionId?: string
   worktreeId?: string
+  projectPath?: string
 }
 
 export type LocalTaskToolUpdateDescriptionArgs = LocalTaskToolContext & {

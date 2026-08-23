@@ -21,5 +21,11 @@ export function getLocalTaskContext(): {
     )
   }
   const worktreeId = process.env.ORCA_WORKTREE_ID?.trim()
-  return { taskId, sessionId, ...(worktreeId ? { worktreeId } : {}) }
+  const projectPath = process.env.ORCA_LOCAL_TASK_ROOT?.trim()
+  return {
+    taskId,
+    sessionId,
+    ...(worktreeId ? { worktreeId } : {}),
+    ...(projectPath ? { projectPath } : {})
+  }
 }
