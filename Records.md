@@ -240,3 +240,14 @@
   - 关联会话：任务详情 → 输入本轮请求 → 选择 Agent → prompt 注入用户请求 →真实 tab → 以请求首行创建会话标题。
   - 文件读取：`task.json` → 状态/会话/输出归一化 → 若 subtasks 为空则读取 `plan.json` → 任务面板快照。
 - **已知限制**：已经运行的旧生产 Orca 进程仍可能使用旧 CLI，必须重启新的 `pnpm dev` 实例；文件格式兼容只在读取时归一化，不回写用户原文件。
+## [2026-08-24] 修复任务会话关联失败与误归档
+- **What（做了什么）**：
+  - `src/main/ipc/local-task-ipc-validation.ts`：允许 `localTasks:createSession` 接收项目路径，和文件 Store 的任务定位参数保持一致。
+  - `src/main/ipc/local-task-ipc-validation.test.ts`：增加项目路径会话关联校验测试。
+  - 任务 `lt_2e3f0eb9-eb32-4cd7-a866-7b76cea74347`：将外部 Agent 错误写入的 `archivedAt` 恢复为 `null`，保留其 `In progress` 状态和已完成子任务记录。
+- **Why（为什么这么做）**：
+  - Agent 已经启动但 IPC schema 拒绝 `projectPath`，导致真实 tab 存在而任务会话没有登记。
+  - `archivedAt` 被误写后默认列表会隐藏任务，因此恢复该运行中任务，避免用户误以为任务丢失。
+- **How（怎么实现的）**：
+  - renderer → `localTasks:createSession({ taskId, projectPath, sessionId })` → zod schema → 文件 Store → `task.json`。
+- **验证结果**：相关定向测试通过；提交 `7fcf55e09`。
