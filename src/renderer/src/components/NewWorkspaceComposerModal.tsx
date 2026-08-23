@@ -404,6 +404,7 @@ function QuickTabBody({
         quickAgent={quickAgent}
         onQuickAgentChange={handleQuickAgentChange}
         {...cardProps}
+        taskMode={localTaskMode}
         createDisabled={effectiveCreateDisabled}
         primaryActionLabel={primaryActionLabel}
         onOpenAgentSettings={() => setAgentSettingsOpen(true)}

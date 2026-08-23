@@ -76,6 +76,7 @@ const EMPTY_PROJECT_HOST_SETUP_OPTIONS: ProjectHostSetupOption[] = []
 const EMPTY_EPHEMERAL_VM_RECIPES: EphemeralVmRecipeOption[] = []
 
 type NewWorkspaceComposerCardProps = {
+  taskMode?: boolean
   contextualTourSource?: string
   containerClassName?: string
   composerRef?: React.RefObject<HTMLDivElement | null>
@@ -292,6 +293,7 @@ function useComposerFileDragOver(): {
 }
 
 export default function NewWorkspaceComposerCard({
+  taskMode = false,
   contextualTourSource,
   containerClassName,
   composerRef,
@@ -782,161 +784,165 @@ export default function NewWorkspaceComposerCard({
           ) : null}
         </div>
 
-        <div className="min-w-0 space-y-1" data-contextual-tour-target="workspace-creation-name">
-          <label className="block min-w-0 truncate text-xs font-medium text-muted-foreground">
-            {selectedRepoIsGit
-              ? translate(
-                  'auto.components.NewWorkspaceComposerCard.ac3748dcda',
-                  "Name or 'Create From'"
+        {!taskMode ? (
+          <div className="min-w-0 space-y-1" data-contextual-tour-target="workspace-creation-name">
+            <label className="block min-w-0 truncate text-xs font-medium text-muted-foreground">
+              {selectedRepoIsGit
+                ? translate(
+                    'auto.components.NewWorkspaceComposerCard.ac3748dcda',
+                    "Name or 'Create From'"
+                  )
+                : translate(
+                    'auto.components.NewWorkspaceComposerCard.0ee17638fe',
+                    'Workspace name'
+                  )}{' '}
+              <span className="text-muted-foreground/70">
+                {translate('auto.components.NewWorkspaceComposerCard.0c5d6a479c', '[Optional]')}
+              </span>
+            </label>
+            <SmartWorkspaceNameField
+              inputRef={nameInputRef}
+              repos={eligibleRepos}
+              repoId={repoId}
+              onRepoChange={onRepoChange}
+              value={name}
+              onValueChange={onNameValueChange}
+              onGitHubItemSelect={onSmartGitHubItemSelect}
+              onGitLabItemSelect={onSmartGitLabItemSelect}
+              onBranchSelect={onSmartBranchSelect}
+              onLinearIssueSelect={onSmartLinearIssueSelect}
+              onJiraIssueSelect={onSmartJiraIssueSelect}
+              onOpenJiraSettings={onOpenJiraSettings}
+              selectedSource={smartNameSelection}
+              onClearSelectedSource={onClearSmartNameSelection}
+              githubSourceContext={smartNameGitHubSourceContext}
+              jiraSourceContext={smartNameJiraSourceContext}
+              disabled={selectedRepoRequiresConnection}
+              disabledPlaceholder={translate(
+                'auto.components.NewWorkspaceComposerCard.connectProjectFirst',
+                'Connect this project first'
+              )}
+              textOnly={!selectedRepoIsGit}
+              branchesEnabled={branchesEnabled}
+              repoBackedSourcesDisabled={repoBackedSourcesDisabled}
+              repoBackedSearchRepos={repoBackedSearchRepos}
+              allowCrossRepoProjectAdd={allowSmartNameAddProject}
+              crossRepoSwitchTarget={smartNameRepoSwitchTarget}
+              onActiveSourceModeChange={onSmartNameModeChange}
+              onPlainEnter={() => {
+                // Why: Enter advances focus to the Agent combobox rather than submitting, keeping keyboard flow through the form.
+                const root = composerRef?.current
+                const agentTrigger = root?.querySelector<HTMLElement>(
+                  '[data-agent-combobox-root="true"][role="combobox"]'
                 )
-              : translate(
-                  'auto.components.NewWorkspaceComposerCard.0ee17638fe',
-                  'Workspace name'
-                )}{' '}
-            <span className="text-muted-foreground/70">
-              {translate('auto.components.NewWorkspaceComposerCard.0c5d6a479c', '[Optional]')}
-            </span>
-          </label>
-          <SmartWorkspaceNameField
-            inputRef={nameInputRef}
-            repos={eligibleRepos}
-            repoId={repoId}
-            onRepoChange={onRepoChange}
-            value={name}
-            onValueChange={onNameValueChange}
-            onGitHubItemSelect={onSmartGitHubItemSelect}
-            onGitLabItemSelect={onSmartGitLabItemSelect}
-            onBranchSelect={onSmartBranchSelect}
-            onLinearIssueSelect={onSmartLinearIssueSelect}
-            onJiraIssueSelect={onSmartJiraIssueSelect}
-            onOpenJiraSettings={onOpenJiraSettings}
-            selectedSource={smartNameSelection}
-            onClearSelectedSource={onClearSmartNameSelection}
-            githubSourceContext={smartNameGitHubSourceContext}
-            jiraSourceContext={smartNameJiraSourceContext}
-            disabled={selectedRepoRequiresConnection}
-            disabledPlaceholder={translate(
-              'auto.components.NewWorkspaceComposerCard.connectProjectFirst',
-              'Connect this project first'
-            )}
-            textOnly={!selectedRepoIsGit}
-            branchesEnabled={branchesEnabled}
-            repoBackedSourcesDisabled={repoBackedSourcesDisabled}
-            repoBackedSearchRepos={repoBackedSearchRepos}
-            allowCrossRepoProjectAdd={allowSmartNameAddProject}
-            crossRepoSwitchTarget={smartNameRepoSwitchTarget}
-            onActiveSourceModeChange={onSmartNameModeChange}
-            onPlainEnter={() => {
-              // Why: Enter advances focus to the Agent combobox rather than submitting, keeping keyboard flow through the form.
-              const root = composerRef?.current
-              const agentTrigger = root?.querySelector<HTMLElement>(
-                '[data-agent-combobox-root="true"][role="combobox"]'
-              )
-              agentTrigger?.focus()
-            }}
-          />
-          {forkPushWarning ? (
-            <p className="flex items-start gap-1.5 text-[11px] text-yellow-600 dark:text-yellow-500">
-              <AlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-              <span>{forkPushWarning}</span>
-            </p>
-          ) : null}
-          {/* Why (#5181): sits under the branch selection (not Name, which can differ) so reusing the picked branch is an explicit choice. */}
-          <div
-            className={cn(
-              'grid overflow-hidden transition-[grid-template-rows] duration-200 ease-out',
-              canReuseSelectedBranch ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
-            )}
-            aria-hidden={!canReuseSelectedBranch}
-          >
-            <div className="min-h-0">
-              <div className="space-y-1 pt-1">
-                <label className="group flex w-fit items-center gap-2 text-xs text-foreground">
-                  <span
-                    className={cn(
-                      'flex size-4 items-center justify-center rounded-[3px] border shadow-sm transition',
-                      reuseSelectedBranch
-                        ? 'border-emerald-500/60 bg-emerald-500 text-white'
-                        : 'border-foreground/20 bg-background dark:border-white/20 dark:bg-muted/10'
-                    )}
-                  >
-                    <Check
+                agentTrigger?.focus()
+              }}
+            />
+            {forkPushWarning ? (
+              <p className="flex items-start gap-1.5 text-[11px] text-yellow-600 dark:text-yellow-500">
+                <AlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                <span>{forkPushWarning}</span>
+              </p>
+            ) : null}
+            {/* Why (#5181): sits under the branch selection (not Name, which can differ) so reusing the picked branch is an explicit choice. */}
+            <div
+              className={cn(
+                'grid overflow-hidden transition-[grid-template-rows] duration-200 ease-out',
+                canReuseSelectedBranch ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+              )}
+              aria-hidden={!canReuseSelectedBranch}
+            >
+              <div className="min-h-0">
+                <div className="space-y-1 pt-1">
+                  <label className="group flex w-fit items-center gap-2 text-xs text-foreground">
+                    <span
                       className={cn(
-                        'size-3 transition-opacity',
-                        reuseSelectedBranch ? 'opacity-100' : 'opacity-0'
+                        'flex size-4 items-center justify-center rounded-[3px] border shadow-sm transition',
+                        reuseSelectedBranch
+                          ? 'border-emerald-500/60 bg-emerald-500 text-white'
+                          : 'border-foreground/20 bg-background dark:border-white/20 dark:bg-muted/10'
                       )}
+                    >
+                      <Check
+                        className={cn(
+                          'size-3 transition-opacity',
+                          reuseSelectedBranch ? 'opacity-100' : 'opacity-0'
+                        )}
+                      />
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={reuseSelectedBranch}
+                      onChange={(event) => onReuseSelectedBranchChange(event.target.checked)}
+                      // Why: row is aria-hidden while collapsed, so disable the input too (no focusable control inside an aria-hidden tree).
+                      disabled={!canReuseSelectedBranch}
+                      className="sr-only"
                     />
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={reuseSelectedBranch}
-                    onChange={(event) => onReuseSelectedBranchChange(event.target.checked)}
-                    // Why: row is aria-hidden while collapsed, so disable the input too (no focusable control inside an aria-hidden tree).
-                    disabled={!canReuseSelectedBranch}
-                    className="sr-only"
-                  />
-                  <span>
+                    <span>
+                      {translate(
+                        'auto.components.NewWorkspaceComposerCard.reuseExistingBranch',
+                        'Reuse branch'
+                      )}
+                    </span>
+                  </label>
+                  <p className="pl-6 text-[11px] text-muted-foreground">
                     {translate(
-                      'auto.components.NewWorkspaceComposerCard.reuseExistingBranch',
-                      'Reuse branch'
+                      'auto.components.NewWorkspaceComposerCard.reuseExistingBranchHint',
+                      'Check out the existing branch instead of creating a new one from it.'
                     )}
-                  </span>
-                </label>
-                <p className="pl-6 text-[11px] text-muted-foreground">
-                  {translate(
-                    'auto.components.NewWorkspaceComposerCard.reuseExistingBranchHint',
-                    'Check out the existing branch instead of creating a new one from it.'
-                  )}
-                </p>
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
-        <div className="min-w-0 space-y-1" data-contextual-tour-target="workspace-creation-agent">
-          <div className="flex items-center justify-between gap-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              {translate('auto.components.NewWorkspaceComposerCard.01d1e8f601', 'Agent')}
-            </label>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={onOpenAgentSettings}
-                  // Why: keep Tab flow Name → Agent; tabIndex=-1 so this settings detour doesn't add a keystroke to every creation.
-                  tabIndex={-1}
-                  className="size-5 shrink-0 rounded-sm text-muted-foreground hover:text-foreground"
-                  aria-label={translate(
-                    'auto.components.NewWorkspaceComposerCard.ab63f25397',
-                    'Open agent settings'
+        {!taskMode ? (
+          <div className="min-w-0 space-y-1" data-contextual-tour-target="workspace-creation-agent">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                {translate('auto.components.NewWorkspaceComposerCard.01d1e8f601', 'Agent')}
+              </label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={onOpenAgentSettings}
+                    // Why: keep Tab flow Name → Agent; tabIndex=-1 so this settings detour doesn't add a keystroke to every creation.
+                    tabIndex={-1}
+                    className="size-5 shrink-0 rounded-sm text-muted-foreground hover:text-foreground"
+                    aria-label={translate(
+                      'auto.components.NewWorkspaceComposerCard.ab63f25397',
+                      'Open agent settings'
+                    )}
+                  >
+                    <Settings2 className="size-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={6}>
+                  {translate(
+                    'auto.components.NewWorkspaceComposerCard.ba64270bdb',
+                    'Configure agents'
                   )}
-                >
-                  <Settings2 className="size-3" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" sideOffset={6}>
-                {translate(
-                  'auto.components.NewWorkspaceComposerCard.ba64270bdb',
-                  'Configure agents'
-                )}
-              </TooltipContent>
-            </Tooltip>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <AgentCombobox
+              agents={visibleQuickAgents}
+              value={quickAgent}
+              onValueChange={onQuickAgentChange}
+              onOpenManageAgents={onOpenAgentSettings}
+              defaultAgent={defaultTuiAgent}
+              onSetDefault={handleSetDefaultAgent}
+              // Why: match Project/Run-on — full-width form row, no 260px min that can overflow the dialog column.
+              allowNarrowTrigger
+              triggerClassName="h-9 w-full min-w-0 border-input text-sm focus:border-ring focus:ring-[3px] focus:ring-ring/50"
+              onTriggerEnter={createDisabled ? undefined : onCreate}
+            />
           </div>
-          <AgentCombobox
-            agents={visibleQuickAgents}
-            value={quickAgent}
-            onValueChange={onQuickAgentChange}
-            onOpenManageAgents={onOpenAgentSettings}
-            defaultAgent={defaultTuiAgent}
-            onSetDefault={handleSetDefaultAgent}
-            // Why: match Project/Run-on — full-width form row, no 260px min that can overflow the dialog column.
-            allowNarrowTrigger
-            triggerClassName="h-9 w-full min-w-0 border-input text-sm focus:border-ring focus:ring-[3px] focus:ring-ring/50"
-            onTriggerEnter={createDisabled ? undefined : onCreate}
-          />
-        </div>
+        ) : null}
 
         {/* Why: keep the Advanced disclosure header grouped with the content below while preserving spacing from the Agent field above. */}
         <div className="!mb-2">
