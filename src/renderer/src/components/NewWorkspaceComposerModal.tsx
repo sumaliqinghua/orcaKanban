@@ -221,7 +221,7 @@ function QuickTabBody({
       return
     }
     if (localTaskMode && creatingTaskWorkspace) {
-      await submitQuick(quickAgent)
+      await submitQuick(null)
       return
     }
     if (localTaskMode) {
@@ -390,6 +390,7 @@ function QuickTabBody({
         onQuickAgentChange={handleQuickAgentChange}
         {...cardProps}
         taskMode={localTaskMode && !creatingTaskWorkspace}
+        hideAgent={localTaskMode}
         showCreateMultiple={localTaskMode ? false : cardProps.showCreateMultiple}
         createMultiple={localTaskMode ? false : cardProps.createMultiple}
         createDisabled={effectiveCreateDisabled}

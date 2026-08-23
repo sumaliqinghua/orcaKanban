@@ -18,6 +18,18 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     load: async () => (await import('./handlers/core.js')).CORE_HANDLERS
   },
   {
+    name: 'local-tasks',
+    keys: [
+      'local-task current',
+      'local-task update-description',
+      'local-task subtask-create',
+      'local-task subtask-update',
+      'local-task step-update',
+      'local-task report-completed'
+    ],
+    load: async () => (await import('./handlers/local-tasks.js')).LOCAL_TASK_HANDLERS
+  },
+  {
     name: 'account',
     keys: ['account add', 'account list'],
     load: async () => (await import('./handlers/account.js')).ACCOUNT_HANDLERS

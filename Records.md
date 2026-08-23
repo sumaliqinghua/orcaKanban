@@ -176,3 +176,28 @@
 - **Why（为什么这么做）**：`Local Mac` 是运行环境，已有本地 HEAD 和 worktree 都是可绑定 workspace，不应默认创建新 worktree；只有用户明确选择“新建 workspace”时才执行工作树创建。
 - **How（怎么实现的）**：项目选择 → workspace 下拉 → 已有 workspace：`localTasks.create`；新建 workspace：保留任务草稿 → 创建工作树 → completion callback → `localTasks.create`。
 - **用户须知**：本地 HEAD 是合法 workspace，不要求任务必须使用新 worktree；普通工作树创建入口与任务创建入口的行为现在明确分开。
+## [2026-08-23] 接入 session-bound Agent 本地任务工具桥接
+- **What（做了什么）**：
+  - `src/main/runtime/rpc/methods/local-tasks.ts`：新增 `localTask.current`、`localTask.updateDescription`、`localTask.createSubtask`、`localTask.updateSubtask`、`localTask.updateStep`、`localTask.reportCompleted` 六个 runtime RPC 方法。方法从任务 Agent 的环境上下文接收任务、会话和 workspace 标识，检查任务/会话/步骤归属；首次 `current` 可幂等创建真实 tab 的任务会话；跨 workspace 操作和修改已开始步骤标题会被拒绝；写入后广播完整任务快照。
+  - `src/main/runtime/rpc/methods/index.ts`：将六个方法加入统一 RPC 注册表，使本地 CLI 和运行时调用可以发现它们。
+  - `src/main/local-tasks/store.ts`：增加任务描述更新入口，继续复用 SQLite Store 作为唯一状态真相。
+  - `src/main/local-tasks/change-notifications.ts`、`src/main/ipc/local-tasks.ts`：抽取并复用任务变更广播，保证 renderer IPC 和 Agent RPC 使用相同刷新通道。
+  - `src/cli/local-task-context.ts`、`src/cli/specs/local-tasks.ts`、`src/cli/handlers/local-tasks.ts`：新增 `orca local-task` 命令组。命令包括读取当前任务、更新描述、创建/更新子任务、更新 AI 步骤和报告完成；任务 ID 不接受命令行参数，只从 `ORCA_LOCAL_TASK_ID`、`ORCA_TAB_ID`/`ORCA_PANE_KEY`、`ORCA_WORKTREE_ID` 读取。
+  - `src/cli/args.ts`、`src/cli/specs/index.ts`、`src/cli/handler-group-manifest.ts`：注册命令、重复 `--step` 参数和命令组路由；补齐 `--title-suggestion` 规格。
+  - `src/renderer/src/lib/launch-agent-in-new-tab.ts`、`QuickLaunchButton.tsx`、`LocalTaskAgentPicker.tsx`：从任务中心启动 Agent 时注入任务 ID，并在启动提示中给出实际 CLI 命令、状态取值及文档边界。任务提示明确要求完成后报告输出，但不自动创建 `PRD.md`、`plan.md`、`PROJECT_STATUS.md`、`Records.md` 或 `task.json`。
+  - `src/relay/remote-cli-env.ts`、`src/main/pty/wsl-orca-env.ts`：将任务 ID 透传到 SSH/WSL 终端环境，避免跨执行宿主后 CLI 丢失任务上下文。
+  - `src/main/runtime/rpc/methods/local-tasks.test.ts`：新增 RPC 回归测试，覆盖会话惰性登记、子任务/步骤更新、完成进入 Needs review、跨 workspace 拒绝和已开始步骤标题修改拒绝。
+- **Why（为什么这么做）**：
+  - 原先 Agent 只收到自然语言要求，没有可执行的任务 API，因此真实任务会一直停在 `In progress`，数据库中也没有子任务、步骤和最后输出。
+  - 把写入集中到 runtime RPC → `LocalTaskStore`，既复用已有状态流转和 SQLite 事务边界，也避免 renderer 直接伪造 AI 进度或 Done 状态。
+  - 任务上下文从当前终端环境读取，调用方不能通过 `--task-id` 任意改写别的任务；首次调用允许幂等登记是为了覆盖“Agent 已经执行第一条命令但 renderer 回调尚未写会话”的启动竞态。
+- **How（怎么实现的）**：
+  - 启动链路：任务详情 → Agent 菜单 → `launchAgentInNewTab` → 注入 `ORCA_LOCAL_TASK_ID` → Agent 执行 `orca local-task current`。
+  - 更新链路：CLI handler → `RuntimeClient.call` → runtime RPC schema/归属校验 → `LocalTaskStore` → `localTasks:changed` 广播 → 任务中心 upsert。
+  - 完成链路：Agent 更新步骤 → `report-completed` → Store 检查所有步骤为 `done/canceled` → 全部完成则 `Needs review`，否则保持 `In progress`；`Done` 仍只能由用户验收。
+- **用户须知**：
+  - 只有从任务中心启动的 Agent 自动拥有任务上下文；从 workspace 直接新建的会话不会自动归属本地任务。
+  - `current`、`update-description`、`subtask-create`、`subtask-update`、`step-update`、`report-completed` 是 Agent 可执行命令；步骤状态可用 `todo`、`doing`、`done`、`canceled`，子任务状态可用 `todo`、`doing`、`done`。
+  - 任务数据库仍位于 Orca 用户数据目录的 `local-tasks.db`；项目文档只有在用户明确要求时才由 Agent 维护。
+- **已知限制**：provider hook 目前不会自动从每条模型输出推断步骤，Agent 需要按提示主动调用 CLI；文件锁、provider 自动汇报和 `.orca/tasks/` 镜像仍是后置能力。
+- **关联假设**：`ASSUMPTIONS.md` 的“本地数据库作为任务状态真相”“文件锁后置”“Agent 通过当前会话绑定任务工具”。

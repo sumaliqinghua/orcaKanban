@@ -15,6 +15,7 @@
 | 2026-08-23 | v0.9 | 修复后台工作树尚未完成就写任务会话的问题；任务模式直接使用当前 HEAD，并向 Agent 注入任务标题、ID、描述和汇报要求。 |
 | 2026-08-23 | v1.0 | 明确任务模式不创建新 worktree；项目选择后直接绑定现有 workspace，只有普通工作树入口才执行 branch/base 创建。 |
 | 2026-08-23 | v1.1 | 增加 workspace 下拉选择；任务可绑定当前项目已有 workspace，选择“新建 workspace”后再进入第二步创建表单。 |
+| 2026-08-23 | v1.2 | 增加 session-bound Agent CLI/RPC 工具桥接；Agent 可读取任务、维护子任务/执行步骤并报告完成，所有操作按当前会话和 workspace 校验。 |
 
 历史版本中的“研发事项”“事项中心”“跟进项”“WorkItem”仅用于追溯，不再是当前产品名或数据模型。
 
@@ -258,6 +259,25 @@ Orca 用户数据目录/
 数据库保存本地任务、`projectId`、状态、标题、描述、单一 workspace 关联、会话、子任务、AI 执行步骤和归档信息。
 
 项目仓库中的 `.orca/` 文件不是 MVP 运行依赖，也不是状态唯一真相。后续可以把某个任务导出到指定 workspace 的 `.orca/tasks/<task-id>/`，但任务状态始终以 Orca 用户数据目录数据库为准。`PROJECT_STATUS.md` 可以继续作为项目级人工文档，但不会参与任务状态判定。
+
+## 7.1 Agent 任务工具桥接
+
+从任务详情启动的 Agent shell 会收到当前任务上下文：`ORCA_LOCAL_TASK_ID` 是本次终端绑定的本地任务 ID，`ORCA_TAB_ID` 或 `ORCA_PANE_KEY` 标识当前终端会话，`ORCA_WORKTREE_ID` 标识实际 workspace。Agent 不需要也不能通过命令参数选择任意任务 ID。
+
+Agent 使用内置 CLI 更新任务：
+
+| 命令 | 作用 | 典型使用时机 |
+| --- | --- | --- |
+| `orca local-task current --json` | 读取当前任务、当前会话和全部子任务/步骤 | 每轮会话开始 |
+| `orca local-task update-description --description "..."` | 更新任务当前描述 | 发现目标、范围或现状变化 |
+| `orca local-task subtask-create --title "..." --step "..."` | 创建会话汇报子任务和 AI 执行步骤；`--step` 可重复 | 开始一组可汇报工作 |
+| `orca local-task subtask-update --subtask <id> --status <todo\|doing\|done>` | 更新子任务状态 | 子任务开始或完成 |
+| `orca local-task step-update --subtask <id> --step <id> --status <todo\|doing\|done\|canceled>` | 更新 AI 执行步骤状态；未开始步骤才允许改标题 | AI 执行过程中 |
+| `orca local-task report-completed --output "..."` | 写入本轮最后输出，并按步骤完成情况推进到 `Needs review` 或保持 `In progress` | 本轮交付或阶段性总结 |
+
+CLI 通过 Orca runtime RPC 调用主进程 `LocalTaskStore`，SQLite 数据库仍是唯一真相。RPC 会检查任务存在、任务 workspace 与当前 workspace 一致、会话属于该任务，以及子任务/步骤属于该任务；不满足时拒绝写入。`localTask.current` 首次运行可以幂等登记当前真实 tab，以覆盖 Agent 先于 renderer 回调执行第一条命令的启动竞态。
+
+这些命令只维护任务数据库，不会自动创建或修改 `PRD.md`、`plan.md`、`PROJECT_STATUS.md`、`Records.md` 或 `task.json`。只有用户明确要求项目文档交付时，Agent 才按项目约定读写这些文档。
 
 ## 8. 界面设计
 

@@ -1,6 +1,6 @@
 # 本地任务中心施工计划
 
-本计划以 `PRD.md` v0.7 为准。当前产品名是“任务中心”，核心实体是 `LocalTask`（本地任务）、会话、子任务和 AI 执行步骤。每项都写明执行步骤和验收标准；`[x]` 已完成，`[~]` 进行中，`[ ]` 未开始。
+本计划以 `PRD.md` v1.2 为准。当前产品名是“任务中心”，核心实体是 `LocalTask`（本地任务）、会话、子任务和 AI 执行步骤。每项都写明执行步骤和验收标准；`[x]` 已完成，`[~]` 进行中，`[ ]` 未开始。
 
 ## 依赖关系
 
@@ -95,6 +95,9 @@
 - [x] 5.5 跳转现有 Orca surface
   - **执行步骤**：任务详情的 workspace 按钮调用现有 workspace 激活流程；真实 session ID 可聚焦终端 tab；合成的本地 session 显示未连接提示。
   - **验收标准**：可用 workspace/session 能离开任务中心并定位目标；不可用目标有可读错误。
+- [x] 5.6 接入 session-bound Agent task bridge
+  - **执行步骤**：为任务 Agent 注入 `ORCA_LOCAL_TASK_ID`；通过 `orca local-task` CLI 调用 runtime RPC；在主进程复用 `LocalTaskStore` 完成 current、描述、子任务、步骤和完成报告；校验当前 session/workspace 归属并广播变更。
+  - **验收标准**：从任务中心启动的 Agent 能读取当前任务、创建子任务、更新 AI 步骤和报告完成；跨任务、跨 workspace 或已开始步骤标题修改被拒绝；首次调用可幂等登记真实 tab。
 
 ## 阶段 6：测试与交付
 
@@ -107,13 +110,16 @@
 - [x] 6.3 lint、构建和文档
   - **执行步骤**：运行定向 oxlint、web/node 类型检查、Electron 构建和 diff 检查；更新 PRD、PROJECT_STATUS、Records、ASSUMPTIONS。
   - **验收标准**：本次改动无 lint/build 错误；仓库既有类型错误单独记录，不冒充本地任务错误。
+- [x] 6.4 Agent bridge 回归测试
+  - **执行步骤**：覆盖 current 会话登记、子任务/步骤更新、完成到 Needs review、跨 workspace 拒绝和已开始步骤编辑拒绝；验证 CLI handler/spec 注册一致。
+  - **验收标准**：`src/main/runtime/rpc/methods/local-tasks.test.ts` 和相关 CLI/Store 测试全部通过。
 
 ## 后置，不阻塞本期交付
 
 - [ ] 文件级写入锁和租约；
 - [ ] 从 workspace/Agent Dashboard 反向打开本地任务；
 - [ ] 将会话创建真正接入各 agent provider 的启动器；
-- [ ] AI context 注入和 provider hook 自动汇报；
+- [ ] provider hook 自动汇报（任务提示和 CLI bridge 已完成，自动从 provider 事件推断步骤仍后置）；
 - [ ] `.orca/tasks/` 镜像、远程同步、外部工单双向状态和正式依赖图。
 
 ## 当前进度

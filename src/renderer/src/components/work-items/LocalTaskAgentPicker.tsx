@@ -30,7 +30,7 @@ export function LocalTaskAgentPicker({
     `任务 ID：${item.id}`,
     `任务描述：${item.description}`,
     '',
-    '请把本轮工作绑定到这个任务：先读取任务上下文；需要拆分工作时创建或更新子任务和 AI 执行步骤；完成本轮后写入最后输出并报告完成状态。不要创建新的顶层任务。'
+    '请把本轮工作绑定到这个任务：先执行 `orca local-task current --json` 读取任务；需要拆分工作时用 `orca local-task subtask-create --title "..." --step "..."` 创建子任务和 AI 执行步骤，用 `orca local-task subtask-update --subtask <子任务ID> --status <状态>` 更新子任务，用 `orca local-task step-update --subtask <子任务ID> --step <步骤ID> --status <状态>` 更新步骤（状态可用 todo、doing、done、canceled），用 `orca local-task update-description --description "..."` 更新任务描述；完成本轮后用 `orca local-task report-completed --output "..." --title-suggestion "..."` 报告最后输出和完成状态（只有首次未自定义标题时才提交标题建议）。上述命令直接更新 Orca 本地任务数据库，不会自动创建或修改 PRD.md、plan.md、PROJECT_STATUS.md、Records.md 等项目文档，除非任务明确要求文档交付。不要创建新的顶层任务。'
   ].join('\n')
 
   return (
@@ -53,6 +53,7 @@ export function LocalTaskAgentPicker({
             groupId={activeGroupId}
             prompt={taskPrompt}
             launchSource="task_page"
+            localTaskId={item.id}
             onFocusTerminal={onStarted}
           />
         ) : (

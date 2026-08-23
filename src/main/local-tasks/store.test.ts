@@ -161,6 +161,29 @@ describe('LocalTaskStore', () => {
     store.close()
   })
 
+  it('keeps Done and Needs review when a follow-up session is opened', () => {
+    const store = new LocalTaskStore(databasePath())
+    const task = store.create({ projectId: 'orca', description: '已交付任务' })
+    const firstSession = store.createSession({ taskId: task.id, sessionId: 'first-delivery' })
+    store.reportCompleted({ taskId: task.id, sessionId: firstSession.id })
+    store.createSession({ taskId: task.id, sessionId: 'review-question' })
+    store.reportCompleted({
+      taskId: task.id,
+      sessionId: 'review-question',
+      latestOutput: '追问答复'
+    })
+    expect(store.get(task.id)?.status).toBe('Needs review')
+    store.update(task.id, { status: 'In progress' })
+    store.createSession({ taskId: task.id, sessionId: 'requested-change' })
+    expect(store.get(task.id)?.status).toBe('In progress')
+    store.reportCompleted({ taskId: task.id, sessionId: 'requested-change' })
+    store.accept(task.id)
+    store.createSession({ taskId: task.id, sessionId: 'done-question' })
+    store.reportCompleted({ taskId: task.id, sessionId: 'done-question', latestOutput: '继续答疑' })
+    expect(store.get(task.id)?.status).toBe('Done')
+    store.close()
+  })
+
   it('migrates an older database without title and association columns', () => {
     const path = databasePath()
     const old = new SyncDatabase(path)

@@ -77,6 +77,7 @@ const EMPTY_EPHEMERAL_VM_RECIPES: EphemeralVmRecipeOption[] = []
 
 type NewWorkspaceComposerCardProps = {
   taskMode?: boolean
+  hideAgent?: boolean
   contextualTourSource?: string
   containerClassName?: string
   composerRef?: React.RefObject<HTMLDivElement | null>
@@ -294,6 +295,7 @@ function useComposerFileDragOver(): {
 
 export default function NewWorkspaceComposerCard({
   taskMode = false,
+  hideAgent = false,
   contextualTourSource,
   containerClassName,
   composerRef,
@@ -784,7 +786,7 @@ export default function NewWorkspaceComposerCard({
           ) : null}
         </div>
 
-        {!taskMode ? (
+        {!taskMode && !hideAgent ? (
           <div className="min-w-0 space-y-1" data-contextual-tour-target="workspace-creation-name">
             <label className="block min-w-0 truncate text-xs font-medium text-muted-foreground">
               {selectedRepoIsGit

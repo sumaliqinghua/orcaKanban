@@ -118,3 +118,38 @@ export type ReportLocalTaskCompletedArgs = {
   titleSuggestion?: string
   description?: string
 }
+
+export type LocalTaskToolContext = {
+  taskId: string
+  sessionId?: string
+  worktreeId?: string
+}
+
+export type LocalTaskToolUpdateDescriptionArgs = LocalTaskToolContext & {
+  description: string
+}
+
+export type LocalTaskToolCreateSubtaskArgs = LocalTaskToolContext & {
+  title: string
+  steps?: string[]
+}
+
+export type LocalTaskToolUpdateSubtaskArgs = LocalTaskToolContext & {
+  subtaskId: string
+  status?: LocalTaskSubtaskStatus
+  title?: string
+}
+
+export type LocalTaskToolUpdateStepArgs = LocalTaskToolContext & {
+  subtaskId: string
+  stepId: string
+  title?: string
+  status?: LocalTaskStepStatus
+}
+
+export type LocalTaskToolReportCompletedArgs = LocalTaskToolContext & {
+  sessionId: string
+  latestOutput?: string
+  titleSuggestion?: string
+  description?: string
+}

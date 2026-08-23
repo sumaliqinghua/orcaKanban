@@ -128,6 +128,17 @@ export class LocalTaskStore {
     return readLocalTask(this.db, id)!
   }
 
+  updateDescription(id: string, description: string): LocalTask {
+    const current = readLocalTask(this.db, id)
+    if (!current) {
+      throw new Error(`Local task not found: ${id}`)
+    }
+    this.db
+      .prepare('UPDATE local_tasks SET description = ?, updated_at = ? WHERE id = ?')
+      .run(description.trim(), timestamp(), id)
+    return readLocalTask(this.db, id)!
+  }
+
   accept(id: string): LocalTask {
     const current = readLocalTask(this.db, id)
     if (!current) {
@@ -195,7 +206,10 @@ export class LocalTaskStore {
         time,
         session.associationSource
       )
-    this.update(task.id, { status: 'In progress' })
+    // Follow-up sessions on review/done tasks do not silently reopen them.
+    if (task.status === 'Open' || task.status === 'Waiting') {
+      this.update(task.id, { status: 'In progress' })
+    }
     return {
       ...session,
       status: 'working',
@@ -289,7 +303,11 @@ export class LocalTaskStore {
       )
       .run(
         args.description?.trim() || null,
-        unfinished ? 'In progress' : 'Needs review',
+        task.status === 'Done' || task.status === 'Needs review'
+          ? task.status
+          : unfinished
+            ? 'In progress'
+            : 'Needs review',
         time,
         args.taskId
       )

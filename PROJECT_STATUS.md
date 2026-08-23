@@ -22,16 +22,17 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - 标题规则：创建时无自定义标题取描述第一行；首次 AI 完成可生成一次标题；用户编辑后 AI 只更新描述。
 - 详情交互：标题编辑、会话最后输出、workspace/session 跳转入口、详情抽屉收起和空状态创建。
 - 持久化与验证：WAL、外键、busy timeout、schema version、旧库字段迁移、zod IPC 参数校验、任务变更广播。
+- Agent 任务桥接：从任务中心启动的 Agent shell 带有任务 ID；内置 `orca local-task` CLI 通过 runtime RPC 读取和更新当前任务、子任务、AI 执行步骤，并报告本轮最后输出。
 
 ## 当前进度
 
-- 已完成：plan.md 阶段 1-6 的本地任务核心链路和定向测试。
-- 后置：完整 AI context 工具调用、workspace/Agent Dashboard 反向打开任务、文件锁、远程同步、`.orca/tasks/` 镜像和外部工单双向同步；当前启动提示已先注入任务标题、ID、描述和汇报要求。任务创建先从项目 workspace 下拉选择已有 workspace；选择新建时才进入第二步工作树创建。
+- 已完成：plan.md 阶段 1-6 的本地任务核心链路、session-bound CLI/RPC task bridge 和定向测试。
+- 后置：provider hook 自动汇报、workspace/Agent Dashboard 反向打开任务、文件锁、远程同步、`.orca/tasks/` 镜像和外部工单双向同步。任务创建先从项目 workspace 下拉选择已有 workspace；选择新建时才进入第二步工作树创建。
 
 ## 已知问题与技术债
 
-- `createSession` 当前创建的是任务中心持久化会话记录；真实 provider/PTY 启动器尚未绑定，合成 ID 会在详情中提示“未连接到真实终端”。
-- session 按 tab ID 聚焦的跳转仅对已经存在的真实 tab ID 有效；任务中心生成的 `lts_*` ID 不会伪造终端。
+- Agent CLI 依赖从任务中心启动的终端环境变量；直接从 workspace 启动的会话不会自动归属本地任务，需从任务中心显式关联。
+- provider hook 尚未自动解析每条模型输出并更新步骤；Agent 需要按启动提示主动执行 `orca local-task` 命令。
 - workspace/Agent Dashboard 尚未增加反向“打开本地任务”入口。
 - 文件锁和同 workspace 并行写入租约按用户决定后置。
 - 全仓库 Node TypeScript 检查仍有既有 `ui-state-schema-parity-checks.ts` 类型错误；本地任务相关定向检查通过。
@@ -41,4 +42,4 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - 数据库文件：Orca 用户数据目录下的 `local-tasks.db`。
 - 开发命令：`pnpm run dev`。
 - Electron 构建：`pnpm run build:electron-vite`。
-- 定向测试：`pnpm exec vitest run --config config/vitest.config.ts src/main/local-tasks/store.test.ts src/main/ipc/local-task-ipc-validation.test.ts`。
+- 定向测试：`pnpm exec vitest run --config config/vitest.config.ts src/main/local-tasks/store.test.ts src/main/ipc/local-task-ipc-validation.test.ts src/main/runtime/rpc/methods/local-tasks.test.ts`。
