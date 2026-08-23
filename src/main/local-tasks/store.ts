@@ -14,7 +14,6 @@ import type {
   UpdateLocalTaskSubtaskArgs
 } from '../../shared/local-task-types'
 import {
-  appendRecord,
   atomicWrite,
   localTaskDirectory,
   localTaskFile,
@@ -25,8 +24,8 @@ import {
   LOCAL_TASK_PRD_FILE_NAME,
   LOCAL_TASK_RECORDS_FILE_NAME
 } from './file-store-format'
-import { findStep, findSubtask, findTaskWithSession } from './file-store-index'
 import { LocalTaskFileWatchers } from './file-store-watch'
+import * as mutations from './file-store-mutations'
 
 let singleton: LocalTaskStore | null = null
 const timestamp = (): number => Date.now()
@@ -163,163 +162,31 @@ export class LocalTaskStore {
   }
 
   createSession(args: CreateLocalTaskSessionArgs & { projectPath?: string }): LocalTaskSession {
-    const task = this.require(args.taskId, args.projectPath)
-    const sessionId = args.sessionId?.trim() || `lts_${randomUUID()}`
-    const owner = findTaskWithSession(this.locations.values(), sessionId, (path) =>
-      this.readRemembered(path)
-    )
-    if (owner && owner.id !== task.id) {
-      throw new Error('Session is already associated with another local task')
-    }
-    const existing = task.sessions.find((session) => session.id === sessionId)
-    if (existing) {
-      return existing
-    }
-    const time = timestamp()
-    const session: LocalTaskSession = {
-      id: sessionId,
-      taskId: task.id,
-      workspaceId: text(args.workspaceId, task.workspaceId),
-      title: text(args.title, '自动创建会话'),
-      status: 'working',
-      latestOutput: null,
-      createdAt: time,
-      updatedAt: time,
-      associationSource: args.associationSource ?? 'task-center'
-    }
-    const status = task.status === 'Open' || task.status === 'Waiting' ? 'In progress' : task.status
-    this.writeTask({ ...task, sessions: [session, ...task.sessions], status, updatedAt: time })
-    return session
+    return mutations.createSession(this.access(), args)
   }
-
   createSubtask(args: CreateLocalTaskSubtaskArgs & { projectPath?: string }): LocalTask {
-    const task = this.require(args.taskId, args.projectPath)
-    if (args.sessionId && !task.sessions.some((session) => session.id === args.sessionId)) {
-      throw new Error('Session is not associated with this local task')
-    }
-    const time = timestamp()
-    const subtask = {
-      id: `ltsub_${randomUUID()}`,
-      title: text(args.title, '未命名子任务'),
-      status: 'todo' as const,
-      sessionId: args.sessionId ?? null,
-      steps: (args.steps ?? []).map((title) => ({
-        id: `ltstep_${randomUUID()}`,
-        title: text(title, '未命名执行步骤'),
-        status: 'todo' as const,
-        updatedAt: time
-      })),
-      createdAt: time,
-      updatedAt: time
-    }
-    return this.writeTask({ ...task, subtasks: [subtask, ...task.subtasks], updatedAt: time })
+    return mutations.createSubtask(this.access(), args)
   }
-
   updateSubtask(args: UpdateLocalTaskSubtaskArgs): LocalTask {
-    const { task, index } = findSubtask(this.locations.values(), args.subtaskId, (path) =>
-      this.readRemembered(path)
-    )
-    const subtasks = [...task.subtasks]
-    const current = subtasks[index]
-    subtasks[index] = {
-      ...current,
-      title: args.title?.trim() || current.title,
-      status: args.status ?? current.status,
-      updatedAt: timestamp()
-    }
-    return this.writeTask({ ...task, subtasks, updatedAt: timestamp() })
+    return mutations.updateSubtask(this.access(), args)
   }
-
   updateStep(args: UpdateLocalTaskStepArgs): LocalTask {
-    const { task, subtaskIndex, stepIndex } = findStep(
-      this.locations.values(),
-      args.stepId,
-      args.subtaskId,
-      (path) => this.readRemembered(path)
-    )
-    const subtasks = task.subtasks.map((subtask, index) => {
-      if (index !== subtaskIndex) {
-        return subtask
-      }
-      const steps = subtask.steps.map((step, currentIndex) =>
-        currentIndex === stepIndex
-          ? {
-              ...step,
-              title: args.title?.trim() || step.title,
-              status: args.status ?? step.status,
-              updatedAt: timestamp()
-            }
-          : step
-      )
-      return { ...subtask, steps, updatedAt: timestamp() }
-    })
-    return this.writeTask({ ...task, subtasks, updatedAt: timestamp() })
+    return mutations.updateStep(this.access(), args)
   }
-
   editStepTitle(args: EditLocalTaskStepTitleArgs): LocalTask {
-    const { task, subtaskIndex, stepIndex } = findStep(
-      this.locations.values(),
-      args.stepId,
-      args.subtaskId,
-      (path) => this.readRemembered(path)
-    )
-    if (task.subtasks[subtaskIndex].steps[stepIndex].status !== 'todo') {
-      throw new Error('Only an unstarted AI step can be edited')
-    }
-    return this.updateStep({ subtaskId: args.subtaskId, stepId: args.stepId, title: args.title })
+    return mutations.editStepTitle(this.access(), args)
+  }
+  reportCompleted(args: ReportLocalTaskCompletedArgs & { projectPath?: string }): LocalTask {
+    return mutations.reportCompleted(this.access(), args)
   }
 
-  reportCompleted(args: ReportLocalTaskCompletedArgs & { projectPath?: string }): LocalTask {
-    const task = this.require(args.taskId, args.projectPath)
-    if (!task.sessions.some((session) => session.id === args.sessionId)) {
-      throw new Error('Session is not associated with this local task')
+  private access(): mutations.FileStoreMutationAccess {
+    return {
+      requireTask: (id, projectPath) => this.require(id, projectPath),
+      readTask: (path) => this.readRemembered(path),
+      taskPaths: () => this.locations.values(),
+      writeTask: (task) => this.writeTask(task)
     }
-    const unfinished = task.subtasks.some(
-      (subtask) =>
-        subtask.status !== 'done' ||
-        subtask.steps.some((step) => step.status !== 'done' && step.status !== 'canceled')
-    )
-    const time = timestamp()
-    const sessions = task.sessions.map((session) =>
-      session.id === args.sessionId
-        ? {
-            ...session,
-            status: unfinished ? ('idle' as const) : ('done' as const),
-            latestOutput: args.latestOutput ?? session.latestOutput,
-            updatedAt: time
-          }
-        : session
-    )
-    const suggestedTitle =
-      args.titleSuggestion?.trim() && task.titleSource === 'first-line'
-        ? args.titleSuggestion.trim()
-        : null
-    const next: LocalTask = {
-      ...task,
-      sessions,
-      latestOutput: args.latestOutput
-        ? { sessionId: args.sessionId, text: args.latestOutput, updatedAt: time }
-        : task.latestOutput,
-      description: args.description?.trim() || task.description,
-      title: suggestedTitle ?? task.title,
-      titleSource: suggestedTitle ? 'ai-suggestion' : task.titleSource,
-      titleSuggestion: suggestedTitle ?? task.titleSuggestion,
-      status:
-        task.status === 'Done' || task.status === 'Needs review'
-          ? task.status
-          : unfinished
-            ? 'In progress'
-            : 'Needs review',
-      updatedAt: time
-    }
-    const result = this.writeTask(next)
-    if (args.latestOutput) {
-      appendRecord(
-        join(localTaskDirectory(task.projectPath, task.id), LOCAL_TASK_RECORDS_FILE_NAME),
-        `## ${new Date(time).toISOString()}\n\n${args.latestOutput}`
-      )
-    }
-    return result
   }
 
   private require(id: string, projectPath?: string): LocalTask {
