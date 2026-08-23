@@ -76,4 +76,14 @@ describe('local task IPC validation', () => {
       })
     ).toThrow()
   })
+
+  it('accepts projectPath when associating a real task session', () => {
+    expect(
+      createLocalTaskSessionArgsSchema.parse({
+        taskId: 'lt_1',
+        projectPath: '/tmp/project',
+        sessionId: 'tab-1'
+      })
+    ).toMatchObject({ taskId: 'lt_1', projectPath: '/tmp/project' })
+  })
 })

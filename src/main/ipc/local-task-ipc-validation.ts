@@ -44,6 +44,7 @@ export const updateLocalTaskArgsSchema = z
 export const createLocalTaskSessionArgsSchema = z
   .object({
     taskId: id,
+    projectPath: z.string().trim().min(1).max(4_096).optional(),
     sessionId: id.optional(),
     workspaceId: id.optional(),
     title: shortText.optional(),
