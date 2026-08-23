@@ -13,6 +13,7 @@
 | 2026-08-23 | v0.7 | 统一施工名词为本地任务/会话/子任务；明确任务创建即绑定 workspace、标题首次 AI 生成规则、IPC 校验和真实持久化范围。 |
 | 2026-08-23 | v0.8 | 任务创建复用创建工作树窗口并增加必填描述；任务详情复用现有 Agent 菜单启动真实会话；修正列表热区、ID 展示和 Workspace 看板入口。 |
 | 2026-08-23 | v0.9 | 修复后台工作树尚未完成就写任务会话的问题；任务模式直接使用当前 HEAD，并向 Agent 注入任务标题、ID、描述和汇报要求。 |
+| 2026-08-23 | v1.0 | 明确任务模式不创建新 worktree；项目选择后直接绑定现有 workspace，只有普通工作树入口才执行 branch/base 创建。 |
 
 历史版本中的“研发事项”“事项中心”“跟进项”“WorkItem”仅用于追溯，不再是当前产品名或数据模型。
 
@@ -67,7 +68,7 @@
 一个 workspace：可以关联多个本地任务
 ```
 
-创建本地任务时就确定执行上下文：用户选择一个已有 workspace；如果用户不选择，默认绑定 `local` 主机和创建时的当前 `HEAD`。绑定后，该任务的后续会话默认使用这个 workspace。若两个目标使用不同 worktree，它们就是两个本地任务。
+创建本地任务时就确定执行上下文：用户选择一个已有项目，任务模式直接绑定该项目当前已有的主 workspace；如果没有可用 workspace，绑定 `local` 和当前 `HEAD`。任务创建本身不创建新 worktree。绑定后，该任务的后续会话默认使用这个 workspace。若两个目标使用不同 worktree，它们就是两个本地任务。
 
 ### 3.2 Workspace
 
@@ -75,7 +76,7 @@ Workspace 是实际代码所在的 Git worktree 或文件夹环境，不代表�
 
 本期规则：
 
-- 创建本地任务时必须确定 workspace 上下文；没有可选 workspace 时绑定 `local + 当前 HEAD`；
+- 创建本地任务时必须确定 workspace 上下文；优先绑定所选项目现有 workspace，没有可用 workspace 时绑定 `local + 当前 HEAD`；任务创建不调用 worktree 创建流程；
 - 一个本地任务最多绑定一个 workspace；
 - 一个 workspace 可以承载多个本地任务；
 - 一个本地任务绑定 workspace 后，新建关联会话默认使用该 workspace；
@@ -344,7 +345,7 @@ MVP 不实现双向状态同步。现有 Workspace 看板到 Linear 的可选同
 
 ## 12. 验收标准
 
-1. 用户创建本地任务时必须确定 workspace；没有可选 workspace 时默认 `local + 当前 HEAD`。
+1. 用户创建本地任务时必须确定项目和 workspace；优先绑定所选项目现有 workspace，没有可选 workspace 时默认 `local + 当前 HEAD`，不会创建新 worktree。
 2. 用户可以从任务详情新建会话；新会话默认关联该本地任务。
 3. 同一会话可以从讨论直接进入执行，不需要切换模式。
 4. 一个本地任务最多显示一个当前 workspace；一个 workspace 可以显示多个关联本地任务。

@@ -26,7 +26,7 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 ## 当前进度
 
 - 已完成：plan.md 阶段 1-6 的本地任务核心链路和定向测试。
-- 后置：完整 AI context 工具调用、workspace/Agent Dashboard 反向打开任务、文件锁、远程同步、`.orca/tasks/` 镜像和外部工单双向同步；当前启动提示已先注入任务标题、ID、描述和汇报要求。
+- 后置：完整 AI context 工具调用、workspace/Agent Dashboard 反向打开任务、文件锁、远程同步、`.orca/tasks/` 镜像和外部工单双向同步；当前启动提示已先注入任务标题、ID、描述和汇报要求。任务创建本身不创建新 worktree，而是绑定所选项目现有 workspace。
 
 ## 已知问题与技术债
 

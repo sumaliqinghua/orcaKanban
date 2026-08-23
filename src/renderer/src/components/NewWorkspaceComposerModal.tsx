@@ -28,7 +28,6 @@ import { translate } from '@/i18n/i18n'
 import { getWorkspaceComposerInitialFocusTarget } from '@/lib/workspace-composer-initial-focus'
 import { getFolderWorkspacePrimaryActionLabel } from '@/components/sidebar/folder-workspace-composer-helpers'
 import { Input } from '@/components/ui/input'
-import type { WorktreeCreationCompletion } from '@/lib/worktree-creation-completion'
 
 // Why: match App-level AddRepoDialog loading — the add flow is off the hot
 // path for the composer, so keep its clone/SSH machinery out of the entry render.
@@ -130,60 +129,6 @@ function QuickTabBody({
   const [taskTitle, setTaskTitle] = useState('')
   const [taskDescription, setTaskDescription] = useState('')
   const [taskError, setTaskError] = useState<string | null>(null)
-  const createTaskAfterWorkspace = useCallback(
-    (completion?: WorktreeCreationCompletion): void => {
-      if (!localTaskMode) {
-        onClose()
-        return
-      }
-      const description = taskDescription.trim()
-      if (!description) {
-        setTaskError('任务描述不能为空')
-        return
-      }
-      const state = useAppStore.getState()
-      const workspaceId = completion?.worktreeId ?? state.activeWorktreeId ?? 'local'
-      const workspace =
-        workspaceId === 'local'
-          ? null
-          : state.getKnownWorktreeById(
-              workspaceId,
-              state.activeWorkspaceExecutionHostId ?? undefined
-            )
-      const sessionId = completion?.primaryTabId ?? completion?.startupTerminalTabId ?? null
-      const sessionTab = sessionId
-        ? state.tabsByWorktree[workspaceId]?.find((candidate) => candidate.id === sessionId)
-        : null
-      void window.api.localTasks
-        .create({
-          projectId: workspace?.repoId ?? state.activeRepoId ?? modalData.initialRepoId ?? 'local',
-          title: taskTitle.trim() || undefined,
-          description,
-          workspaceId,
-          workspaceLabel: workspace
-            ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
-            : 'local · 当前 HEAD'
-        })
-        .then((task) => {
-          if (!sessionTab?.launchAgent || !sessionId) {
-            onClose()
-            return
-          }
-          return window.api.localTasks
-            .createSession({
-              taskId: task.id,
-              sessionId,
-              title: `${sessionTab.launchAgent} 会话`,
-              workspaceId
-            })
-            .then(onClose)
-        })
-        .catch((error: unknown) =>
-          setTaskError(error instanceof Error ? error.message : '本地任务创建失败')
-        )
-    },
-    [localTaskMode, modalData.initialRepoId, onClose, taskDescription, taskTitle]
-  )
   const {
     cardProps,
     composerRef,
@@ -206,14 +151,49 @@ function QuickTabBody({
     initialWorkspaceStatus: modalData.initialWorkspaceStatus,
     ...(modalData.initialBaseBranch ? { initialBaseBranch: modalData.initialBaseBranch } : {}),
     persistDraft: false,
-    onCreated: createTaskAfterWorkspace,
-    ...(localTaskMode ? { onBackgroundCreated: createTaskAfterWorkspace } : {}),
+    onCreated: onClose,
     ...(localTaskMode ? { useCurrentHead: true } : {}),
     isSubmissionCancelled,
     ...(modalData.telemetrySource ? { telemetrySource: modalData.telemetrySource } : {}),
     enableIssueAutomation: modalData.enableIssueAutomation === true,
     createGateMode: 'quick'
   })
+  const createTaskDirectly = useCallback((): void => {
+    const description = taskDescription.trim()
+    if (!description) {
+      setTaskError('任务描述不能为空')
+      return
+    }
+    const state = useAppStore.getState()
+    const repoId = cardProps.repoId || modalData.initialRepoId || state.activeRepoId || 'local'
+    const activeWorkspace = state.activeWorktreeId
+      ? state.getKnownWorktreeById(
+          state.activeWorktreeId,
+          state.activeWorkspaceExecutionHostId ?? undefined
+        )
+      : null
+    const workspace =
+      (activeWorkspace?.repoId === repoId ? activeWorkspace : null) ??
+      (state.allWorktrees?.() ?? []).find(
+        (candidate) =>
+          candidate.repoId === repoId && candidate.isMainWorktree && !candidate.isArchived
+      )
+    const workspaceId = workspace?.id ?? 'local'
+    void window.api.localTasks
+      .create({
+        projectId: workspace?.repoId ?? repoId,
+        title: taskTitle.trim() || undefined,
+        description,
+        workspaceId,
+        workspaceLabel: workspace
+          ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
+          : 'local · 当前 HEAD'
+      })
+      .then(onClose)
+      .catch((error: unknown) =>
+        setTaskError(error instanceof Error ? error.message : '本地任务创建失败')
+      )
+  }, [cardProps.repoId, modalData.initialRepoId, onClose, taskDescription, taskTitle])
   // Why: the composer's built-in `onOpenAgentSettings` handler navigates to
   // the settings page and closes the modal. For the quick-create flow we want
   // a less disruptive affordance — a nested dialog layered over the composer
@@ -258,9 +238,15 @@ function QuickTabBody({
       return
     }
     setTaskError(null)
+    if (localTaskMode) {
+      createTaskDirectly()
+      return
+    }
     await submitQuick(quickAgent)
-  }, [localTaskMode, quickAgent, submitQuick, taskDescription])
-  const effectiveCreateDisabled = createDisabled || (localTaskMode && !taskDescription.trim())
+  }, [createTaskDirectly, localTaskMode, quickAgent, submitQuick, taskDescription])
+  const effectiveCreateDisabled = localTaskMode
+    ? !taskDescription.trim() || !cardProps.repoId
+    : createDisabled
   // Why: Add Project layers over the composer as a nested dialog instead of
   // replacing it in the activeModal slot — closing the composer mid-flow (and
   // losing the typed name/prompt) was the old, abrupt behavior. Once opened it
@@ -387,6 +373,9 @@ function QuickTabBody({
       {localTaskMode ? (
         <div className="shrink-0 space-y-2 border-b border-border/70 px-2 pb-3">
           <div className="text-xs font-semibold">本地任务</div>
+          <p className="text-[11px] text-muted-foreground">
+            只绑定所选项目的现有主 workspace 和当前 HEAD，不会新建 worktree。
+          </p>
           <Input
             value={taskTitle}
             onChange={(event) => setTaskTitle(event.target.value)}
