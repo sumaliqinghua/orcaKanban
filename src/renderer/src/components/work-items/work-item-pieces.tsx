@@ -118,7 +118,6 @@ export function WorkItemCard({
       )}
     >
       <div className="flex items-start gap-2">
-        <span className="mt-0.5 font-mono text-[10px] text-muted-foreground">{item.id}</span>
         <span className="line-clamp-2 flex-1 text-[13px] font-medium leading-snug text-foreground">
           {item.title}
         </span>
@@ -184,7 +183,6 @@ export function SubtaskCard({
       )}
     >
       <div className="flex items-start gap-2">
-        <span className="mt-0.5 font-mono text-[10px] text-muted-foreground">{subtask.id}</span>
         <span className="line-clamp-2 flex-1 text-[12px] font-medium leading-snug">
           {subtask.title}
         </span>

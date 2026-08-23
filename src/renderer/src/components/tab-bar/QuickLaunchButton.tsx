@@ -18,7 +18,7 @@ import { translate } from '@/i18n/i18n'
 
 export type QuickLaunchAgentMenuItemsProps = {
   worktreeId: string
-  groupId: string
+  groupId?: string
   /** Called after the tab is created so keyboard focus lands in the new xterm.
    *  Reuses the TabBar's existing double-rAF handoff — this component does
    *  not duplicate the focus logic. */
@@ -129,7 +129,7 @@ function QuickLaunchAgentMenuItemsInner({
       const result = launchAgentInNewTab({
         agent,
         worktreeId,
-        groupId,
+        ...(groupId ? { groupId } : {}),
         ...(prompt !== undefined ? { prompt } : {}),
         ...(promptDelivery !== undefined ? { promptDelivery } : {}),
         ...(launchSource !== undefined ? { launchSource } : {}),

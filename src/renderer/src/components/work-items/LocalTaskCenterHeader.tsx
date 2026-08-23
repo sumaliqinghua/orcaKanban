@@ -1,7 +1,13 @@
 import { Plus, Sparkles, TerminalSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-export function LocalTaskCenterHeader({ onCreate }: { onCreate: () => void }): React.JSX.Element {
+export function LocalTaskCenterHeader({
+  onCreate,
+  onOpenWorkspaceBoard
+}: {
+  onCreate: () => void
+  onOpenWorkspaceBoard: () => void
+}): React.JSX.Element {
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border px-6">
       <div className="flex min-w-0 items-center gap-3">
@@ -14,7 +20,12 @@ export function LocalTaskCenterHeader({ onCreate }: { onCreate: () => void }): R
         </div>
       </div>
       <div className="ml-auto flex items-center gap-2">
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={onOpenWorkspaceBoard}
+        >
           <TerminalSquare className="size-3.5" />
           Workspace 看板
         </Button>

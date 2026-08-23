@@ -27,6 +27,7 @@ import type { TaskSourceContext } from '../../../shared/task-source-context'
 import { translate } from '@/i18n/i18n'
 import { getWorkspaceComposerInitialFocusTarget } from '@/lib/workspace-composer-initial-focus'
 import { getFolderWorkspacePrimaryActionLabel } from '@/components/sidebar/folder-workspace-composer-helpers'
+import { Input } from '@/components/ui/input'
 
 // Why: match App-level AddRepoDialog loading — the add flow is off the hot
 // path for the composer, so keep its clone/SSH machinery out of the entry render.
@@ -52,6 +53,8 @@ type ComposerModalData = {
   telemetrySource?: WorkspaceCreateTelemetrySource
   contextualTourSource?: string
   setupGuideTourRequestId?: string
+  /** When true, the composer creates a local task after the workspace succeeds. */
+  localTaskMode?: boolean
 }
 
 export default function NewWorkspaceComposerModal(): React.JSX.Element | null {
@@ -99,6 +102,7 @@ function ComposerModalBody({
           onClose={onClose}
           onDismiss={handleDismiss}
           isSubmissionCancelled={isSubmissionCancelled}
+          localTaskMode={modalData.localTaskMode === true}
           active
         />
       </DialogContent>
@@ -111,15 +115,72 @@ function QuickTabBody({
   onClose,
   onDismiss,
   isSubmissionCancelled,
+  localTaskMode,
   active
 }: {
   modalData: ComposerModalData
   onClose: () => void
   onDismiss: () => void
   isSubmissionCancelled: () => boolean
+  localTaskMode: boolean
   active: boolean
 }): React.JSX.Element {
   const settings = useAppStore((s) => s.settings)
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDescription, setTaskDescription] = useState('')
+  const [taskError, setTaskError] = useState<string | null>(null)
+  const createTaskAfterWorkspace = useCallback((): void => {
+    if (!localTaskMode) {
+      onClose()
+      return
+    }
+    const description = taskDescription.trim()
+    if (!description) {
+      setTaskError('任务描述不能为空')
+      return
+    }
+    const state = useAppStore.getState()
+    const workspaceId = state.activeWorktreeId ?? 'local'
+    const workspace = state.activeWorktreeId
+      ? state.getKnownWorktreeById(
+          state.activeWorktreeId,
+          state.activeWorkspaceExecutionHostId ?? undefined
+        )
+      : null
+    void window.api.localTasks
+      .create({
+        projectId: state.activeRepoId ?? modalData.initialRepoId ?? 'local',
+        title: taskTitle.trim() || undefined,
+        description,
+        workspaceId,
+        workspaceLabel: workspace
+          ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
+          : 'local · 当前 HEAD'
+      })
+      .then((task) => {
+        const liveState = useAppStore.getState()
+        const tab = liveState.activeWorktreeId
+          ? liveState.tabsByWorktree[liveState.activeWorktreeId]?.find(
+              (candidate) => candidate.id === liveState.activeTabId
+            )
+          : null
+        if (!tab?.launchAgent || !liveState.activeTabId) {
+          onClose()
+          return
+        }
+        return window.api.localTasks
+          .createSession({
+            taskId: task.id,
+            sessionId: liveState.activeTabId,
+            title: `${tab.launchAgent} 会话`,
+            workspaceId
+          })
+          .then(onClose)
+      })
+      .catch((error: unknown) =>
+        setTaskError(error instanceof Error ? error.message : '本地任务创建失败')
+      )
+  }, [localTaskMode, modalData.initialRepoId, onClose, taskDescription, taskTitle])
   const {
     cardProps,
     composerRef,
@@ -142,7 +203,7 @@ function QuickTabBody({
     initialWorkspaceStatus: modalData.initialWorkspaceStatus,
     ...(modalData.initialBaseBranch ? { initialBaseBranch: modalData.initialBaseBranch } : {}),
     persistDraft: false,
-    onCreated: onClose,
+    onCreated: createTaskAfterWorkspace,
     isSubmissionCancelled,
     ...(modalData.telemetrySource ? { telemetrySource: modalData.telemetrySource } : {}),
     enableIssueAutomation: modalData.enableIssueAutomation === true,
@@ -187,8 +248,14 @@ function QuickTabBody({
   }, [])
 
   const handleCreate = useCallback(async (): Promise<void> => {
+    if (localTaskMode && !taskDescription.trim()) {
+      setTaskError('任务描述不能为空')
+      return
+    }
+    setTaskError(null)
     await submitQuick(quickAgent)
-  }, [quickAgent, submitQuick])
+  }, [localTaskMode, quickAgent, submitQuick, taskDescription])
+  const effectiveCreateDisabled = createDisabled || (localTaskMode && !taskDescription.trim())
   // Why: Add Project layers over the composer as a nested dialog instead of
   // replacing it in the activeModal slot — closing the composer mid-flow (and
   // losing the typed name/prompt) was the old, abrupt behavior. Once opened it
@@ -232,11 +299,13 @@ function QuickTabBody({
     (option) => option.id === cardProps.selectedProjectId
   )
   const isFolderWorkspaceTarget = selectedProjectOption?.kind === 'project-group'
-  const primaryActionLabel = isFolderWorkspaceTarget
-    ? getFolderWorkspacePrimaryActionLabel()
-    : cardProps.selectedRepoIsGit
-      ? translate('auto.components.NewWorkspaceComposerModal.createWorktree', 'Create worktree')
-      : translate('auto.components.NewWorkspaceComposerModal.createWorkspace', 'Create workspace')
+  const primaryActionLabel = modalData.localTaskMode
+    ? '创建任务'
+    : isFolderWorkspaceTarget
+      ? getFolderWorkspacePrimaryActionLabel()
+      : cardProps.selectedRepoIsGit
+        ? translate('auto.components.NewWorkspaceComposerModal.createWorktree', 'Create worktree')
+        : translate('auto.components.NewWorkspaceComposerModal.createWorkspace', 'Create workspace')
 
   // Cmd/Ctrl+Enter submits, Esc first blurs the focused input (like the full page).
   const nestedDialogOpen = agentSettingsOpen || addProjectOpen || setLocationOpen
@@ -280,7 +349,7 @@ function QuickTabBody({
       if (!shouldAllowComposerEnterSubmitTarget(target, composerRef.current)) {
         return
       }
-      if (createDisabled) {
+      if (effectiveCreateDisabled) {
         return
       }
       event.preventDefault()
@@ -288,18 +357,20 @@ function QuickTabBody({
     }
     window.addEventListener('keydown', onKeyDown, { capture: true })
     return () => window.removeEventListener('keydown', onKeyDown, { capture: true })
-  }, [active, composerRef, createDisabled, handleCreate, nestedDialogOpen, onDismiss])
+  }, [active, composerRef, effectiveCreateDisabled, handleCreate, nestedDialogOpen, onDismiss])
 
   return (
     <>
       <DialogHeader className="gap-1">
         <DialogTitle className="text-base font-semibold">
-          {isFolderWorkspaceTarget
-            ? translate(
-                'auto.components.sidebar.FolderWorkspaceComposerDialog.title',
-                'Create Folder Workspace'
-              )
-            : primaryActionLabel}
+          {modalData.localTaskMode
+            ? '创建本地任务'
+            : isFolderWorkspaceTarget
+              ? translate(
+                  'auto.components.sidebar.FolderWorkspaceComposerDialog.title',
+                  'Create Folder Workspace'
+                )
+              : primaryActionLabel}
         </DialogTitle>
         <DialogDescription className="sr-only">
           {translate(
@@ -308,6 +379,24 @@ function QuickTabBody({
           )}
         </DialogDescription>
       </DialogHeader>
+      {localTaskMode ? (
+        <div className="shrink-0 space-y-2 border-b border-border/70 px-2 pb-3">
+          <div className="text-xs font-semibold">本地任务</div>
+          <Input
+            value={taskTitle}
+            onChange={(event) => setTaskTitle(event.target.value)}
+            placeholder="任务标题（可选）"
+            className="h-8 text-xs"
+          />
+          <textarea
+            value={taskDescription}
+            onChange={(event) => setTaskDescription(event.target.value)}
+            placeholder="任务描述（必填，支持多行）"
+            className="min-h-20 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          {taskError ? <p className="text-xs text-destructive">{taskError}</p> : null}
+        </div>
+      ) : null}
       <NewWorkspaceComposerCard
         contextualTourSource={modalData.contextualTourSource}
         // Why: the scroll container clips children (overflow-y-auto forces overflow-x to auto),
@@ -321,6 +410,7 @@ function QuickTabBody({
         quickAgent={quickAgent}
         onQuickAgentChange={handleQuickAgentChange}
         {...cardProps}
+        createDisabled={effectiveCreateDisabled}
         primaryActionLabel={primaryActionLabel}
         onOpenAgentSettings={() => setAgentSettingsOpen(true)}
         onCreate={() => void handleCreate()}

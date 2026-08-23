@@ -1,7 +1,8 @@
-import { ArrowUpRight, Bot, Check, Clock3, GitBranch, MessageSquare, Pencil } from 'lucide-react'
+import { ArrowUpRight, Bot, Check, Clock3, GitBranch, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Subtask, WorkItem } from './mock-data'
+import { LocalTaskAgentPicker } from './LocalTaskAgentPicker'
 
 function StepStatus({ status }: { status: Subtask['steps'][number]['status'] }): React.JSX.Element {
   if (status === 'done' || status === 'canceled') {
@@ -87,7 +88,7 @@ export function DetailPanel({
   onEditStep,
   onOpenSession,
   onOpenWorkspace,
-  onCreateSession
+  onSessionStarted
 }: {
   item: WorkItem
   onCompleteSubtask: (subtaskId: string) => void
@@ -95,7 +96,7 @@ export function DetailPanel({
   onEditStep: (subtaskId: string, stepId: string) => void
   onOpenSession: (sessionId: string) => void
   onOpenWorkspace: () => void
-  onCreateSession: () => void
+  onSessionStarted: (tabId: string) => void
 }): React.JSX.Element {
   return (
     <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto px-5 py-5">
@@ -197,15 +198,7 @@ export function DetailPanel({
             </button>
           ))}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-2 h-7 w-full gap-1.5 text-[11px]"
-          onClick={onCreateSession}
-        >
-          <MessageSquare className="size-3.5" />
-          从任务中心新建关联会话
-        </Button>
+        <LocalTaskAgentPicker item={item} onStarted={onSessionStarted} />
       </section>
       <section className="mt-6">
         <h3 className="mb-2 text-xs font-semibold">Workspace</h3>

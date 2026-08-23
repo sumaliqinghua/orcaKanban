@@ -23,7 +23,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   archiveSelected: () => void
   openWorkspace: () => void
   openSession: (sessionId: string) => void
-  createRelatedSession: () => void
+  sessionStarted: (tabId: string) => void
   editStep: (subtaskId: string, stepId: string) => void
 } {
   const { selected, setItems, setSelectedId, setLoadError } = context
@@ -87,14 +87,29 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     activateTabAndFocusPane(sessionId, null)
     useAppStore.getState().closeWorkItemsPage()
   }
-  const createRelatedSession = (): void => {
+  const sessionStarted = (tabId: string): void => {
     if (!selected) {
       return
     }
+    const workspaceId =
+      selected.workspaceId === 'local'
+        ? (useAppStore.getState().activeWorktreeId ?? 'local')
+        : selected.workspaceId
     void window.api.localTasks
-      .createSession({ taskId: selected.id, title: '关联会话' })
+      .createSession({
+        taskId: selected.id,
+        sessionId: tabId,
+        title: 'Agent 会话',
+        workspaceId,
+        associationSource: 'task-center'
+      })
       .then(() => window.api.localTasks.get(selected.id))
-      .then((task) => task && replaceTask(setItems, task))
+      .then((task) => {
+        if (task) {
+          replaceTask(setItems, task)
+        }
+        useAppStore.getState().closeWorkItemsPage()
+      })
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '关联会话创建失败')
       )
@@ -117,7 +132,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     archiveSelected,
     openWorkspace,
     openSession,
-    createRelatedSession,
+    sessionStarted,
     editStep
   }
 }

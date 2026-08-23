@@ -13,7 +13,7 @@ export function LocalTaskDetailAside({
   onEditStep,
   onOpenSession,
   onOpenWorkspace,
-  onCreateSession,
+  onSessionStarted,
   onStatus,
   onAccept,
   onArchive
@@ -26,7 +26,7 @@ export function LocalTaskDetailAside({
   onEditStep: (subtaskId: string, stepId: string) => void
   onOpenSession: (sessionId: string) => void
   onOpenWorkspace: () => void
-  onCreateSession: () => void
+  onSessionStarted: (tabId: string) => void
   onStatus: (status: WorkItemStatus, waitingReason?: string) => void
   onAccept: () => void
   onArchive: () => void
@@ -34,9 +34,10 @@ export function LocalTaskDetailAside({
   if (!open) {
     return (
       <Button
+        type="button"
         variant="secondary"
         size="icon-sm"
-        className="fixed right-4 top-14 z-10 shadow-sm"
+        className="fixed right-4 top-14 z-30 flex size-9 shrink-0 items-center justify-center p-0 shadow-sm"
         onClick={() => onOpenChange(true)}
         aria-label="展开任务详情"
       >
@@ -50,9 +51,10 @@ export function LocalTaskDetailAside({
         <span className="font-mono text-[10px] text-muted-foreground">{item.id}</span>
         <StatusBadge status={item.status} />
         <Button
+          type="button"
           variant="ghost"
           size="icon-sm"
-          className="ml-auto"
+          className="ml-auto flex size-9 shrink-0 items-center justify-center p-0"
           onClick={() => onOpenChange(false)}
           aria-label="收起任务详情"
         >
@@ -66,7 +68,7 @@ export function LocalTaskDetailAside({
         onEditStep={onEditStep}
         onOpenSession={onOpenSession}
         onOpenWorkspace={onOpenWorkspace}
-        onCreateSession={onCreateSession}
+        onSessionStarted={onSessionStarted}
       />
       <LocalTaskActions item={item} onStatus={onStatus} onAccept={onAccept} onArchive={onArchive} />
     </aside>

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Archive, ChevronDown, Plus, Search, Sparkles, SquareArrowOutUpRight } from 'lucide-react'
+import { ChevronDown, Plus, Search, Sparkles, SquareArrowOutUpRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
+import { TOGGLE_WORKSPACE_BOARD_EVENT } from '@/components/sidebar/useWorkspaceBoardPanel'
 import type { LocalTask } from '../../../../shared/local-task-types'
 import type { WorkItem } from './mock-data'
 import { LocalTaskDetailAside } from './LocalTaskDetailAside'
@@ -11,27 +12,13 @@ import { LocalTaskCenterHeader } from './LocalTaskCenterHeader'
 import { createLocalTaskCenterActions } from './local-task-center-actions'
 import { BoardView, ListView, SubtaskBoardView, SubtaskListView } from './work-item-views'
 import { localTaskToViewModel } from './local-task-view-model'
-import { LocalTaskCreateDialog } from './LocalTaskCreateDialog'
 
 type ViewMode = 'board' | 'list'
 type BoardPerspective = 'subtasks' | 'tasks'
 
 export default function WorkItemsPrototypePage(): React.JSX.Element {
   const activeRepoId = useAppStore((state) => state.activeRepoId)
-  const activeWorktreeId = useAppStore((state) => state.activeWorktreeId)
-  const activeWorktree = useAppStore((state) =>
-    state.activeWorktreeId
-      ? state.getKnownWorktreeById(
-          state.activeWorktreeId,
-          state.activeWorkspaceExecutionHostId ?? undefined
-        )
-      : null
-  )
   const createProjectId = activeRepoId ?? 'local'
-  const createWorkspaceId = activeWorktreeId ?? 'local'
-  const createWorkspaceLabel = activeWorktree
-    ? `${activeWorktree.displayName} · ${activeWorktree.branch || `HEAD ${activeWorktree.head.slice(0, 7)}`}`
-    : 'local · 当前 HEAD'
   const [items, setItems] = useState<WorkItem[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -40,10 +27,20 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const [perspective, setPerspective] = useState<BoardPerspective>('subtasks')
   const [tab, setTab] = useState<'work-items' | 'external'>('work-items')
   const [query, setQuery] = useState('')
-  const [showCreate, setShowCreate] = useState(false)
   const [detailOpen, setDetailOpen] = useState(true)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
+  const openTaskComposer = (): void => {
+    useAppStore.getState().openModal('new-workspace-composer', {
+      localTaskMode: true,
+      ...(createProjectId !== 'local' ? { initialRepoId: createProjectId } : {}),
+      telemetrySource: 'sidebar'
+    })
+  }
+  const openWorkspaceBoard = (): void => {
+    useAppStore.getState().closeWorkItemsPage()
+    window.dispatchEvent(new CustomEvent(TOGGLE_WORKSPACE_BOARD_EVENT))
+  }
   const loadTasks = useCallback(async (): Promise<void> => {
     setLoading(true)
     try {
@@ -100,15 +97,6 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '本地任务更新失败')
       )
-    if (updates.status === 'In progress' && selected.sessions === 0) {
-      void window.api.localTasks
-        .createSession({ taskId: selected.id, title: '自动创建会话' })
-        .catch(() => undefined)
-    }
-  }
-  const onTaskCreated = (task: WorkItem): void => {
-    setItems((current) => [task, ...current.filter((item) => item.id !== task.id)])
-    setSelectedId(task.id)
   }
   const taskActions = createLocalTaskCenterActions({
     selected,
@@ -172,33 +160,28 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
             <h1 className="text-[15px] font-semibold tracking-tight">任务中心</h1>
             <p className="text-[11px] text-muted-foreground">本地任务</p>
           </div>
-          <Button className="ml-auto gap-1.5 text-xs" onClick={() => setShowCreate(true)}>
+          <Button className="ml-auto gap-1.5 text-xs" onClick={openTaskComposer}>
             <Plus className="size-3.5" />
             新建本地任务
           </Button>
         </header>
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-xs text-muted-foreground">
           <p>还没有本地任务</p>
-          <Button variant="outline" size="sm" onClick={() => setShowCreate(true)}>
+          <Button variant="outline" size="sm" onClick={openTaskComposer}>
             <Plus className="size-3.5" />
             新建本地任务
           </Button>
         </div>
-        <LocalTaskCreateDialog
-          open={showCreate}
-          onOpenChange={setShowCreate}
-          onCreated={onTaskCreated}
-          projectId={createProjectId}
-          workspaceId={createWorkspaceId}
-          workspaceLabel={createWorkspaceLabel}
-        />
       </div>
     )
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-      <LocalTaskCenterHeader onCreate={() => setShowCreate(true)} />
+      <LocalTaskCenterHeader
+        onCreate={openTaskComposer}
+        onOpenWorkspaceBoard={openWorkspaceBoard}
+      />
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-5 border-b border-border px-6 pt-3">
           <button
@@ -302,9 +285,6 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
                   列表
                 </Button>
               </div>
-              <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
-                <Archive className="size-4" />
-              </Button>
             </div>
             {viewMode === 'board' && perspective === 'subtasks' ? (
               <SubtaskBoardView
@@ -332,7 +312,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
                   setSelectedId(id)
                   setDetailOpen(true)
                 }}
-                onQuickCreate={() => setShowCreate(true)}
+                onQuickCreate={openTaskComposer}
               />
             ) : (
               <ListView
@@ -344,7 +324,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
                 }}
                 expandedIds={expandedIds}
                 onToggleExpanded={toggleExpanded}
-                onQuickCreate={() => setShowCreate(true)}
+                onQuickCreate={openTaskComposer}
               />
             )}
           </>
@@ -359,18 +339,10 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         onEditStep={taskActions.editStep}
         onOpenSession={taskActions.openSession}
         onOpenWorkspace={taskActions.openWorkspace}
-        onCreateSession={taskActions.createRelatedSession}
+        onSessionStarted={taskActions.sessionStarted}
         onStatus={(status, waitingReason) => updateSelected({ status, waitingReason })}
         onAccept={taskActions.acceptSelected}
         onArchive={taskActions.archiveSelected}
-      />
-      <LocalTaskCreateDialog
-        open={showCreate}
-        onOpenChange={setShowCreate}
-        onCreated={onTaskCreated}
-        projectId={createProjectId}
-        workspaceId={createWorkspaceId}
-        workspaceLabel={createWorkspaceLabel}
       />
     </div>
   )

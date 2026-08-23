@@ -18,7 +18,7 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - workspace 关系：一个任务最多一个 workspace，一个 workspace 可关联多个任务；创建时使用当前 workspace，没有可选 workspace 时使用 `local + 当前 HEAD`。
 - 会话关系：一个任务多个会话；指定 session ID 只能关联一个任务；详情可创建关联会话。
 - 子任务/步骤：默认子任务视角和可切换的任务视角；列表可展开子任务及 AI 执行步骤；用户完成子任务，AI 更新步骤。
-- 生命周期：In progress 自动创建关联会话；Waiting 必须有原因；AI 完成且步骤完成/取消后进入 Needs review；用户验收后进入 Done；任务可归档和恢复。
+- 生命周期：任务进入 In progress 后，在会话数为 0 时通过现有 Agent 菜单启动真实会话；Waiting 必须有原因；AI 完成且步骤完成/取消后进入 Needs review；用户验收后进入 Done；任务可归档和恢复。
 - 标题规则：创建时无自定义标题取描述第一行；首次 AI 完成可生成一次标题；用户编辑后 AI 只更新描述。
 - 详情交互：标题编辑、会话最后输出、workspace/session 跳转入口、详情抽屉收起和空状态创建。
 - 持久化与验证：WAL、外键、busy timeout、schema version、旧库字段迁移、zod IPC 参数校验、任务变更广播。

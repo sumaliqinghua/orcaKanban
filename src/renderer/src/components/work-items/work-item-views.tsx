@@ -46,8 +46,17 @@ export function ListView({
           return (
             <div key={item.id} className="border-b border-border/70 last:border-0">
               <div
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect(item.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onSelect(item.id)
+                  }
+                }}
                 className={cn(
-                  'grid w-full grid-cols-[28px_minmax(232px,1fr)_140px_220px_100px] items-center px-4 py-3 hover:bg-accent',
+                  'grid min-h-12 w-full grid-cols-[28px_minmax(232px,1fr)_140px_220px_100px] items-center px-4 py-3 hover:bg-accent',
                   item.id === selected.id && 'bg-accent/60'
                 )}
               >
@@ -55,21 +64,17 @@ export function ListView({
                   variant="ghost"
                   size="icon-xs"
                   className="size-6"
-                  onClick={() => onToggleExpanded(item.id)}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onToggleExpanded(item.id)
+                  }}
                   aria-label={expanded ? '收起子任务' : '展开子任务'}
                 >
                   <ChevronRight
                     className={cn('size-3.5 transition-transform', expanded && 'rotate-90')}
                   />
                 </Button>
-                <button
-                  type="button"
-                  onClick={() => onSelect(item.id)}
-                  className="flex min-w-0 items-center gap-2 text-left"
-                >
-                  <span className="font-mono text-[10px] text-muted-foreground">{item.id}</span>
-                  <span className="truncate text-xs font-medium">{item.title}</span>
-                </button>
+                <span className="min-w-0 truncate text-left text-xs font-medium">{item.title}</span>
                 <span>
                   <StatusBadge status={getTaskPerspectiveStatus(item)} />
                 </span>
@@ -187,7 +192,6 @@ export function SubtaskListView({
               )}
             >
               <span className="flex min-w-0 items-center gap-2">
-                <span className="font-mono text-[10px] text-muted-foreground">{subtask.id}</span>
                 <span className="truncate text-xs font-medium">{subtask.title}</span>
               </span>
               <span>
