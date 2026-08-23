@@ -28,6 +28,7 @@ import { translate } from '@/i18n/i18n'
 import { getWorkspaceComposerInitialFocusTarget } from '@/lib/workspace-composer-initial-focus'
 import { getFolderWorkspacePrimaryActionLabel } from '@/components/sidebar/folder-workspace-composer-helpers'
 import { Input } from '@/components/ui/input'
+import type { WorktreeCreationCompletion } from '@/lib/worktree-creation-completion'
 
 // Why: match App-level AddRepoDialog loading — the add flow is off the hot
 // path for the composer, so keep its clone/SSH machinery out of the entry render.
@@ -129,58 +130,60 @@ function QuickTabBody({
   const [taskTitle, setTaskTitle] = useState('')
   const [taskDescription, setTaskDescription] = useState('')
   const [taskError, setTaskError] = useState<string | null>(null)
-  const createTaskAfterWorkspace = useCallback((): void => {
-    if (!localTaskMode) {
-      onClose()
-      return
-    }
-    const description = taskDescription.trim()
-    if (!description) {
-      setTaskError('任务描述不能为空')
-      return
-    }
-    const state = useAppStore.getState()
-    const workspaceId = state.activeWorktreeId ?? 'local'
-    const workspace = state.activeWorktreeId
-      ? state.getKnownWorktreeById(
-          state.activeWorktreeId,
-          state.activeWorkspaceExecutionHostId ?? undefined
-        )
-      : null
-    void window.api.localTasks
-      .create({
-        projectId: state.activeRepoId ?? modalData.initialRepoId ?? 'local',
-        title: taskTitle.trim() || undefined,
-        description,
-        workspaceId,
-        workspaceLabel: workspace
-          ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
-          : 'local · 当前 HEAD'
-      })
-      .then((task) => {
-        const liveState = useAppStore.getState()
-        const tab = liveState.activeWorktreeId
-          ? liveState.tabsByWorktree[liveState.activeWorktreeId]?.find(
-              (candidate) => candidate.id === liveState.activeTabId
+  const createTaskAfterWorkspace = useCallback(
+    (completion?: WorktreeCreationCompletion): void => {
+      if (!localTaskMode) {
+        onClose()
+        return
+      }
+      const description = taskDescription.trim()
+      if (!description) {
+        setTaskError('任务描述不能为空')
+        return
+      }
+      const state = useAppStore.getState()
+      const workspaceId = completion?.worktreeId ?? state.activeWorktreeId ?? 'local'
+      const workspace =
+        workspaceId === 'local'
+          ? null
+          : state.getKnownWorktreeById(
+              workspaceId,
+              state.activeWorkspaceExecutionHostId ?? undefined
             )
-          : null
-        if (!tab?.launchAgent || !liveState.activeTabId) {
-          onClose()
-          return
-        }
-        return window.api.localTasks
-          .createSession({
-            taskId: task.id,
-            sessionId: liveState.activeTabId,
-            title: `${tab.launchAgent} 会话`,
-            workspaceId
-          })
-          .then(onClose)
-      })
-      .catch((error: unknown) =>
-        setTaskError(error instanceof Error ? error.message : '本地任务创建失败')
-      )
-  }, [localTaskMode, modalData.initialRepoId, onClose, taskDescription, taskTitle])
+      const sessionId = completion?.primaryTabId ?? completion?.startupTerminalTabId ?? null
+      const sessionTab = sessionId
+        ? state.tabsByWorktree[workspaceId]?.find((candidate) => candidate.id === sessionId)
+        : null
+      void window.api.localTasks
+        .create({
+          projectId: workspace?.repoId ?? state.activeRepoId ?? modalData.initialRepoId ?? 'local',
+          title: taskTitle.trim() || undefined,
+          description,
+          workspaceId,
+          workspaceLabel: workspace
+            ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
+            : 'local · 当前 HEAD'
+        })
+        .then((task) => {
+          if (!sessionTab?.launchAgent || !sessionId) {
+            onClose()
+            return
+          }
+          return window.api.localTasks
+            .createSession({
+              taskId: task.id,
+              sessionId,
+              title: `${sessionTab.launchAgent} 会话`,
+              workspaceId
+            })
+            .then(onClose)
+        })
+        .catch((error: unknown) =>
+          setTaskError(error instanceof Error ? error.message : '本地任务创建失败')
+        )
+    },
+    [localTaskMode, modalData.initialRepoId, onClose, taskDescription, taskTitle]
+  )
   const {
     cardProps,
     composerRef,
@@ -204,6 +207,8 @@ function QuickTabBody({
     ...(modalData.initialBaseBranch ? { initialBaseBranch: modalData.initialBaseBranch } : {}),
     persistDraft: false,
     onCreated: createTaskAfterWorkspace,
+    ...(localTaskMode ? { onBackgroundCreated: createTaskAfterWorkspace } : {}),
+    ...(localTaskMode ? { useCurrentHead: true } : {}),
     isSubmissionCancelled,
     ...(modalData.telemetrySource ? { telemetrySource: modalData.telemetrySource } : {}),
     enableIssueAutomation: modalData.enableIssueAutomation === true,

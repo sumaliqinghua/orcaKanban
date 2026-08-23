@@ -25,6 +25,13 @@ export function LocalTaskAgentPicker({
       : undefined
   )
   const label = item.sessions === 0 ? '启动任务' : '从任务中心新建关联会话'
+  const taskPrompt = [
+    `你正在处理 Orca 本地任务：${item.title}`,
+    `任务 ID：${item.id}`,
+    `任务描述：${item.description}`,
+    '',
+    '请把本轮工作绑定到这个任务：先读取任务上下文；需要拆分工作时创建或更新子任务和 AI 执行步骤；完成本轮后写入最后输出并报告完成状态。不要创建新的顶层任务。'
+  ].join('\n')
 
   return (
     <DropdownMenu>
@@ -44,7 +51,7 @@ export function LocalTaskAgentPicker({
           <QuickLaunchAgentMenuItems
             worktreeId={worktreeId}
             groupId={activeGroupId}
-            prompt={item.description}
+            prompt={taskPrompt}
             launchSource="task_page"
             onFocusTerminal={onStarted}
           />

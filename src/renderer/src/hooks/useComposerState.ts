@@ -16,6 +16,7 @@ import {
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import type { AgentStartedTelemetry } from '@/lib/worktree-startup-payload'
 import { runBackgroundWorktreeCreation } from '@/lib/worktree-creation-flow'
+import type { WorktreeCreationCompletion } from '@/lib/worktree-creation-completion'
 import {
   findPendingLinkedWorkItemCreationId,
   type WorktreeCreationRequest
@@ -259,7 +260,11 @@ export type UseComposerStateOptions = {
   /** The full-page composer persists drafts across navigation; the transient quick-composer modal must not clobber that draft. */
   persistDraft: boolean
   /** Invoked after a successful createWorktree; the caller usually closes its surface (palette modal, full page, etc.). */
-  onCreated?: () => void
+  onCreated?: (completion?: WorktreeCreationCompletion) => void
+  /** Receives the actual workspace/tab after quick background creation completes. */
+  onBackgroundCreated?: (completion: WorktreeCreationCompletion) => void
+  /** Uses the current HEAD as the worktree base without fetching a named branch. */
+  useCurrentHead?: boolean
   isSubmissionCancelled?: () => boolean
   /** External repoId override — used by TaskPage's work-item list, which drives repo selection from the page header, not the card. */
   repoIdOverride?: string
@@ -610,6 +615,8 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     initialBaseBranch,
     persistDraft,
     onCreated,
+    onBackgroundCreated,
+    useCurrentHead = false,
     isSubmissionCancelled = NEVER_CANCEL_COMPOSER_SUBMIT,
     repoIdOverride,
     onRepoIdOverrideChange,
@@ -1938,7 +1945,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
   const prefetchSshConnectedGeneration =
     selectedRepoConnectionId && selectedRepoSshStatus === 'connected' ? sshConnectedGeneration : 0
   useEffect(() => {
-    if (!repoId || !selectedRepoIsGit || !canPrefetchSelectedRepoWorkItems) {
+    if (useCurrentHead || !repoId || !selectedRepoIsGit || !canPrefetchSelectedRepoWorkItems) {
       return
     }
     void prefetchWorktreeCreateBase(repoId, baseBranch)
@@ -1948,7 +1955,8 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     prefetchSshConnectedGeneration,
     prefetchWorktreeCreateBase,
     repoId,
-    selectedRepoIsGit
+    selectedRepoIsGit,
+    useCurrentHead
   ])
   useEffect(() => {
     if (!selectedRepoIsGit || !selectedRepo?.path || !canPrefetchSelectedRepoWorkItems) {
@@ -3891,7 +3899,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       const result = await createWorktree(
         repoId,
         workspaceName,
-        selectedRepoIsGit ? submitBaseBranch : undefined,
+        selectedRepoIsGit && !useCurrentHead ? submitBaseBranch : undefined,
         effectiveSetupDecision,
         selectedRepoIsGit && sparseEnabled
           ? {
@@ -4073,6 +4081,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     workspaceSeedName,
     fallbackCreatureName,
     isProjectGroupTarget,
+    useCurrentHead,
     submitFolderTarget
   ])
 
@@ -4364,7 +4373,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
             smartGitHubResolution.kind === 'none' && smartNameMode === 'branches'
         })
         const baseBranchSettlement = await settleComposerSubmit(
-          selectedRepoIsGit
+          selectedRepoIsGit && !useCurrentHead
             ? resolveWorktreeCreateBaseBranch({ explicitBaseBranch: smartSubmitBaseBranch })
             : Promise.resolve(undefined),
           isSubmissionCancelled
@@ -4544,7 +4553,9 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
           name: workspaceName,
           ...(nameWasGenerated ? { nameWasGenerated: true } : {}),
           ...(createDisplayName ? { displayName: createDisplayName } : {}),
-          ...(selectedRepoIsGit && submitBaseBranch ? { baseBranch: submitBaseBranch } : {}),
+          ...(selectedRepoIsGit && !useCurrentHead && submitBaseBranch
+            ? { baseBranch: submitBaseBranch }
+            : {}),
           ...(selectedRepoIsGit && submitCompareBaseRef
             ? { compareBaseRef: submitCompareBaseRef }
             : {}),
@@ -4597,11 +4608,11 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
         if (persistDraft) {
           clearNewWorkspaceDraft()
         }
-        runBackgroundWorktreeCreation(request)
+        runBackgroundWorktreeCreation(request, onBackgroundCreated)
         if (createMultiple) {
           // Why: creation runs in the background, so reset identity to queue another worktree right away.
           resetForNextCreate()
-        } else {
+        } else if (!onBackgroundCreated) {
           onCreated?.()
         }
       } catch (error) {
@@ -4632,6 +4643,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       name,
       normalizedSparseDirectories,
       note,
+      onBackgroundCreated,
       onCreated,
       parsedLinkedIssueNumber,
       persistSetupAgentStartupPolicy,
@@ -4680,7 +4692,8 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       isProjectGroupTarget,
       submitFolderTarget,
       createMultiple,
-      resetForNextCreate
+      resetForNextCreate,
+      useCurrentHead
     ]
   )
 
