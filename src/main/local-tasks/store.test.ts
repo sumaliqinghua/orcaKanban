@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -61,6 +61,68 @@ describe('LocalTaskStore file-first persistence', () => {
       expect.arrayContaining([first.id, second.id])
     )
     secondStore.close()
+  })
+
+  it('normalizes Completed task files and falls back to plan subtasks', () => {
+    const root = projectPath()
+    const taskId = 'lt_legacy-completed'
+    const directory = join(root, 'orca', taskId)
+    const task = {
+      schemaVersion: 1,
+      id: taskId,
+      projectId: 'orca',
+      projectPath: root,
+      title: '资源文档',
+      description: '整理资源调用方式',
+      status: 'Completed',
+      workspaceId: 'wt-1',
+      workspaceLabel: '主 workspace',
+      createdAt: 1,
+      updatedAt: 2,
+      archivedAt: null,
+      titleSource: 'first-line',
+      titleSuggestion: null,
+      subtasks: [],
+      sessions: [
+        {
+          id: 'session-1',
+          taskId,
+          workspaceId: 'wt-1',
+          title: '文档会话',
+          status: 'completed',
+          latestOutput: '完成',
+          createdAt: 1,
+          updatedAt: 2,
+          associationSource: 'task-center'
+        }
+      ],
+      latestOutput: '完成',
+      waitingReason: null
+    }
+    mkdirSync(directory, { recursive: true })
+    writeFileSync(join(directory, 'task.json'), `${JSON.stringify(task)}\n`, 'utf8')
+    writeFileSync(
+      join(directory, 'plan.json'),
+      JSON.stringify({
+        subtasks: [
+          {
+            id: 'sub-1',
+            title: '整理入口',
+            status: 'done',
+            steps: [{ id: 'step-1', title: '核对调用方式', status: 'done' }]
+          }
+        ]
+      }),
+      'utf8'
+    )
+
+    const store = new LocalTaskStore()
+    const loaded = store.list('orca', root)[0]!
+    expect(loaded.status).toBe('Needs review')
+    expect(loaded.sessions[0]?.status).toBe('done')
+    expect(loaded.latestOutput?.text).toBe('完成')
+    expect(loaded.subtasks[0]?.steps[0]?.status).toBe('done')
+    store.close()
   })
 
   it('tracks sessions, subtasks and steps, then enters review only when work is done', () => {

@@ -98,6 +98,12 @@
 - [x] 5.6 接入 session-bound Agent task bridge
   - **执行步骤**：为任务 Agent 注入 `ORCA_LOCAL_TASK_ID`；通过 `orca local-task` CLI 调用 runtime RPC；在主进程复用 `LocalTaskStore` 完成 current、描述、子任务、步骤和完成报告；校验当前 session/workspace 归属并广播变更。
   - **验收标准**：从任务中心启动的 Agent 能读取当前任务、创建子任务、更新 AI 步骤和报告完成；跨任务、跨 workspace 或已开始步骤标题修改被拒绝；首次调用可幂等登记真实 tab。
+- [x] 5.7 关联会话使用用户本轮请求
+  - **执行步骤**：已有会话时打开输入对话框，用户填写本轮独立请求后再选择 Agent；以该请求作为新会话 prompt 和会话标题；仅注入一次简短任务上下文和渐进式 CLI 帮助。
+  - **验收标准**：新会话不重复发送原任务描述；空请求不能启动；用户输入可以是方案咨询、代码 review 或修正要求。
+- [x] 5.8 兼容外部 AI 任务文件
+  - **执行步骤**：读取时将 `Completed` 映射到 `Needs review`，归一化旧会话状态和字符串 latest output；任务 JSON 没有子任务时读取同目录 `plan.json` 的子任务和步骤。
+  - **验收标准**：外部 AI 修改后的任务文件不会让任务中心崩溃；状态可继续验收；不覆盖原始文件。
 
 ## 阶段 6：测试与交付
 

@@ -23,6 +23,8 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - 详情交互：标题编辑、会话最后输出、workspace/session 跳转入口、详情抽屉收起和空状态创建。
 - 持久化与验证：任务目录初始化、原子 JSON 写入、文件监听、zod IPC 参数校验、任务变更广播。
 - Agent 任务桥接：从任务中心启动的 Agent shell 带有任务 ID；内置 `orca local-task` CLI 通过 runtime RPC 读取和更新当前任务、子任务、AI 执行步骤，并报告本轮最后输出。
+- 关联会话：已有任务会话时，用户先输入本轮独立请求，再选择 Agent；该请求作为新会话内容和会话标题，不再重复发送原任务提示。
+- 文件兼容：任务读取兼容 AI 写入的 `Completed` 状态、`completed` 会话状态、字符串总结，以及只在 `plan.json` 中保存的子任务计划，并统一映射到任务面板模型。
 
 ## 当前进度
 
@@ -33,6 +35,7 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 
 - Agent CLI 依赖从任务中心启动的终端环境变量；直接从 workspace 启动的会话不会自动归属本地任务，需从任务中心显式关联。
 - provider hook 尚未自动解析每条模型输出并更新步骤；Agent 需要按启动提示主动执行 `orca local-task` 命令。
+- 旧的已运行生产 Orca 进程可能仍使用不含 `local-task` 的 CLI；重启新的 `pnpm dev` 后会先构建 CLI。Agent 提示保留直接读取 `orca/<task-id>/task.json` 的兜底路径。
 - workspace/Agent Dashboard 尚未增加反向“打开本地任务”入口。
 - 文件锁和同 workspace 并行写入租约按用户决定后置。
 - 全仓库 Node TypeScript 检查仍有既有 `ui-state-schema-parity-checks.ts` 类型错误；本地任务相关定向检查通过。

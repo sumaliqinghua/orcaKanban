@@ -26,7 +26,7 @@ export function LocalTaskDetailAside({
   onEditStep: (subtaskId: string, stepId: string) => void
   onOpenSession: (sessionId: string) => void
   onOpenWorkspace: () => void
-  onSessionStarted: (tabId: string) => void
+  onSessionStarted: (tabId: string, request: string) => void
   onStatus: (status: WorkItemStatus, waitingReason?: string) => void
   onAccept: () => void
   onArchive: () => void

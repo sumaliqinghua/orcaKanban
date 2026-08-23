@@ -225,3 +225,18 @@
   - 任务状态查看不再依赖 `~/Library/Application Support/orca-dev/local-tasks.db`。
 - **已知限制**：当前只扫描任务中心选中的本地项目路径；远程 SSH 项目的文件写入和跨项目全局索引仍是后置能力。
 - **关联假设**：`ASSUMPTIONS.md` 的“任务上下文跟随项目文件”和“Agent 通过当前会话绑定任务工具”。
+## [2026-08-23] 修正关联会话输入与外部任务文件兼容
+- **What（做了什么）**：
+  - `LocalTaskAgentPicker.tsx`：首次启动任务仍直接选择 Agent；已有会话时先打开输入框，用户填写本轮独立请求，再选择 Agent；prompt 只保留任务标题/ID/描述、用户请求、`current`/`--help` 渐进式提示和直接读取 `task.json` 的兜底，不再重复发送整套命令清单或共享项目状态文件说明。
+  - `local-task-center-actions.ts` 及详情面板类型：会话创建时把用户请求作为会话标题，并把项目路径传入文件 Store。
+  - `file-store-format.ts`：兼容外部 AI 写入的 `Completed` 状态、`completed` 会话、字符串 latest output；任务 JSON 没有子任务时从 `plan.json` 投影已完成子任务和步骤。
+  - `store.test.ts`：增加真实问题形状的回归测试，验证任务中心能继续显示待验收、已完成会话、最近输出和 plan 步骤。
+  - `package.json` 已在前一提交中让 `pnpm dev` 启动前构建 CLI；本轮验证 `orca local-task --help` 和 `current --help` 均可用。
+- **Why（为什么这么做）**：
+  - 追问、方案讨论和代码 review 是当前任务下的新会话请求，不应复制原始任务 prompt；用户必须能表达这一次具体想让 AI 做什么。
+  - Agent 不需要一次记住所有命令，先读任务、需要操作时再查帮助；CLI 暂时不可用时仍可直接读取项目任务文件。
+  - 项目文件可能由其他 AI 直接修改，任务中心应容忍等价状态表达，不因一个非正式枚举值让整个任务列表不可用。
+- **How（怎么实现的）**：
+  - 关联会话：任务详情 → 输入本轮请求 → 选择 Agent → prompt 注入用户请求 →真实 tab → 以请求首行创建会话标题。
+  - 文件读取：`task.json` → 状态/会话/输出归一化 → 若 subtasks 为空则读取 `plan.json` → 任务面板快照。
+- **已知限制**：已经运行的旧生产 Orca 进程仍可能使用旧 CLI，必须重启新的 `pnpm dev` 实例；文件格式兼容只在读取时归一化，不回写用户原文件。

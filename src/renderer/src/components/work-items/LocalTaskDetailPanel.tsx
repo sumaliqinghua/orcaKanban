@@ -96,7 +96,7 @@ export function DetailPanel({
   onEditStep: (subtaskId: string, stepId: string) => void
   onOpenSession: (sessionId: string) => void
   onOpenWorkspace: () => void
-  onSessionStarted: (tabId: string) => void
+  onSessionStarted: (tabId: string, request: string) => void
 }): React.JSX.Element {
   return (
     <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto px-5 py-5">

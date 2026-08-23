@@ -17,6 +17,7 @@
 | 2026-08-23 | v1.1 | 增加 workspace 下拉选择；任务可绑定当前项目已有 workspace，选择“新建 workspace”后再进入第二步创建表单。 |
 | 2026-08-23 | v1.2 | 增加 session-bound Agent CLI/RPC 工具桥接；Agent 可读取任务、维护子任务/执行步骤并报告完成，所有操作按当前会话和 workspace 校验。 |
 | 2026-08-23 | v1.3 | 改为项目文件优先：`orca/<task-id>/task.json` 是任务真相，初始化 `plan.json`、`prd.md`、`records.md`；不迁移旧测试数据库，不自动维护共享 `project_status.md`。 |
+| 2026-08-23 | v1.4 | 关联会话改为先输入用户本轮请求；Agent 命令提示改为渐进式帮助和文件兜底；兼容外部 AI 写入的 `Completed`、旧会话状态和 plan-only 任务文件。 |
 
 历史版本中的“研发事项”“事项中心”“跟进项”“WorkItem”仅用于追溯，不再是当前产品名或数据模型。
 

@@ -23,7 +23,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   archiveSelected: () => void
   openWorkspace: () => void
   openSession: (sessionId: string) => void
-  sessionStarted: (tabId: string) => void
+  sessionStarted: (tabId: string, request: string) => void
   editStep: (subtaskId: string, stepId: string) => void
 } {
   const { selected, setItems, setSelectedId, setLoadError } = context
@@ -87,7 +87,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     activateTabAndFocusPane(sessionId, null)
     useAppStore.getState().closeWorkItemsPage()
   }
-  const sessionStarted = (tabId: string): void => {
+  const sessionStarted = (tabId: string, request: string): void => {
     if (!selected) {
       return
     }
@@ -98,8 +98,9 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     void window.api.localTasks
       .createSession({
         taskId: selected.id,
+        projectPath: selected.projectPath,
         sessionId: tabId,
-        title: 'Agent 会话',
+        title: request.split(/\r?\n/, 1)[0]?.trim().slice(0, 120) || 'Agent 会话',
         workspaceId,
         associationSource: 'task-center'
       })
