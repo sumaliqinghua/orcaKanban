@@ -390,6 +390,8 @@ function QuickTabBody({
         onQuickAgentChange={handleQuickAgentChange}
         {...cardProps}
         taskMode={localTaskMode && !creatingTaskWorkspace}
+        showCreateMultiple={localTaskMode ? false : cardProps.showCreateMultiple}
+        createMultiple={localTaskMode ? false : cardProps.createMultiple}
         createDisabled={effectiveCreateDisabled}
         primaryActionLabel={primaryActionLabel}
         onOpenAgentSettings={() => setAgentSettingsOpen(true)}
