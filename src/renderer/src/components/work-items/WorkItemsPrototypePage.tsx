@@ -389,6 +389,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         onStatus={(status, waitingReason) => updateSelected({ status, waitingReason })}
         onAccept={taskActions.acceptSelected}
         onArchive={taskActions.archiveSelected}
+        onPromote={taskActions.promoteSelected}
       />
     </div>
   )

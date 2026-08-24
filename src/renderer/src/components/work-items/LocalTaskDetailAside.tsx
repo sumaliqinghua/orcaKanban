@@ -62,7 +62,8 @@ export function LocalTaskDetailAside({
   onSessionStarted,
   onStatus,
   onAccept,
-  onArchive
+  onArchive,
+  onPromote
 }: {
   item: WorkItem
   open: boolean
@@ -76,6 +77,7 @@ export function LocalTaskDetailAside({
   onStatus: (status: WorkItemStatus, waitingReason?: string) => void
   onAccept: () => void
   onArchive: () => void
+  onPromote: () => void
 }): React.JSX.Element {
   const [embeddedSessionId, setEmbeddedSessionId] = useState<string | null>(null)
   useEffect(() => {
@@ -130,6 +132,7 @@ export function LocalTaskDetailAside({
             onStatus={onStatus}
             onAccept={onAccept}
             onArchive={onArchive}
+            onPromote={onPromote}
           />
         </div>
         {embeddedSessionId ? (

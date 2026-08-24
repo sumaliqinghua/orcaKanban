@@ -32,16 +32,22 @@ export function LocalTaskActions({
   item,
   onStatus,
   onAccept,
-  onArchive
+  onArchive,
+  onPromote
 }: {
   item: WorkItem
   onStatus: (status: WorkItemStatus, waitingReason?: string) => void
   onAccept: () => void
   onArchive: () => void
+  onPromote: () => void
 }): React.JSX.Element {
   return (
     <div className="flex shrink-0 gap-2 border-t border-border bg-background px-5 py-3">
-      {item.status === 'Needs review' ? (
+      {item.intakeState === 'inbox' ? (
+        <Button className="flex-1 gap-1.5 text-xs" onClick={onPromote}>
+          整理为可执行
+        </Button>
+      ) : item.status === 'Needs review' ? (
         <Button className="flex-1 gap-1.5 text-xs" onClick={onAccept}>
           验收通过
         </Button>

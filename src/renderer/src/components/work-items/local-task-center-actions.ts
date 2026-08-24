@@ -21,6 +21,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   editLabels: (labels: string[]) => void
   acceptSelected: () => void
   archiveSelected: () => void
+  promoteSelected: () => void
   openWorkspace: () => void
   sessionStarted: (tabId: string, request: string) => void
   editStep: (subtaskId: string, stepId: string) => void
@@ -75,6 +76,17 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       })
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务归档失败')
+      )
+  }
+  const promoteSelected = (): void => {
+    if (!selected || selected.intakeState !== 'inbox') {
+      return
+    }
+    void window.api.localTasks
+      .update({ taskId: selected.id, updates: { intakeState: 'ready' } })
+      .then((task) => replaceTask(setItems, task))
+      .catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : '任务整理状态更新失败')
       )
   }
   const openWorkspace = (): void => {
@@ -134,6 +146,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     editLabels,
     acceptSelected,
     archiveSelected,
+    promoteSelected,
     openWorkspace,
     sessionStarted,
     editStep
