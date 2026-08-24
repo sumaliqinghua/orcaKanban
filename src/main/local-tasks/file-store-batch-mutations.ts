@@ -25,18 +25,40 @@ export function startBatch(
   const seen = new Set<string>()
 
   for (const ref of refs) {
-    const task = store.requireTask(ref.taskId, ref.projectPath)
+    let task = store.requireTask(ref.taskId, ref.projectPath)
+    const staleQueuedRun =
+      task.executionState === 'queued' && task.executionRunId
+        ? task.runs.find((run) => run.id === task.executionRunId && run.status === 'queued')
+        : undefined
     if (
       seen.has(task.id) ||
       task.archivedAt !== null ||
       task.status !== 'Open' ||
       task.intakeState !== 'ready' ||
-      task.executionState === 'queued' ||
       task.executionState === 'running'
     ) {
       continue
     }
     seen.add(task.id)
+    if (staleQueuedRun) {
+      task = store.writeTask({
+        ...task,
+        executionState: 'idle',
+        executionBatchId: null,
+        executionRunId: null,
+        runs: task.runs.map((run) =>
+          run.id === staleQueuedRun.id
+            ? {
+                ...run,
+                status: 'failed' as const,
+                error: '批次在任务启动前中断，可重新执行',
+                finishedAt: createdAt
+              }
+            : run
+        ),
+        updatedAt: createdAt
+      })
+    }
     const runId = `ltr_${randomUUID()}`
     const run = {
       id: runId,

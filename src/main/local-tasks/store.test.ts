@@ -127,6 +127,22 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('requeues tasks left queued by an interrupted previous batch', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '可重试任务' })
+    const first = store.startBatch([{ taskId: task.id, projectPath: root }])
+    expect(first.candidates).toHaveLength(1)
+    const second = store.startBatch([{ taskId: task.id, projectPath: root }])
+    const reloaded = store.get(task.id, root)!
+
+    expect(second.candidates).toHaveLength(1)
+    expect(reloaded.runs).toHaveLength(2)
+    expect(reloaded.runs[1]?.status).toBe('failed')
+    expect(reloaded.runs[0]?.status).toBe('queued')
+    store.close()
+  })
+
   it('normalizes Completed task files and falls back to plan subtasks', () => {
     const root = projectPath()
     const taskId = 'lt_legacy-completed'
