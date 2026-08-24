@@ -293,3 +293,21 @@
   - 新增 `localTasks:updateSessionOutput`；Agent 状态进入 `done` 时即使没有 `lastAssistantMessage` 也会把关联会话标记为 done，避免运行中计数残留。
   - `In progress` 且已有会话的任务操作按钮显示“继续执行”。
 - **验证结果**：47 个相关测试通过，Web 类型检查和 lint 通过。
+
+## [2026-08-25] 修复任务标题和标签编辑、补齐创建标签
+
+- **What（做了什么）**：
+  - `LocalTaskDetailPanel.tsx`：标题和标签编辑按钮打开可见 Dialog；标题使用单行输入，标签使用逗号分隔输入，保存时去除空值、去重并限制最多 20 个。
+  - `local-task-center-actions.ts`、`LocalTaskDetailAside.tsx`：编辑回调改为接收用户在 Dialog 中确认的值，再通过现有任务更新 IPC 写回文件。
+  - `local-task-types.ts`、`local-task-ipc-validation.ts`、`store.ts`：创建任务参数增加 `labels`；主进程再次归一化标签后写入 `orca/<task-id>/task.json`，更新任务时沿用同一规则。
+  - `LocalTaskWorkspaceFields.tsx`、`useLocalTaskComposer.ts`、`NewWorkspaceComposerModal.tsx`：创建本地任务增加标签输入；标签以原始输入字符串保留，避免用户输入逗号时光标跳动；进入新建 workspace 第二步时保留标签。
+  - 回归测试覆盖 IPC 标签裁剪和文件 Store 的空值/重复值/空格归一化。
+- **Why（为什么这么做）**：
+  - Electron 渲染窗口中的 `window.prompt` 不稳定且用户看不到，因此按钮表现为无响应；Radix Dialog 能在应用内稳定显示并提供取消、保存和输入焦点。
+  - 创建接口此前虽然支持更新标签，却没有接收创建标签，导致表单无法持久化；把标签从表单、类型、校验到文件 Store 全链路接通。
+- **How（怎么实现的）**：
+  - 详情：铅笔按钮 → Dialog 输入 → 用户保存 → `localTasks.update` → `task.json` → 变更广播 → 看板和详情刷新。
+  - 创建：标签输入 → `useLocalTaskComposer` 保留原始文本 → 创建时拆分/去重 → IPC 校验 → Store 归一化 → `task.json`。
+- **用户须知**：标签使用英文逗号分隔，最多 20 个；标题不能为空；取消 Dialog 不会修改任务。
+- **已知限制**：当前仅支持逗号分隔的纯文本标签，不支持标签颜色或层级。
+- **验证结果**：Web TypeScript 检查、定向 oxlint、17 个本地任务相关测试和 Electron 构建均通过；构建仅有既有动态导入和 CSS 伪元素警告。
