@@ -4,7 +4,9 @@ import {
   createLocalTaskSessionArgsSchema,
   editLocalTaskStepTitleArgsSchema,
   parseLocalTaskIpcArgs,
+  startLocalTaskBatchArgsSchema,
   updateLocalTaskArgsSchema,
+  updateLocalTaskRunArgsSchema,
   updateLocalTaskStepArgsSchema
 } from './local-task-ipc-validation'
 
@@ -87,5 +89,23 @@ describe('local task IPC validation', () => {
         sessionId: 'tab-1'
       })
     ).toMatchObject({ taskId: 'lt_1', projectPath: '/tmp/project' })
+  })
+
+  it('validates batch references and run transitions', () => {
+    expect(
+      startLocalTaskBatchArgsSchema.parse({
+        tasks: [{ taskId: 'lt_1', projectPath: '/tmp/project' }]
+      })
+    ).toEqual({ tasks: [{ taskId: 'lt_1', projectPath: '/tmp/project' }] })
+    expect(
+      updateLocalTaskRunArgsSchema.parse({
+        taskId: 'lt_1',
+        projectPath: '/tmp/project',
+        runId: 'ltr_1',
+        status: 'running',
+        sessionId: 'tab-1'
+      })
+    ).toMatchObject({ status: 'running', sessionId: 'tab-1' })
+    expect(() => updateLocalTaskRunArgsSchema.parse({ runId: 'ltr_1' })).toThrow()
   })
 })

@@ -68,7 +68,7 @@ describe('local task Agent RPC', () => {
     expect(store.get(task.id)?.sessions).toHaveLength(1)
   })
 
-  it('updates AI subtasks and enters review only after reporting all work done', () => {
+  it('updates AI subtasks and enters review after reporting work', () => {
     const store = setupStore()
     const task = store.create({
       projectId: 'orca',
@@ -131,6 +131,33 @@ describe('local task Agent RPC', () => {
     expect(completed.task.status).toBe('Needs review')
     expect(completed.task.latestOutput?.text).toBe('差异已整理完成')
     expect(completed.task.sessions[0]?.status).toBe('done')
+  })
+
+  it('lets an Agent pause for a user decision in Needs review', () => {
+    const store = setupStore()
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: rootOf(store),
+      description: '需要产品决策',
+      workspaceId: 'wt-1'
+    })
+    const session = store.createSession({
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: 'tab-review',
+      workspaceId: 'wt-1'
+    })
+    const reviewed = call('localTask.requestReview', {
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: session.id,
+      worktreeId: 'wt-1',
+      question: '请确认是否兼容旧版配置格式。'
+    }) as { task: typeof task }
+
+    expect(reviewed.task.status).toBe('Needs review')
+    expect(reviewed.task.reviewKind).toBe('needs_input')
+    expect(reviewed.task.reviewQuestion).toContain('旧版配置')
   })
 
   it('rejects a session from another workspace and editing a started step', () => {

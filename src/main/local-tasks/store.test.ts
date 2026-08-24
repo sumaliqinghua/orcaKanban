@@ -69,6 +69,64 @@ describe('LocalTaskStore file-first persistence', () => {
     secondStore.close()
   })
 
+  it('captures only ready open tasks in a batch and completes runs into review', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const first = store.create({
+      projectId: 'orca',
+      projectPath: root,
+      description: '批次任务一',
+      workspaceId: 'wt-a'
+    })
+    const second = store.create({
+      projectId: 'orca',
+      projectPath: root,
+      description: '批次任务二',
+      workspaceId: 'wt-a'
+    })
+    const inbox = store.create({
+      projectId: 'orca',
+      projectPath: root,
+      description: '先整理需求',
+      intakeState: 'inbox',
+      workspaceId: 'wt-b'
+    })
+
+    const batch = store.startBatch([
+      { taskId: first.id, projectPath: root },
+      { taskId: second.id, projectPath: root },
+      { taskId: inbox.id, projectPath: root }
+    ])
+
+    expect(batch.candidates).toHaveLength(2)
+    expect(new Set(batch.candidates.map((candidate) => candidate.workspaceKey)).size).toBe(1)
+    expect(store.get(inbox.id, root)?.executionState).toBe('idle')
+
+    const run = batch.candidates[0]!
+    store.updateRun({
+      taskId: run.task.id,
+      projectPath: root,
+      runId: run.runId,
+      status: 'running',
+      sessionId: 'batch-session'
+    })
+    const session = store.createSession({
+      taskId: run.task.id,
+      projectPath: root,
+      sessionId: 'batch-session',
+      workspaceId: run.task.workspaceId
+    })
+    const reviewed = store.updateSessionOutput({
+      sessionId: session.id,
+      latestOutput: '批次执行完成'
+    })
+    expect(reviewed.status).toBe('Needs review')
+    expect(reviewed.executionState).toBe('needs_review')
+    expect(reviewed.reviewKind).toBe('delivery')
+    expect(reviewed.runs[0]?.status).toBe('needs_review')
+    store.close()
+  })
+
   it('normalizes Completed task files and falls back to plan subtasks', () => {
     const root = projectPath()
     const taskId = 'lt_legacy-completed'

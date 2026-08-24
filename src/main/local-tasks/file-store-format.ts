@@ -9,7 +9,13 @@ import {
   writeFileSync
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { LOCAL_TASK_STATUSES, type LocalTask } from '../../shared/local-task-types'
+import {
+  LOCAL_TASK_STATUSES,
+  type LocalTask,
+  type LocalTaskExecutionState,
+  type LocalTaskReviewKind,
+  type LocalTaskRun
+} from '../../shared/local-task-types'
 
 export const LOCAL_TASK_ROOT_NAME = 'orca'
 export const LOCAL_TASK_FILE_NAME = 'task.json'
@@ -60,6 +66,53 @@ function requiredStatus(value: unknown, path: string): LocalTask['status'] {
     return value as LocalTask['status']
   }
   throw new Error(`Invalid local task file ${path}: status is not supported`)
+}
+
+function executionState(value: unknown): LocalTaskExecutionState {
+  return value === 'queued' || value === 'running' || value === 'needs_review' || value === 'failed'
+    ? value
+    : 'idle'
+}
+
+function reviewKind(value: unknown): LocalTaskReviewKind | null {
+  return value === 'delivery' || value === 'needs_input' || value === 'execution_failed'
+    ? value
+    : null
+}
+
+function readRuns(value: unknown): LocalTaskRun[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value.filter(isRecord).flatMap((raw) => {
+    if (
+      typeof raw.id !== 'string' ||
+      typeof raw.batchId !== 'string' ||
+      typeof raw.taskId !== 'string' ||
+      typeof raw.workspaceId !== 'string'
+    ) {
+      return []
+    }
+    const status =
+      raw.status === 'running' || raw.status === 'needs_review' || raw.status === 'failed'
+        ? raw.status
+        : 'queued'
+    return [
+      {
+        id: raw.id,
+        batchId: raw.batchId,
+        taskId: raw.taskId,
+        workspaceId: raw.workspaceId,
+        status,
+        sessionId: typeof raw.sessionId === 'string' ? raw.sessionId : null,
+        output: typeof raw.output === 'string' ? raw.output : null,
+        error: typeof raw.error === 'string' ? raw.error : null,
+        createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),
+        startedAt: typeof raw.startedAt === 'number' ? raw.startedAt : null,
+        finishedAt: typeof raw.finishedAt === 'number' ? raw.finishedAt : null
+      }
+    ]
+  })
 }
 
 function subtaskStatus(value: unknown): LocalTask['subtasks'][number]['status'] {
@@ -127,7 +180,7 @@ export function readLocalTaskFile(path: string): LocalTask {
   const sessions = Array.isArray(value.sessions)
     ? value.sessions.filter(isRecord).map((session) => ({
         ...session,
-        status: session.status === 'completed' ? 'done' : session.status
+        status: (session.status as string) === 'completed' ? 'done' : session.status
       }))
     : []
   const subtasks =
@@ -175,6 +228,14 @@ export function readLocalTaskFile(path: string): LocalTask {
           .map((label) => label.trim())
           .slice(0, 20)
       : [],
+    intakeState: value.intakeState === 'inbox' ? 'inbox' : 'ready',
+    agentId: typeof value.agentId === 'string' ? (value.agentId as LocalTask['agentId']) : null,
+    executionState: executionState(value.executionState),
+    executionBatchId: typeof value.executionBatchId === 'string' ? value.executionBatchId : null,
+    executionRunId: typeof value.executionRunId === 'string' ? value.executionRunId : null,
+    reviewKind: reviewKind(value.reviewKind),
+    reviewQuestion: typeof value.reviewQuestion === 'string' ? value.reviewQuestion : null,
+    runs: readRuns(value.runs),
     subtasks: subtasks as LocalTask['subtasks'],
     sessions: sessions as LocalTask['sessions'],
     latestOutput: latestOutput as LocalTask['latestOutput'],

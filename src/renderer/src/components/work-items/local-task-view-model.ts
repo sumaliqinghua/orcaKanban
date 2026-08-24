@@ -43,6 +43,11 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     titleSource: task.titleSource,
     titleSuggestion: task.titleSuggestion,
     labels: task.labels,
-    archivedAt: task.archivedAt
+    archivedAt: task.archivedAt,
+    intakeState: task.intakeState,
+    executionState: task.executionState,
+    executionBatchId: task.executionBatchId,
+    executionRunId: task.executionRunId,
+    reviewKind: task.reviewKind
   }
 }

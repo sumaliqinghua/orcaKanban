@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { LOCAL_TASK_STATUSES } from '../../shared/local-task-types'
+import { isTuiAgent } from '../../shared/tui-agent-config'
 
 const id = z.string().trim().min(1).max(200)
 const shortText = z.string().trim().min(1).max(500)
@@ -22,6 +23,8 @@ export const createLocalTaskArgsSchema = z
     title: shortText.optional(),
     description: longText,
     labels: z.array(shortText).max(20).optional(),
+    intakeState: z.enum(['inbox', 'ready']).optional(),
+    agentId: z.string().refine(isTuiAgent, 'Unsupported Agent').nullable().optional(),
     workspaceId: id.optional(),
     workspaceLabel: shortText.optional()
   })
@@ -37,7 +40,9 @@ export const updateLocalTaskArgsSchema = z
         status: taskStatus.optional(),
         waitingReason: z.string().trim().max(10_000).nullable().optional(),
         archived: z.boolean().optional(),
-        labels: z.array(shortText).max(20).optional()
+        labels: z.array(shortText).max(20).optional(),
+        intakeState: z.enum(['inbox', 'ready']).optional(),
+        agentId: z.string().refine(isTuiAgent, 'Unsupported Agent').nullable().optional()
       })
       .strict()
   })
@@ -99,6 +104,26 @@ export const reportLocalTaskCompletedArgsSchema = z
   .strict()
 
 export const acceptLocalTaskArgsSchema = z.object({ taskId: id }).strict()
+
+export const startLocalTaskBatchArgsSchema = z
+  .object({
+    tasks: z
+      .array(z.object({ taskId: id, projectPath: z.string().trim().min(1).max(4_096) }).strict())
+      .max(500)
+  })
+  .strict()
+
+export const updateLocalTaskRunArgsSchema = z
+  .object({
+    taskId: id,
+    projectPath: z.string().trim().min(1).max(4_096),
+    runId: id,
+    status: z.enum(['queued', 'running', 'needs_review', 'failed']),
+    sessionId: id.nullable().optional(),
+    output: z.string().max(100_000).nullable().optional(),
+    error: z.string().max(10_000).nullable().optional()
+  })
+  .strict()
 
 export function parseLocalTaskIpcArgs<T>(
   schema: { parse: (value: unknown) => T },

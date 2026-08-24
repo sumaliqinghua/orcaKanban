@@ -76,9 +76,29 @@ export function updateSessionOutput(
         }
       : session
   )
+  const activeRun = task.executionRunId
+    ? task.runs.find((run) => run.id === task.executionRunId)
+    : undefined
+  const runs = activeRun
+    ? task.runs.map((run) =>
+        run.id === activeRun.id
+          ? {
+              ...run,
+              status: 'needs_review' as const,
+              sessionId: args.sessionId,
+              output: textValue || run.output,
+              finishedAt: updatedAt
+            }
+          : run
+      )
+    : task.runs
   return store.writeTask({
     ...task,
     sessions,
+    runs,
+    executionState: activeRun ? 'needs_review' : task.executionState,
+    reviewKind: activeRun ? 'delivery' : task.reviewKind,
+    status: activeRun && task.status !== 'Done' ? 'Needs review' : task.status,
     latestOutput: textValue
       ? { sessionId: args.sessionId, text: textValue, updatedAt }
       : task.latestOutput,
@@ -204,9 +224,28 @@ export function reportCompleted(
       : null
   const shouldKeepAgentOutput =
     task.latestOutputSource === 'agent-status' && task.latestOutput?.sessionId === args.sessionId
+  const activeRun = task.executionRunId
+    ? task.runs.find((run) => run.id === task.executionRunId)
+    : undefined
+  const nextRuns = activeRun
+    ? task.runs.map((run) =>
+        run.id === activeRun.id
+          ? {
+              ...run,
+              status: 'needs_review' as const,
+              sessionId: args.sessionId,
+              output: args.latestOutput ?? run.output,
+              finishedAt: updatedAt
+            }
+          : run
+      )
+    : task.runs
   const next: LocalTask = {
     ...task,
     sessions,
+    runs: nextRuns,
+    executionState: activeRun ? 'needs_review' : task.executionState,
+    reviewKind: activeRun ? 'delivery' : task.reviewKind,
     latestOutput:
       !shouldKeepAgentOutput && args.latestOutput
         ? { sessionId: args.sessionId, text: args.latestOutput, updatedAt }
@@ -216,12 +255,7 @@ export function reportCompleted(
     title: suggestedTitle ?? task.title,
     titleSource: suggestedTitle ? 'ai-suggestion' : task.titleSource,
     titleSuggestion: suggestedTitle ?? task.titleSuggestion,
-    status:
-      task.status === 'Done' || task.status === 'Needs review'
-        ? task.status
-        : unfinished
-          ? 'In progress'
-          : 'Needs review',
+    status: task.status === 'Done' ? task.status : 'Needs review',
     updatedAt
   }
   const result = store.writeTask(next)

@@ -37,6 +37,8 @@ export type QuickLaunchAgentMenuItemsProps = {
   onPromptDelivered?: () => void
   localTaskId?: string
   localTaskRoot?: string
+  /** Optional selection-only mode for workflows that launch after preparing a batch. */
+  onSelectAgent?: (agent: TuiAgent) => void
 }
 
 function getCatalogEntry(agent: TuiAgent): { id: TuiAgent; label: string } | null {
@@ -105,7 +107,8 @@ function QuickLaunchAgentMenuItemsInner({
   launchSource,
   onPromptDelivered,
   localTaskId,
-  localTaskRoot
+  localTaskRoot,
+  onSelectAgent
 }: QuickLaunchAgentMenuItemsProps): React.JSX.Element | null {
   // Why: resolving only the SSH connectionId here made paired-runtime
   // worktrees fall back to LOCAL detection, listing the client's agents
@@ -128,6 +131,10 @@ function QuickLaunchAgentMenuItemsInner({
 
   const runLaunch = useCallback(
     (agent: TuiAgent) => {
+      if (onSelectAgent) {
+        onSelectAgent(agent)
+        return
+      }
       const entry = getCatalogEntry(agent)
       const label = entry?.label ?? agent
       const result = launchAgentInNewTab({
@@ -184,6 +191,7 @@ function QuickLaunchAgentMenuItemsInner({
       launchSource,
       localTaskId,
       localTaskRoot,
+      onSelectAgent,
       onFocusTerminal,
       onPromptDelivered,
       prompt,

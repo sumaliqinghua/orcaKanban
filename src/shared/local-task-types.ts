@@ -1,3 +1,5 @@
+import type { TuiAgent } from './tui-agent'
+
 export const LOCAL_TASK_STATUSES = [
   'Open',
   'In progress',
@@ -7,6 +9,10 @@ export const LOCAL_TASK_STATUSES = [
 ] as const
 
 export type LocalTaskStatus = (typeof LOCAL_TASK_STATUSES)[number]
+export type LocalTaskIntakeState = 'inbox' | 'ready'
+export type LocalTaskExecutionState = 'idle' | 'queued' | 'running' | 'needs_review' | 'failed'
+export type LocalTaskReviewKind = 'delivery' | 'needs_input' | 'execution_failed'
+export type LocalTaskRunStatus = 'queued' | 'running' | 'needs_review' | 'failed'
 export type LocalTaskSubtaskStatus = 'todo' | 'doing' | 'done'
 export type LocalTaskStepStatus = 'todo' | 'doing' | 'done' | 'canceled'
 
@@ -39,6 +45,20 @@ export type LocalTaskSession = {
   associationSource: 'task-center' | 'explicit'
 }
 
+export type LocalTaskRun = {
+  id: string
+  batchId: string
+  taskId: string
+  workspaceId: string
+  status: LocalTaskRunStatus
+  sessionId: string | null
+  output: string | null
+  error: string | null
+  createdAt: number
+  startedAt: number | null
+  finishedAt: number | null
+}
+
 export type LocalTask = {
   schemaVersion: 1
   id: string
@@ -55,6 +75,14 @@ export type LocalTask = {
   titleSource: 'first-line' | 'ai-suggestion' | 'user'
   titleSuggestion: string | null
   labels: string[]
+  intakeState: LocalTaskIntakeState
+  agentId: TuiAgent | null
+  executionState: LocalTaskExecutionState
+  executionBatchId: string | null
+  executionRunId: string | null
+  reviewKind: LocalTaskReviewKind | null
+  reviewQuestion: string | null
+  runs: LocalTaskRun[]
   subtasks: LocalTaskSubtask[]
   sessions: LocalTaskSession[]
   latestOutput: { sessionId: string; text: string; updatedAt: number } | null
@@ -68,6 +96,8 @@ export type CreateLocalTaskArgs = {
   title?: string
   description: string
   labels?: string[]
+  intakeState?: LocalTaskIntakeState
+  agentId?: TuiAgent | null
   workspaceId?: string
   workspaceLabel?: string
 }
@@ -79,6 +109,39 @@ export type UpdateLocalTaskArgs = {
   waitingReason?: string | null
   archived?: boolean
   labels?: string[]
+  intakeState?: LocalTaskIntakeState
+  agentId?: TuiAgent | null
+}
+
+export type LocalTaskBatchTaskRef = {
+  taskId: string
+  projectPath: string
+}
+
+export type LocalTaskBatchCandidate = {
+  task: LocalTask
+  runId: string
+  workspaceKey: string
+}
+
+export type LocalTaskBatch = {
+  id: string
+  createdAt: number
+  candidates: LocalTaskBatchCandidate[]
+}
+
+export type StartLocalTaskBatchArgs = {
+  tasks: LocalTaskBatchTaskRef[]
+}
+
+export type UpdateLocalTaskRunArgs = {
+  taskId: string
+  projectPath: string
+  runId: string
+  status: LocalTaskRunStatus
+  sessionId?: string | null
+  output?: string | null
+  error?: string | null
 }
 
 export type CreateLocalTaskSessionArgs = {
@@ -132,6 +195,13 @@ export type ReportLocalTaskCompletedArgs = {
   latestOutput?: string
   titleSuggestion?: string
   description?: string
+}
+
+export type RequestLocalTaskReviewArgs = {
+  taskId: string
+  projectPath?: string
+  sessionId: string
+  question: string
 }
 
 export type LocalTaskToolContext = {

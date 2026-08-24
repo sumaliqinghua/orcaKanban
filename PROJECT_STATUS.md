@@ -32,8 +32,8 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 
 ## 当前进度
 
-- 已完成：plan.md 阶段 1-6 的本地任务核心链路、session-bound CLI/RPC task bridge 和定向测试；`PRD.md`/`plan.md` v1.5 异步员工模式需求拆分。
-- 进行中：阶段 7 尚未开始编码，目标是 Inbox、“执行当前所有任务”批次、同 workspace 串行、不同 workspace 并行、AI 辅助排序和集中待审阅。
+- 已完成：plan.md 阶段 1-6 的本地任务核心链路、session-bound CLI/RPC task bridge 和定向测试；阶段 7 的任务字段、Inbox、批次快照、运行记录、workspace 串行/并行队列和 Agent request-review 桥接。
+- 进行中：阶段 7 的 AI 批次排序、完整批次进度 UI、重启恢复、集中待审阅细节和端到端验证。
 - 后置：provider hook 自动汇报、workspace/Agent Dashboard 反向打开任务、文件锁、远程同步、跨项目任务索引和外部工单双向同步。任务创建先从项目 workspace 下拉选择已有 workspace；选择新建时才进入第二步工作树创建。
 
 ## 已知问题与技术债
@@ -43,7 +43,7 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - 旧的已运行生产 Orca 进程可能仍使用不含 `local-task` 的 CLI；重启新的 `pnpm dev` 后会先构建 CLI。Agent 提示保留直接读取 `orca/<task-id>/task.json` 的兜底路径。
 - workspace/Agent Dashboard 尚未增加反向“打开本地任务”入口。
 - 文件锁和同 workspace 并行写入租约按用户决定后置。
-- v1.6 尚未实现 Inbox、批次执行服务、workspace 队列、任务运行记录和自动 Agent 会话；当前任务仍只能通过任务中心手动启动。
+- v1.6 尚未实现 AI 批次排序、跨重启批次恢复和完整批次进度/待审阅 UI；批次启动仍要求任务中心窗口保持可用。
 - 全仓库 Node TypeScript 检查仍有既有 `ui-state-schema-parity-checks.ts` 类型错误；本地任务相关定向检查通过。
 
 ## 关键配置与环境信息

@@ -12,9 +12,12 @@ import { LocalTaskCenterHeader } from './LocalTaskCenterHeader'
 import { createLocalTaskCenterActions } from './local-task-center-actions'
 import { BoardView, ListView, SubtaskBoardView, SubtaskListView } from './work-item-views'
 import { localTaskToViewModel } from './local-task-view-model'
+import { useLocalTaskBatchController } from './use-local-task-batch-controller'
+import { LocalTaskQueueTabs } from './LocalTaskQueueTabs'
 
 type ViewMode = 'board' | 'list'
 type BoardPerspective = 'subtasks' | 'tasks'
+type QueueView = 'all' | 'inbox' | 'review'
 
 export default function WorkItemsPrototypePage(): React.JSX.Element {
   const activeRepoId = useAppStore((state) => state.activeRepoId)
@@ -31,6 +34,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const [tab, setTab] = useState<'work-items' | 'external'>('work-items')
   const [query, setQuery] = useState('')
   const [labelFilter, setLabelFilter] = useState('')
+  const [queueView, setQueueView] = useState<QueueView>('all')
   const [detailOpen, setDetailOpen] = useState(false)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
@@ -62,6 +66,11 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
       setLoading(false)
     }
   }, [activeRepoPath, createProjectId])
+  const { batchCandidates, batchRunning, runAllTasks } = useLocalTaskBatchController({
+    items,
+    loadTasks,
+    setLoadError
+  })
   useEffect(() => {
     void loadTasks()
     return window.api.localTasks.onChanged((task) => {
@@ -85,9 +94,12 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         (item) =>
           (item.title.toLowerCase().includes(query.toLowerCase()) ||
             item.id.toLowerCase().includes(query.toLowerCase())) &&
+          (queueView === 'all' ||
+            (queueView === 'inbox' && item.intakeState === 'inbox') ||
+            (queueView === 'review' && item.status === 'Needs review')) &&
           (!labelFilter || (item.labels ?? []).includes(labelFilter))
       ),
-    [items, labelFilter, query]
+    [items, labelFilter, query, queueView]
   )
   const availableLabels = useMemo(
     () => [...new Set(items.flatMap((item) => item.labels ?? []))].sort(),
@@ -198,6 +210,9 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
       <LocalTaskCenterHeader
         onCreate={openTaskComposer}
         onOpenWorkspaceBoard={openWorkspaceBoard}
+        onRunAll={(agent) => void runAllTasks(agent)}
+        runAllDisabled={batchRunning}
+        candidateCount={batchCandidates.length}
       />
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-5 border-b border-border px-6 pt-3">
@@ -249,6 +264,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         ) : (
           <>
             <div className="flex shrink-0 items-center gap-2 px-6 py-3">
+              <LocalTaskQueueTabs items={items} value={queueView} onChange={setQueueView} />
               <div className="relative w-64">
                 <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
                 <Input

@@ -14,6 +14,8 @@ import {
   localTaskListArgsSchema,
   parseLocalTaskIpcArgs,
   reportLocalTaskCompletedArgsSchema,
+  startLocalTaskBatchArgsSchema,
+  updateLocalTaskRunArgsSchema,
   updateLocalTaskArgsSchema,
   updateLocalTaskStepArgsSchema,
   updateLocalTaskSessionOutputArgsSchema,
@@ -62,6 +64,20 @@ export function registerLocalTaskHandlers(): void {
   ipcMain.handle('localTasks:updateSessionOutput', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(updateLocalTaskSessionOutputArgsSchema, args)
     const task = store.updateSessionOutput(parsed)
+    publishLocalTaskChange(task)
+    return task
+  })
+  ipcMain.handle('localTasks:startBatch', (_event, args: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(startLocalTaskBatchArgsSchema, args)
+    const batch = store.startBatch(parsed.tasks)
+    for (const candidate of batch.candidates) {
+      publishLocalTaskChange(candidate.task)
+    }
+    return batch
+  })
+  ipcMain.handle('localTasks:updateRun', (_event, args: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(updateLocalTaskRunArgsSchema, args)
+    const task = store.updateRun(parsed)
     publishLocalTaskChange(task)
     return task
   })

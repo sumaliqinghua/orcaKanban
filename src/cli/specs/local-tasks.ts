@@ -35,6 +35,12 @@ export const LOCAL_TASK_COMMAND_SPECS: CommandSpec[] = [
     allowedFlags: [...GLOBAL_FLAGS, 'subtask', 'step', 'status', 'title']
   },
   {
+    path: ['local-task', 'request-review'],
+    summary: 'Pause the current Agent session and request a user decision',
+    usage: 'orca local-task request-review --question <text> [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'question']
+  },
+  {
     path: ['local-task', 'report-completed'],
     summary: 'Report the current Agent session output and completion',
     usage:

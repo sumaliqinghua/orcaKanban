@@ -375,3 +375,30 @@
 - **已知限制**：
   - 当前不支持单任务定时、周期计划、常驻后台调度、跨批次长期队列、无限重试和正式任务依赖图。
 - **关联假设**：`ASSUMPTIONS.md` 的“异步员工模式的执行边界”和“AI 输出统一进入待审阅”。
+
+## [2026-08-25] 实现批次执行和 Inbox 第一轮闭环
+
+- **What（做了什么）**：
+  - `src/shared/local-task-types.ts`：增加 Inbox 整理状态、执行状态、待审阅原因、批次运行记录和批量 IPC 参数类型；旧任务读取时由文件格式层补齐默认值。
+  - `src/main/local-tasks/file-store-format.ts`：读取旧 `task.json` 时归一化 `intakeState`、执行状态、reviewKind 和 runs，保留外部 AI 写入文件的兼容性。
+  - `src/main/local-tasks/file-store-mutations.ts`、`store.ts`：新增批次快照创建、按任务原子认领 `LocalTaskRun`、运行状态更新；Agent 会话结束时将批次任务自动推进为 `Needs review / delivery`；报告完成不再要求所有步骤先完成。
+  - `src/main/ipc/local-task-ipc-validation.ts`、`local-tasks.ts`、`src/preload/api/local-task-api.ts`、`src/preload/index.ts`：新增 `localTasks:startBatch` 和 `localTasks:updateRun`，并校验批次引用、Agent 和运行状态。
+  - `src/main/runtime/rpc/methods/local-tasks.ts`、`src/cli/specs/local-tasks.ts`、`src/cli/handlers/local-tasks.ts`：新增 `localTask.requestReview` / `orca local-task request-review --question`，让 Agent 在需求不清时停止并进入 `Needs review / needs_input`。
+  - `src/renderer/src/components/work-items/local-task-batch-runner.ts`：复用现有 Agent 启动器，按 workspace 分组；同组串行、不同组并行，创建真实会话并轮询运行结束。
+  - `WorkItemsPrototypePage.tsx`、`LocalTaskCenterHeader.tsx`、`QuickLaunchButton.tsx`：增加“执行当前任务”Agent 选择入口、批次候选过滤和全部/收件箱/待审阅筛选。
+  - `LocalTaskWorkspaceFields.tsx`、`NewWorkspaceComposerModal.tsx`、`useLocalTaskComposer.ts`：创建任务时可选择直接进入 ready 或先放入 Inbox。
+  - `store.test.ts`、`local-task-ipc-validation.test.ts`、`runtime/rpc/methods/local-tasks.test.ts`：覆盖批次快照、Inbox 排除、运行完成进入 review、IPC 校验和 Agent 请求用户决策。
+- **Why（为什么这么做）**：
+  - 用户明确授权的是一批任务，而不是每个任务的时间计划；批次快照把授权边界固定在按钮点击时，避免新任务悄悄混入。
+  - workspace 是代码环境的自然串行边界；同组串行避免同时改同一工作树，不同组并行保留批量效率。
+  - `request-review` 让 Agent 用结构化桥接请求用户决策，不依赖解析自然语言，也不会把需要确认的问题伪装成完成结果。
+- **How（怎么实现的）**：
+  - 批次链路：任务中心筛选 `Open + ready` → 主进程创建批次和 queued runs → renderer 按 workspace worker 启动真实 tab → `createSession` 关联任务 → Agent done 回写 output → Store 将 run 和任务设为 `Needs review`。
+  - 决策链路：Agent → `orca local-task request-review --question` → runtime RPC 归属校验 → 文件 Store 写入 `reviewKind = needs_input`/问题 → 任务中心待审阅筛选。
+- **用户须知**：
+  - 当前“执行当前任务”仍需要任务中心窗口可用；批次只处理点击时的候选快照，不支持单任务定时或自动后台补跑。
+  - 同 workspace 任务由 renderer 串行等待前一任务结束；不同 workspace 可同时启动。Inbox 任务不会进入批次，需整理为 ready。
+  - Agent 可以通过 `orca local-task request-review --question "..."` 暂停并请求用户决策；正常结束会自动进入 `Needs review`。
+- **已知限制**：
+  - AI 批次排序尚未接入，目前按任务创建时间降级；批次进度和待审阅详情仍在补充；应用重启后的 queued/running 恢复策略尚未实现。
+- **关联假设**：`ASSUMPTIONS.md` 的“异步员工模式的执行边界”和“AI 输出统一进入待审阅”。

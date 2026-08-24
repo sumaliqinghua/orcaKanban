@@ -8,7 +8,12 @@ import type { WorkspaceSource as WorkspaceCreateTelemetrySource } from '../../..
 type LocalTaskComposerModalData = {
   initialRepoId?: string
   telemetrySource?: WorkspaceCreateTelemetrySource
-  localTaskDraft?: { title: string; description: string; labels?: string[] }
+  localTaskDraft?: {
+    title: string
+    description: string
+    labels?: string[]
+    intakeState?: 'inbox' | 'ready'
+  }
 }
 
 export function useLocalTaskComposer({
@@ -25,12 +30,14 @@ export function useLocalTaskComposer({
   taskTitle: string
   taskDescription: string
   taskLabels: string
+  taskIntakeState: 'inbox' | 'ready'
   taskError: string | null
   taskWorkspaces: Worktree[]
   selectedWorkspaceId: string
   setTaskTitle: (value: string) => void
   setTaskDescription: (value: string) => void
   setTaskLabels: (value: string) => void
+  setTaskIntakeState: (value: 'inbox' | 'ready') => void
   setSelectedWorkspaceId: (value: string) => void
   createTaskDirectly: () => void
   createTaskAfterNewWorkspace: (completion: WorktreeCreationCompletion) => void
@@ -42,6 +49,9 @@ export function useLocalTaskComposer({
     modalData.localTaskDraft?.description ?? ''
   )
   const [taskLabels, setTaskLabels] = useState((modalData.localTaskDraft?.labels ?? []).join(', '))
+  const [taskIntakeState, setTaskIntakeState] = useState<'inbox' | 'ready'>(
+    modalData.localTaskDraft?.intakeState ?? 'ready'
+  )
   const normalizedLabels = useMemo(
     () =>
       [
@@ -97,6 +107,7 @@ export function useLocalTaskComposer({
         title: taskTitle.trim() || undefined,
         description,
         labels: normalizedLabels,
+        intakeState: taskIntakeState,
         workspaceId,
         workspaceLabel: workspace
           ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
@@ -114,7 +125,8 @@ export function useLocalTaskComposer({
     selectedWorkspaceId,
     taskDescription,
     taskTitle,
-    normalizedLabels
+    normalizedLabels,
+    taskIntakeState
   ])
 
   const createTaskAfterNewWorkspace = useCallback(
@@ -142,6 +154,7 @@ export function useLocalTaskComposer({
           title: taskTitle.trim() || undefined,
           description,
           labels: normalizedLabels,
+          intakeState: taskIntakeState,
           workspaceId: completion.worktreeId,
           workspaceLabel: workspace
             ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
@@ -171,7 +184,8 @@ export function useLocalTaskComposer({
       onClose,
       taskDescription,
       normalizedLabels,
-      taskTitle
+      taskTitle,
+      taskIntakeState
     ]
   )
 
@@ -183,25 +197,35 @@ export function useLocalTaskComposer({
         localTaskDraft: {
           title: taskTitle,
           description: taskDescription,
-          labels: normalizedLabels
+          labels: normalizedLabels,
+          intakeState: taskIntakeState
         },
         ...(cardProps.repoId ? { initialRepoId: cardProps.repoId } : {}),
         telemetrySource: modalData.telemetrySource ?? 'sidebar'
       })
     },
-    [cardProps.repoId, modalData.telemetrySource, normalizedLabels, taskDescription, taskTitle]
+    [
+      cardProps.repoId,
+      modalData.telemetrySource,
+      normalizedLabels,
+      taskDescription,
+      taskIntakeState,
+      taskTitle
+    ]
   )
 
   return {
     taskTitle,
     taskDescription,
     taskLabels,
+    taskIntakeState,
     taskError,
     taskWorkspaces,
     selectedWorkspaceId,
     setTaskTitle,
     setTaskDescription,
     setTaskLabels,
+    setTaskIntakeState,
     setSelectedWorkspaceId,
     createTaskDirectly,
     createTaskAfterNewWorkspace,

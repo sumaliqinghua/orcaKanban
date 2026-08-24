@@ -7,8 +7,11 @@ import type {
   CreateLocalTaskSubtaskArgs,
   EditLocalTaskStepTitleArgs,
   LocalTask,
+  LocalTaskBatch,
+  LocalTaskBatchTaskRef,
   LocalTaskSession,
   ReportLocalTaskCompletedArgs,
+  RequestLocalTaskReviewArgs,
   UpdateLocalTaskArgs,
   UpdateLocalTaskStepArgs,
   UpdateLocalTaskSubtaskArgs,
@@ -27,6 +30,7 @@ import {
 } from './file-store-format'
 import { LocalTaskFileWatchers } from './file-store-watch'
 import * as mutations from './file-store-mutations'
+import * as batchMutations from './file-store-batch-mutations'
 
 let singleton: LocalTaskStore | null = null
 const timestamp = (): number => Date.now()
@@ -95,6 +99,14 @@ export class LocalTaskStore {
       titleSource: args.title?.trim() ? 'user' : 'first-line',
       titleSuggestion: null,
       labels: normalizeLabels(args.labels),
+      intakeState: args.intakeState ?? 'ready',
+      agentId: args.agentId ?? null,
+      executionState: 'idle',
+      executionBatchId: null,
+      executionRunId: null,
+      reviewKind: null,
+      reviewQuestion: null,
+      runs: [],
       subtasks: [],
       sessions: [],
       latestOutput: null,
@@ -143,6 +155,8 @@ export class LocalTaskStore {
       titleSource: updates.title?.trim() ? 'user' : current.titleSource,
       titleSuggestion: updates.title?.trim() ? null : current.titleSuggestion,
       labels: updates.labels === undefined ? current.labels : normalizeLabels(updates.labels),
+      intakeState: updates.intakeState ?? current.intakeState,
+      agentId: updates.agentId === undefined ? current.agentId : updates.agentId,
       updatedAt: timestamp()
     })
   }
@@ -157,7 +171,16 @@ export class LocalTaskStore {
     if (task.status !== 'Needs review') {
       throw new Error('Only a local task awaiting review can be accepted')
     }
-    return this.writeTask({ ...task, status: 'Done', waitingReason: null, updatedAt: timestamp() })
+    return this.writeTask({
+      ...task,
+      status: 'Done',
+      waitingReason: null,
+      executionState: 'idle',
+      executionRunId: null,
+      reviewKind: null,
+      reviewQuestion: null,
+      updatedAt: timestamp()
+    })
   }
 
   archive(id: string): LocalTask {
@@ -187,6 +210,15 @@ export class LocalTaskStore {
   }
   updateSessionOutput(args: UpdateLocalTaskSessionOutputArgs): LocalTask {
     return mutations.updateSessionOutput(this.access(), args)
+  }
+  startBatch(refs: LocalTaskBatchTaskRef[]): LocalTaskBatch {
+    return batchMutations.startBatch(this.access(), refs)
+  }
+  updateRun(args: Parameters<typeof batchMutations.updateRun>[1]): LocalTask {
+    return batchMutations.updateRun(this.access(), args)
+  }
+  requestReview(args: RequestLocalTaskReviewArgs & { projectPath?: string }): LocalTask {
+    return batchMutations.requestReview(this.access(), args)
   }
 
   private access(): mutations.FileStoreMutationAccess {

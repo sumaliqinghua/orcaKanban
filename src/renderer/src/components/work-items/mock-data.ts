@@ -30,6 +30,11 @@ export type WorkItem = {
   titleSuggestion?: string | null
   labels?: string[]
   archivedAt?: number | null
+  intakeState?: 'inbox' | 'ready'
+  executionState?: 'idle' | 'queued' | 'running' | 'needs_review' | 'failed'
+  executionBatchId?: string | null
+  executionRunId?: string | null
+  reviewKind?: 'delivery' | 'needs_input' | 'execution_failed' | null
 }
 
 export const STATUS_ORDER: WorkItemStatus[] = [

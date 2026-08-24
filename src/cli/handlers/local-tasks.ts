@@ -58,5 +58,12 @@ export const LOCAL_TASK_HANDLERS: Record<string, CommandHandler> = {
       titleSuggestion: getOptionalStringFlag(flags, 'title-suggestion')
     })
     printResult(result, json, formatLocalTask)
+  },
+  'local-task request-review': async ({ client, flags, json }) => {
+    const result = await client.call('localTask.requestReview', {
+      ...getLocalTaskContext(),
+      question: getRequiredStringFlag(flags, 'question')
+    })
+    printResult(result, json, formatLocalTask)
   }
 }

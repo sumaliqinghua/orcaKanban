@@ -36,6 +36,10 @@ const ReportCompleted = Context.extend({
   titleSuggestion: z.string().trim().min(1).max(1_000).optional(),
   description: Description.optional()
 })
+const RequestReview = Context.extend({
+  sessionId: Id,
+  question: z.string().trim().min(1).max(20_000)
+})
 
 function getTask(taskId: string, projectPath?: string): LocalTask {
   const task = getLocalTaskStore().get(taskId, projectPath)
@@ -192,5 +196,18 @@ export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
         })
       )
     }
+  }),
+  defineMethod({
+    name: 'localTask.requestReview',
+    params: RequestReview,
+    handler: (params) =>
+      result(
+        getLocalTaskStore().requestReview({
+          taskId: params.taskId,
+          projectPath: params.projectPath,
+          sessionId: params.sessionId,
+          question: params.question
+        })
+      )
   })
 ]
