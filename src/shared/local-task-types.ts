@@ -54,6 +54,7 @@ export type LocalTask = {
   archivedAt: number | null
   titleSource: 'first-line' | 'ai-suggestion' | 'user'
   titleSuggestion: string | null
+  labels: string[]
   subtasks: LocalTaskSubtask[]
   sessions: LocalTaskSession[]
   latestOutput: { sessionId: string; text: string; updatedAt: number } | null
@@ -76,6 +77,7 @@ export type UpdateLocalTaskArgs = {
   status?: LocalTaskStatus
   waitingReason?: string | null
   archived?: boolean
+  labels?: string[]
 }
 
 export type CreateLocalTaskSessionArgs = {
@@ -89,7 +91,7 @@ export type CreateLocalTaskSessionArgs = {
 
 export type UpdateLocalTaskSessionOutputArgs = {
   sessionId: string
-  latestOutput: string
+  latestOutput?: string
 }
 
 export type AcceptLocalTaskArgs = { taskId: string }

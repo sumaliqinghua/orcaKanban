@@ -285,3 +285,11 @@
   - 子任务视角列表直接展开显示各执行步骤；验收后的父任务 `Done` 优先于子任务 `done` 的 `Needs review` 推导。
 - **Why（为什么这么做）**：任务详情需要显示真实会话最后一次 assistant 输出，而不是任务记录摘要；任务视角的父任务验收状态也必须稳定。
 - **验证结果**：47 个相关测试通过，Electron 构建成功。
+
+## [2026-08-24] 增加任务标签并同步 Agent 会话结束状态
+
+- **What（做了什么）**：
+  - `LocalTask.labels` 写入 `task.json`，详情支持逗号分隔编辑，任务中心顶部标签下拉同时筛选看板和列表，卡片显示标签。
+  - 新增 `localTasks:updateSessionOutput`；Agent 状态进入 `done` 时即使没有 `lastAssistantMessage` 也会把关联会话标记为 done，避免运行中计数残留。
+  - `In progress` 且已有会话的任务操作按钮显示“继续执行”。
+- **验证结果**：47 个相关测试通过，Web 类型检查和 lint 通过。

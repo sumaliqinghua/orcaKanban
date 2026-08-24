@@ -48,7 +48,7 @@ export function LocalTaskActions({
       ) : (
         <Button className="flex-1 gap-1.5 text-xs" onClick={() => onStatus('In progress')}>
           <Play className="size-3.5" />
-          {item.status === 'Done' ? '要求修改' : '开始执行'}
+          {item.status === 'Done' ? '要求修改' : item.sessions > 0 ? '继续执行' : '开始执行'}
         </Button>
       )}
       <Button
@@ -123,6 +123,18 @@ export function WorkItemCard({
         </span>
         <MoreHorizontal className="size-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
       </div>
+      {(item.labels ?? []).length ? (
+        <div className="flex flex-wrap gap-1">
+          {(item.labels ?? []).map((label) => (
+            <span
+              key={label}
+              className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="flex items-center gap-2">
         <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
           {taskStatus}

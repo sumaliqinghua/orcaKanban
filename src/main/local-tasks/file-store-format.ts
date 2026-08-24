@@ -169,6 +169,12 @@ export function readLocalTaskFile(path: string): LocalTask {
     archivedAt: typeof value.archivedAt === 'number' ? value.archivedAt : null,
     titleSource: value.titleSource ?? 'first-line',
     titleSuggestion: value.titleSuggestion ?? null,
+    labels: Array.isArray(value.labels)
+      ? value.labels
+          .filter((label): label is string => typeof label === 'string' && label.trim().length > 0)
+          .map((label) => label.trim())
+          .slice(0, 20)
+      : [],
     subtasks: subtasks as LocalTask['subtasks'],
     sessions: sessions as LocalTask['sessions'],
     latestOutput: latestOutput as LocalTask['latestOutput'],

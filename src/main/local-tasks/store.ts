@@ -92,6 +92,7 @@ export class LocalTaskStore {
       archivedAt: null,
       titleSource: args.title?.trim() ? 'user' : 'first-line',
       titleSuggestion: null,
+      labels: [],
       subtasks: [],
       sessions: [],
       latestOutput: null,
@@ -139,6 +140,7 @@ export class LocalTaskStore {
             : current.archivedAt,
       titleSource: updates.title?.trim() ? 'user' : current.titleSource,
       titleSuggestion: updates.title?.trim() ? null : current.titleSuggestion,
+      labels: updates.labels ?? current.labels,
       updatedAt: timestamp()
     })
   }

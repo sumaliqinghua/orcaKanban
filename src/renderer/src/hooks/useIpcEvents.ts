@@ -3494,19 +3494,21 @@ export function useIpcEvents(): void {
         }
       }
       const persistLocalTaskFinalOutput = (): void => {
-        const output = data.state === 'done' ? data.lastAssistantMessage?.trim() : ''
-        if (!ownerTabId || !output) {
+        if (data.state !== 'done' || !ownerTabId) {
           return
         }
         const updateSessionOutput = window.api.localTasks?.updateSessionOutput
         if (typeof updateSessionOutput !== 'function') {
           return
         }
-        void updateSessionOutput({ sessionId: ownerTabId, latestOutput: output }).catch(
-          (error: unknown) => {
-            console.warn('[local-task] failed to persist final Agent output:', error)
-          }
-        )
+        void updateSessionOutput({
+          sessionId: ownerTabId,
+          ...(data.lastAssistantMessage?.trim()
+            ? { latestOutput: data.lastAssistantMessage.trim() }
+            : {})
+        }).catch((error: unknown) => {
+          console.warn('[local-task] failed to persist final Agent output:', error)
+        })
       }
       if (options?.batch) {
         if (!options.batch.transaction.apply(update)) {

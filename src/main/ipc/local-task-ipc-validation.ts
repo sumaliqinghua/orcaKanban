@@ -35,7 +35,8 @@ export const updateLocalTaskArgsSchema = z
         description: longText.optional(),
         status: taskStatus.optional(),
         waitingReason: z.string().trim().max(10_000).nullable().optional(),
-        archived: z.boolean().optional()
+        archived: z.boolean().optional(),
+        labels: z.array(shortText).max(20).optional()
       })
       .strict()
   })
@@ -53,7 +54,7 @@ export const createLocalTaskSessionArgsSchema = z
   .strict()
 
 export const updateLocalTaskSessionOutputArgsSchema = z
-  .object({ sessionId: id, latestOutput: z.string().trim().min(1).max(100_000) })
+  .object({ sessionId: id, latestOutput: z.string().trim().max(100_000).optional() })
   .strict()
 
 export const createLocalTaskSubtaskArgsSchema = z

@@ -28,6 +28,7 @@ export type WorkItem = {
   sessionsList: { id?: string; title: string; status: 'working' | 'idle' | 'done'; time: string }[]
   titleSource?: 'first-line' | 'ai-suggestion' | 'user'
   titleSuggestion?: string | null
+  labels?: string[]
   archivedAt?: number | null
 }
 

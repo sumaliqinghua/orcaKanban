@@ -42,6 +42,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     })),
     titleSource: task.titleSource,
     titleSuggestion: task.titleSuggestion,
+    labels: task.labels,
     archivedAt: task.archivedAt
   }
 }

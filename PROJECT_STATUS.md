@@ -27,6 +27,7 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - 文件兼容：任务读取兼容 AI 写入的 `Completed` 状态、`completed` 会话状态、字符串总结，以及只在 `plan.json` 中保存的子任务计划，并统一映射到任务面板模型。
 - UI 行为：任务视角按最新子任务显示状态；归档事件立即移除卡片；任务中心默认关闭详情；执行步骤使用较大字号并保留勾选图标、不划线。
 - 输出记录：Agent 状态进入 `done` 时自动把 `lastAssistantMessage` 写入任务会话和 `latestOutput`，不再完全依赖 Agent 主动调用 `report-completed`。
+- 标签与会话状态：任务支持标签编辑和看板/列表共用筛选；Agent done 事件会结束关联 session，即使没有文本输出。
 
 ## 当前进度
 

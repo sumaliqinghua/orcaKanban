@@ -30,6 +30,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const [perspective, setPerspective] = useState<BoardPerspective>('subtasks')
   const [tab, setTab] = useState<'work-items' | 'external'>('work-items')
   const [query, setQuery] = useState('')
+  const [labelFilter, setLabelFilter] = useState('')
   const [detailOpen, setDetailOpen] = useState(false)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
@@ -82,10 +83,15 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
     () =>
       items.filter(
         (item) =>
-          item.title.toLowerCase().includes(query.toLowerCase()) ||
-          item.id.toLowerCase().includes(query.toLowerCase())
+          (item.title.toLowerCase().includes(query.toLowerCase()) ||
+            item.id.toLowerCase().includes(query.toLowerCase())) &&
+          (!labelFilter || (item.labels ?? []).includes(labelFilter))
       ),
-    [items, query]
+    [items, labelFilter, query]
+  )
+  const availableLabels = useMemo(
+    () => [...new Set(items.flatMap((item) => item.labels ?? []))].sort(),
+    [items]
   )
   const updateSelected = (updates: Partial<WorkItem>): void => {
     if (!selected) {
@@ -260,6 +266,19 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
                 <ChevronDown className="size-3.5" />
                 全部项目
               </Button>
+              <select
+                value={labelFilter}
+                onChange={(event) => setLabelFilter(event.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                aria-label="按标签筛选任务"
+              >
+                <option value="">全部标签</option>
+                {availableLabels.map((label) => (
+                  <option key={label} value={label}>
+                    {label}
+                  </option>
+                ))}
+              </select>
               <div className="ml-auto flex items-center rounded-md border border-border p-0.5">
                 <Button
                   variant={perspective === 'subtasks' ? 'secondary' : 'ghost'}
@@ -347,6 +366,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         onOpenChange={setDetailOpen}
         onCompleteSubtask={completeSubtask}
         onEditTitle={taskActions.editTitle}
+        onEditLabels={taskActions.editLabels}
         onEditStep={taskActions.editStep}
         onOpenSession={taskActions.openSession}
         onOpenWorkspace={taskActions.openWorkspace}

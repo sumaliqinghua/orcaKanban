@@ -65,14 +65,23 @@ export function updateSessionOutput(
     throw new Error('Session is not associated with any local task')
   }
   const updatedAt = time()
-  const textValue = args.latestOutput.trim()
+  const textValue = args.latestOutput?.trim() ?? ''
   const sessions = task.sessions.map((session) =>
-    session.id === args.sessionId ? { ...session, latestOutput: textValue, updatedAt } : session
+    session.id === args.sessionId
+      ? {
+          ...session,
+          status: 'done' as const,
+          latestOutput: textValue || session.latestOutput,
+          updatedAt
+        }
+      : session
   )
   return store.writeTask({
     ...task,
     sessions,
-    latestOutput: { sessionId: args.sessionId, text: textValue, updatedAt },
+    latestOutput: textValue
+      ? { sessionId: args.sessionId, text: textValue, updatedAt }
+      : task.latestOutput,
     latestOutputSource: 'agent-status',
     updatedAt
   })

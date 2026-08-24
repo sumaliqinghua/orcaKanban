@@ -19,6 +19,7 @@ function replaceTask(setItems: ActionContext['setItems'], task: LocalTask): void
 
 export function createLocalTaskCenterActions(context: ActionContext): {
   editTitle: () => void
+  editLabels: () => void
   acceptSelected: () => void
   archiveSelected: () => void
   openWorkspace: () => void
@@ -40,6 +41,29 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务标题更新失败')
+      )
+  }
+  const editLabels = (): void => {
+    if (!selected) {
+      return
+    }
+    const value = window.prompt('编辑任务标签（用逗号分隔）', (selected.labels ?? []).join(', '))
+    if (value === null) {
+      return
+    }
+    const labels = [
+      ...new Set(
+        value
+          .split(',')
+          .map((label) => label.trim())
+          .filter(Boolean)
+      )
+    ].slice(0, 20)
+    void window.api.localTasks
+      .update({ taskId: selected.id, updates: { labels } })
+      .then((task) => replaceTask(setItems, task))
+      .catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : '任务标签更新失败')
       )
   }
   const acceptSelected = (): void => {
@@ -129,6 +153,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   }
   return {
     editTitle,
+    editLabels,
     acceptSelected,
     archiveSelected,
     openWorkspace,

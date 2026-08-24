@@ -83,6 +83,7 @@ export function DetailPanel({
   item,
   onCompleteSubtask,
   onEditTitle,
+  onEditLabels,
   onEditStep,
   onOpenSession,
   onOpenWorkspace,
@@ -91,6 +92,7 @@ export function DetailPanel({
   item: WorkItem
   onCompleteSubtask: (subtaskId: string) => void
   onEditTitle: () => void
+  onEditLabels: () => void
   onEditStep: (subtaskId: string, stepId: string) => void
   onOpenSession: (sessionId: string) => void
   onOpenWorkspace: () => void
@@ -116,6 +118,25 @@ export function DetailPanel({
         </p>
       ) : null}
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
+      <div className="mt-3 flex items-center gap-1.5">
+        {(item.labels ?? []).map((label) => (
+          <span
+            key={label}
+            className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+          >
+            {label}
+          </span>
+        ))}
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="size-5"
+          onClick={onEditLabels}
+          aria-label="编辑任务标签"
+        >
+          <Pencil className="size-3" />
+        </Button>
+      </div>
       {item.waitingReason ? (
         <div className="mt-4 flex gap-2 rounded-md border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
           <Clock3 className="mt-0.5 size-3.5 shrink-0" />

@@ -10,6 +10,7 @@ export function LocalTaskDetailAside({
   onOpenChange,
   onCompleteSubtask,
   onEditTitle,
+  onEditLabels,
   onEditStep,
   onOpenSession,
   onOpenWorkspace,
@@ -23,6 +24,7 @@ export function LocalTaskDetailAside({
   onOpenChange: (open: boolean) => void
   onCompleteSubtask: (subtaskId: string) => void
   onEditTitle: () => void
+  onEditLabels: () => void
   onEditStep: (subtaskId: string, stepId: string) => void
   onOpenSession: (sessionId: string) => void
   onOpenWorkspace: () => void
@@ -65,6 +67,7 @@ export function LocalTaskDetailAside({
         item={item}
         onCompleteSubtask={onCompleteSubtask}
         onEditTitle={onEditTitle}
+        onEditLabels={onEditLabels}
         onEditStep={onEditStep}
         onOpenSession={onOpenSession}
         onOpenWorkspace={onOpenWorkspace}
