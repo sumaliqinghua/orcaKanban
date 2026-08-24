@@ -1,4 +1,3 @@
-import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { activateWorktreeFromSidebar } from '@/lib/sidebar-worktree-activation'
 import { useAppStore } from '@/store'
 import type { LocalTask } from '../../../../shared/local-task-types'
@@ -23,7 +22,6 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   acceptSelected: () => void
   archiveSelected: () => void
   openWorkspace: () => void
-  openSession: (sessionId: string) => void
   sessionStarted: (tabId: string, request: string) => void
   editStep: (subtaskId: string, stepId: string) => void
 } {
@@ -91,14 +89,6 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     }
     void activateWorktreeFromSidebar(target).then(() => useAppStore.getState().closeWorkItemsPage())
   }
-  const openSession = (sessionId: string): void => {
-    if (sessionId.startsWith('lts_')) {
-      setLoadError('该会话还没有连接到真实终端')
-      return
-    }
-    activateTabAndFocusPane(sessionId, null)
-    useAppStore.getState().closeWorkItemsPage()
-  }
   const sessionStarted = (tabId: string, request: string): void => {
     if (!selected) {
       return
@@ -145,7 +135,6 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     acceptSelected,
     archiveSelected,
     openWorkspace,
-    openSession,
     sessionStarted,
     editStep
   }

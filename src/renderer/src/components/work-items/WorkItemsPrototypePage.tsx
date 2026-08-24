@@ -368,7 +368,6 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         onEditTitle={taskActions.editTitle}
         onEditLabels={taskActions.editLabels}
         onEditStep={taskActions.editStep}
-        onOpenSession={taskActions.openSession}
         onOpenWorkspace={taskActions.openWorkspace}
         onSessionStarted={taskActions.sessionStarted}
         onStatus={(status, waitingReason) => updateSelected({ status, waitingReason })}
