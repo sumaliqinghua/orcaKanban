@@ -40,6 +40,9 @@ export const STATUS_ORDER: WorkItemStatus[] = [
 ]
 
 export function getTaskPerspectiveStatus(item: WorkItem): WorkItemStatus {
+  if (item.status === 'Done') {
+    return 'Done'
+  }
   if (item.status === 'Waiting') {
     return 'Waiting'
   }

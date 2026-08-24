@@ -172,6 +172,7 @@ export function readLocalTaskFile(path: string): LocalTask {
     subtasks: subtasks as LocalTask['subtasks'],
     sessions: sessions as LocalTask['sessions'],
     latestOutput: latestOutput as LocalTask['latestOutput'],
+    latestOutputSource: value.latestOutputSource === 'agent-status' ? 'agent-status' : 'report',
     waitingReason: value.waitingReason ?? null
   }
 }

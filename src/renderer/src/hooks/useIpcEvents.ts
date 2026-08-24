@@ -3493,11 +3493,27 @@ export function useIpcEvents(): void {
           })
         }
       }
+      const persistLocalTaskFinalOutput = (): void => {
+        const output = data.state === 'done' ? data.lastAssistantMessage?.trim() : ''
+        if (!ownerTabId || !output) {
+          return
+        }
+        const updateSessionOutput = window.api.localTasks?.updateSessionOutput
+        if (typeof updateSessionOutput !== 'function') {
+          return
+        }
+        void updateSessionOutput({ sessionId: ownerTabId, latestOutput: output }).catch(
+          (error: unknown) => {
+            console.warn('[local-task] failed to persist final Agent output:', error)
+          }
+        )
+      }
       if (options?.batch) {
         if (!options.batch.transaction.apply(update)) {
           return 'dropped'
         }
         options.batch.notificationEffects.push(applyPostCommitNotification)
+        options.batch.notificationEffects.push(persistLocalTaskFinalOutput)
         if (
           terminalTitle &&
           shouldApplyResolvedAgentTerminalTitleToTab(store, paneKey, title, terminalTitle)
@@ -3526,6 +3542,7 @@ export function useIpcEvents(): void {
         )
         applyResolvedAgentTerminalTitleToTab(useAppStore.getState(), paneKey, title, terminalTitle)
         applyPostCommitNotification()
+        persistLocalTaskFinalOutput()
       }
       return 'applied'
     }

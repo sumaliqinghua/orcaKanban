@@ -543,6 +543,8 @@ const api = {
       ipcRenderer.invoke('localTasks:update', args),
     createSession: (args: Parameters<LocalTaskApi['createSession']>[0]) =>
       ipcRenderer.invoke('localTasks:createSession', args),
+    updateSessionOutput: (args: Parameters<LocalTaskApi['updateSessionOutput']>[0]) =>
+      ipcRenderer.invoke('localTasks:updateSessionOutput', args),
     createSubtask: (args: Parameters<LocalTaskApi['createSubtask']>[0]) =>
       ipcRenderer.invoke('localTasks:createSubtask', args),
     updateSubtask: (args: Parameters<LocalTaskApi['updateSubtask']>[0]) =>

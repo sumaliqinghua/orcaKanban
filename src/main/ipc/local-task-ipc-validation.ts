@@ -52,6 +52,10 @@ export const createLocalTaskSessionArgsSchema = z
   })
   .strict()
 
+export const updateLocalTaskSessionOutputArgsSchema = z
+  .object({ sessionId: id, latestOutput: z.string().trim().min(1).max(100_000) })
+  .strict()
+
 export const createLocalTaskSubtaskArgsSchema = z
   .object({
     taskId: id,

@@ -22,8 +22,8 @@ const item = (
 })
 
 describe('getTaskPerspectiveStatus', () => {
-  it('maps the latest completed subtask to Needs review instead of Done', () => {
-    expect(getTaskPerspectiveStatus(item('Done', 'done'))).toBe('Needs review')
+  it('maps an in-review task with a completed latest subtask to Needs review', () => {
+    expect(getTaskPerspectiveStatus(item('Needs review', 'done'))).toBe('Needs review')
   })
 
   it('keeps task-level Waiting when no subtask is currently actionable', () => {
@@ -32,5 +32,9 @@ describe('getTaskPerspectiveStatus', () => {
 
   it('uses the task status when no subtask exists', () => {
     expect(getTaskPerspectiveStatus(item('Done'))).toBe('Done')
+  })
+
+  it('keeps an accepted task Done after its latest subtask is done', () => {
+    expect(getTaskPerspectiveStatus(item('Done', 'done'))).toBe('Done')
   })
 })

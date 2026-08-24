@@ -16,6 +16,7 @@ import {
   reportLocalTaskCompletedArgsSchema,
   updateLocalTaskArgsSchema,
   updateLocalTaskStepArgsSchema,
+  updateLocalTaskSessionOutputArgsSchema,
   updateLocalTaskSubtaskArgsSchema
 } from './local-task-ipc-validation'
 import { publishLocalTaskChange } from '../local-tasks/change-notifications'
@@ -57,6 +58,12 @@ export function registerLocalTaskHandlers(): void {
       publishLocalTaskChange(task)
     }
     return session
+  })
+  ipcMain.handle('localTasks:updateSessionOutput', (_event, args: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(updateLocalTaskSessionOutputArgsSchema, args)
+    const task = store.updateSessionOutput(parsed)
+    publishLocalTaskChange(task)
+    return task
   })
   ipcMain.handle('localTasks:createSubtask', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(createLocalTaskSubtaskArgsSchema, args)

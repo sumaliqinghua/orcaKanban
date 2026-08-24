@@ -57,6 +57,7 @@ export type LocalTask = {
   subtasks: LocalTaskSubtask[]
   sessions: LocalTaskSession[]
   latestOutput: { sessionId: string; text: string; updatedAt: number } | null
+  latestOutputSource?: 'agent-status' | 'report'
   waitingReason: string | null
 }
 
@@ -84,6 +85,11 @@ export type CreateLocalTaskSessionArgs = {
   workspaceId?: string
   title?: string
   associationSource?: 'task-center' | 'explicit'
+}
+
+export type UpdateLocalTaskSessionOutputArgs = {
+  sessionId: string
+  latestOutput: string
 }
 
 export type AcceptLocalTaskArgs = { taskId: string }

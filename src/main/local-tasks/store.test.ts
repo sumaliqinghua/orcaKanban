@@ -170,6 +170,33 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('persists the last assistant output separately from task completion', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '输出测试' })
+    const session = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'tab-output'
+    })
+    const updated = store.updateSessionOutput({
+      sessionId: session.id,
+      latestOutput: '完整最终回复\n\n## 验证\n测试通过'
+    })
+
+    expect(updated.latestOutput?.text).toContain('## 验证')
+    expect(updated.sessions[0]?.latestOutput).toContain('完整最终回复')
+    expect(updated.status).toBe('In progress')
+    const reported = store.reportCompleted({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: session.id,
+      latestOutput: '摘要'
+    })
+    expect(reported.latestOutput?.text).toContain('## 验证')
+    store.close()
+  })
+
   it('keeps review and done states for follow-up questions', () => {
     const root = projectPath()
     const store = new LocalTaskStore()

@@ -7,6 +7,7 @@ import type {
   LocalTask,
   LocalTaskSession,
   ReportLocalTaskCompletedArgs,
+  UpdateLocalTaskSessionOutputArgs,
   UpdateLocalTaskStepArgs,
   UpdateLocalTaskSubtaskArgs
 } from '../../shared/local-task-types'
@@ -53,6 +54,28 @@ export function createSession(
   const status = task.status === 'Open' || task.status === 'Waiting' ? 'In progress' : task.status
   store.writeTask({ ...task, sessions: [session, ...task.sessions], status, updatedAt: createdAt })
   return session
+}
+
+export function updateSessionOutput(
+  store: FileStoreMutationAccess,
+  args: UpdateLocalTaskSessionOutputArgs
+): LocalTask {
+  const task = findTaskWithSession(store.taskPaths(), args.sessionId, store.readTask)
+  if (!task) {
+    throw new Error('Session is not associated with any local task')
+  }
+  const updatedAt = time()
+  const textValue = args.latestOutput.trim()
+  const sessions = task.sessions.map((session) =>
+    session.id === args.sessionId ? { ...session, latestOutput: textValue, updatedAt } : session
+  )
+  return store.writeTask({
+    ...task,
+    sessions,
+    latestOutput: { sessionId: args.sessionId, text: textValue, updatedAt },
+    latestOutputSource: 'agent-status',
+    updatedAt
+  })
 }
 
 export function createSubtask(
@@ -170,12 +193,16 @@ export function reportCompleted(
     args.titleSuggestion?.trim() && task.titleSource === 'first-line'
       ? args.titleSuggestion.trim()
       : null
+  const shouldKeepAgentOutput =
+    task.latestOutputSource === 'agent-status' && task.latestOutput?.sessionId === args.sessionId
   const next: LocalTask = {
     ...task,
     sessions,
-    latestOutput: args.latestOutput
-      ? { sessionId: args.sessionId, text: args.latestOutput, updatedAt }
-      : task.latestOutput,
+    latestOutput:
+      !shouldKeepAgentOutput && args.latestOutput
+        ? { sessionId: args.sessionId, text: args.latestOutput, updatedAt }
+        : task.latestOutput,
+    latestOutputSource: shouldKeepAgentOutput ? 'agent-status' : 'report',
     description: args.description?.trim() || task.description,
     title: suggestedTitle ?? task.title,
     titleSource: suggestedTitle ? 'ai-suggestion' : task.titleSource,

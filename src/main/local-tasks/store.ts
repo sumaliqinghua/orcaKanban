@@ -11,7 +11,8 @@ import type {
   ReportLocalTaskCompletedArgs,
   UpdateLocalTaskArgs,
   UpdateLocalTaskStepArgs,
-  UpdateLocalTaskSubtaskArgs
+  UpdateLocalTaskSubtaskArgs,
+  UpdateLocalTaskSessionOutputArgs
 } from '../../shared/local-task-types'
 import {
   atomicWrite,
@@ -94,6 +95,7 @@ export class LocalTaskStore {
       subtasks: [],
       sessions: [],
       latestOutput: null,
+      latestOutputSource: 'report',
       waitingReason: null
     }
     this.writeTask(task)
@@ -178,6 +180,9 @@ export class LocalTaskStore {
   }
   reportCompleted(args: ReportLocalTaskCompletedArgs & { projectPath?: string }): LocalTask {
     return mutations.reportCompleted(this.access(), args)
+  }
+  updateSessionOutput(args: UpdateLocalTaskSessionOutputArgs): LocalTask {
+    return mutations.updateSessionOutput(this.access(), args)
   }
 
   private access(): mutations.FileStoreMutationAccess {

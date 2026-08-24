@@ -275,3 +275,13 @@
   - 归档属于即时列表变更，不能等下一次进入任务中心才生效。
   - 详情页不应在每次进入任务中心时抢占用户视线；执行步骤是状态信息，划线会降低未读性。
 - **验证结果**：42 个相关测试通过，Web 类型检查和 UI lint 通过。
+
+## [2026-08-24] 自动记录 Agent 最后一条 assistant 输出
+
+- **What（做了什么）**：
+  - 增加 `localTasks:updateSessionOutput` IPC/preload 通道；文件 Store 更新会话输出和任务 `latestOutput`。
+  - `useIpcEvents.ts` 在接受 `done` 状态时读取 `lastAssistantMessage` 并自动持久化，标记来源为 `agent-status`。
+  - `reportCompleted` 不再覆盖同一会话已经保存的自动完整输出，避免最后显示为 Agent 自己写的短摘要。
+  - 子任务视角列表直接展开显示各执行步骤；验收后的父任务 `Done` 优先于子任务 `done` 的 `Needs review` 推导。
+- **Why（为什么这么做）**：任务详情需要显示真实会话最后一次 assistant 输出，而不是任务记录摘要；任务视角的父任务验收状态也必须稳定。
+- **验证结果**：47 个相关测试通过，Electron 构建成功。
