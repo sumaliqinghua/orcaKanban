@@ -402,3 +402,21 @@
 - **已知限制**：
   - AI 批次排序尚未接入，目前按任务创建时间降级；批次进度和待审阅详情仍在补充；应用重启后的 queued/running 恢复策略尚未实现。
 - **关联假设**：`ASSUMPTIONS.md` 的“异步员工模式的执行边界”和“AI 输出统一进入待审阅”。
+
+## [2026-08-25] 补齐批次重试和 Inbox 整理操作
+
+- **What（做了什么）**：
+  - `src/main/local-tasks/file-store-batch-mutations.ts`：将批次专用 Store 逻辑从通用文件变更模块拆出；下一次批量执行会识别上一次遗留的 queued run，将其标记为失败并创建新的运行记录，避免任务永久卡在队列中。
+  - `src/main/local-tasks/store.test.ts`：增加中断批次重试测试，验证旧 run 保留为失败、新 run 重新进入 queued。
+  - `work-item-pieces.tsx`、`LocalTaskDetailAside.tsx`、`local-task-center-actions.ts`：Inbox 任务详情增加“整理为可执行”操作，写入 `intakeState = ready`，不会直接启动 Agent。
+- **Why（为什么这么做）**：
+  - 批次执行依赖 renderer 窗口，窗口中途关闭后 queued 任务不能被下一批次永久排除；保留旧失败记录同时创建新 run，既可重试又不丢失中断历史。
+  - Inbox 必须有明确的整理出口，否则用户只能创建但无法下达任务；单独的 ready 操作把“需求整理”和“批次授权”继续分开。
+- **How（怎么实现的）**：
+  - 重试链路：再次点击批次 → Store 发现旧 queued run → 写入 `failed`/错误原因 → 创建新 `LocalTaskRun` → 按 workspace 重新排队。
+  - Inbox 链路：详情操作 → `localTasks.update({ intakeState: 'ready' })` → 文件 Store 原子写入 → 任务进入下一次批次候选，但不会自动启动。
+- **用户须知**：
+  - 关闭窗口不会自动续跑旧批次；下一次点击批量执行时，未启动的 queued 任务会作为可重试任务重新认领。
+  - Inbox 任务必须先点击“整理为可执行”，然后再点击“执行当前任务”。
+- **已知限制**：AI 批次排序、批次进度详情和完整端到端测试仍在阶段 7 后续任务中。
+- **关联假设**：`ASSUMPTIONS.md` 的“异步员工模式的执行边界”。
