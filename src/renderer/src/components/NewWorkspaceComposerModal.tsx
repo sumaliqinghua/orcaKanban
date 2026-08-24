@@ -59,7 +59,7 @@ type ComposerModalData = {
   /** When true, the composer creates a local task after the workspace succeeds. */
   localTaskMode?: boolean
   localTaskWorkspaceMode?: 'existing' | 'new'
-  localTaskDraft?: { title: string; description: string }
+  localTaskDraft?: { title: string; description: string; labels?: string[] }
 }
 
 export default function NewWorkspaceComposerModal(): React.JSX.Element | null {
@@ -371,9 +371,11 @@ function QuickTabBody({
           creatingWorkspace={creatingTaskWorkspace}
           title={localTask.taskTitle}
           description={localTask.taskDescription}
+          labels={localTask.taskLabels}
           error={localTask.taskError}
           onTitleChange={localTask.setTaskTitle}
           onDescriptionChange={localTask.setTaskDescription}
+          onLabelsChange={localTask.setTaskLabels}
         />
       ) : null}
       <NewWorkspaceComposerCard

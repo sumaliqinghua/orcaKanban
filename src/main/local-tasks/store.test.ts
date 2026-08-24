@@ -24,10 +24,16 @@ describe('LocalTaskStore file-first persistence', () => {
     const task = store.create({
       projectId: 'orca',
       projectPath: root,
-      description: '修复登录刷新\n补充测试'
+      description: '修复登录刷新\n补充测试',
+      labels: [' 性能 ', 'Unity', '性能', '']
     })
 
-    expect(task).toMatchObject({ projectPath: root, title: '修复登录刷新', status: 'Open' })
+    expect(task).toMatchObject({
+      projectPath: root,
+      title: '修复登录刷新',
+      status: 'Open',
+      labels: ['性能', 'Unity']
+    })
     expect(existsSync(join(root, 'orca', task.id, 'task.json'))).toBe(true)
     expect(existsSync(join(root, 'orca', task.id, 'plan.json'))).toBe(true)
     expect(existsSync(join(root, 'orca', task.id, 'prd.md'))).toBe(true)

@@ -15,12 +15,14 @@ describe('local task IPC validation', () => {
         projectId: ' orca ',
         projectPath: ' /tmp/orca-project ',
         description: '  修复登录  ',
+        labels: [' 性能 ', 'Unity'],
         workspaceId: ' local '
       })
     ).toMatchObject({
       projectId: 'orca',
       projectPath: '/tmp/orca-project',
       description: '修复登录',
+      labels: ['性能', 'Unity'],
       workspaceId: 'local'
     })
   })

@@ -18,8 +18,8 @@ function replaceTask(setItems: ActionContext['setItems'], task: LocalTask): void
 }
 
 export function createLocalTaskCenterActions(context: ActionContext): {
-  editTitle: () => void
-  editLabels: () => void
+  editTitle: (title: string) => void
+  editLabels: (labels: string[]) => void
   acceptSelected: () => void
   archiveSelected: () => void
   openWorkspace: () => void
@@ -28,37 +28,25 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   editStep: (subtaskId: string, stepId: string) => void
 } {
   const { selected, setItems, setSelectedId, setLoadError } = context
-  const editTitle = (): void => {
+  const editTitle = (title: string): void => {
     if (!selected) {
       return
     }
-    const title = window.prompt('编辑任务标题', selected.title)?.trim()
-    if (!title || title === selected.title) {
+    const nextTitle = title.trim()
+    if (!nextTitle || nextTitle === selected.title) {
       return
     }
     void window.api.localTasks
-      .update({ taskId: selected.id, updates: { title } })
+      .update({ taskId: selected.id, updates: { title: nextTitle } })
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务标题更新失败')
       )
   }
-  const editLabels = (): void => {
+  const editLabels = (labels: string[]): void => {
     if (!selected) {
       return
     }
-    const value = window.prompt('编辑任务标签（用逗号分隔）', (selected.labels ?? []).join(', '))
-    if (value === null) {
-      return
-    }
-    const labels = [
-      ...new Set(
-        value
-          .split(',')
-          .map((label) => label.trim())
-          .filter(Boolean)
-      )
-    ].slice(0, 20)
     void window.api.localTasks
       .update({ taskId: selected.id, updates: { labels } })
       .then((task) => replaceTask(setItems, task))

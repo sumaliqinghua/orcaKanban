@@ -32,6 +32,8 @@ let singleton: LocalTaskStore | null = null
 const timestamp = (): number => Date.now()
 const text = (value: string | null | undefined, fallback: string): string =>
   value?.trim() || fallback
+const normalizeLabels = (value: string[] | undefined): string[] =>
+  [...new Set((value ?? []).map((label) => label.trim()).filter(Boolean))].slice(0, 20)
 
 export class LocalTaskStore {
   private readonly locations = new Map<string, string>()
@@ -92,7 +94,7 @@ export class LocalTaskStore {
       archivedAt: null,
       titleSource: args.title?.trim() ? 'user' : 'first-line',
       titleSuggestion: null,
-      labels: [],
+      labels: normalizeLabels(args.labels),
       subtasks: [],
       sessions: [],
       latestOutput: null,
@@ -140,7 +142,7 @@ export class LocalTaskStore {
             : current.archivedAt,
       titleSource: updates.title?.trim() ? 'user' : current.titleSource,
       titleSuggestion: updates.title?.trim() ? null : current.titleSuggestion,
-      labels: updates.labels ?? current.labels,
+      labels: updates.labels === undefined ? current.labels : normalizeLabels(updates.labels),
       updatedAt: timestamp()
     })
   }

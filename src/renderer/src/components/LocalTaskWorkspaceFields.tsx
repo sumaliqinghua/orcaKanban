@@ -4,16 +4,20 @@ export function LocalTaskWorkspaceFields({
   creatingWorkspace,
   title,
   description,
+  labels,
   error,
   onTitleChange,
-  onDescriptionChange
+  onDescriptionChange,
+  onLabelsChange
 }: {
   creatingWorkspace: boolean
   title: string
   description: string
+  labels: string
   error: string | null
   onTitleChange: (value: string) => void
   onDescriptionChange: (value: string) => void
+  onLabelsChange: (value: string) => void
 }): React.JSX.Element {
   return (
     <div className="shrink-0 space-y-2 border-b border-border/70 px-2 pb-3">
@@ -34,6 +38,12 @@ export function LocalTaskWorkspaceFields({
         onChange={(event) => onDescriptionChange(event.target.value)}
         placeholder="任务描述（必填，支持多行）"
         className="min-h-20 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      <Input
+        value={labels}
+        onChange={(event) => onLabelsChange(event.target.value)}
+        placeholder="标签（可选，逗号分隔）"
+        className="h-8 text-xs"
       />
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>

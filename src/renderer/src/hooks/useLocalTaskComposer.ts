@@ -8,7 +8,7 @@ import type { WorkspaceSource as WorkspaceCreateTelemetrySource } from '../../..
 type LocalTaskComposerModalData = {
   initialRepoId?: string
   telemetrySource?: WorkspaceCreateTelemetrySource
-  localTaskDraft?: { title: string; description: string }
+  localTaskDraft?: { title: string; description: string; labels?: string[] }
 }
 
 export function useLocalTaskComposer({
@@ -24,11 +24,13 @@ export function useLocalTaskComposer({
 }): {
   taskTitle: string
   taskDescription: string
+  taskLabels: string
   taskError: string | null
   taskWorkspaces: Worktree[]
   selectedWorkspaceId: string
   setTaskTitle: (value: string) => void
   setTaskDescription: (value: string) => void
+  setTaskLabels: (value: string) => void
   setSelectedWorkspaceId: (value: string) => void
   createTaskDirectly: () => void
   createTaskAfterNewWorkspace: (completion: WorktreeCreationCompletion) => void
@@ -38,6 +40,19 @@ export function useLocalTaskComposer({
   const [taskTitle, setTaskTitle] = useState(modalData.localTaskDraft?.title ?? '')
   const [taskDescription, setTaskDescription] = useState(
     modalData.localTaskDraft?.description ?? ''
+  )
+  const [taskLabels, setTaskLabels] = useState((modalData.localTaskDraft?.labels ?? []).join(', '))
+  const normalizedLabels = useMemo(
+    () =>
+      [
+        ...new Set(
+          taskLabels
+            .split(',')
+            .map((label) => label.trim())
+            .filter(Boolean)
+        )
+      ].slice(0, 20),
+    [taskLabels]
   )
   const [taskError, setTaskError] = useState<string | null>(null)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
@@ -81,6 +96,7 @@ export function useLocalTaskComposer({
         projectPath: workspace?.path ?? cardProps.selectedRepoPath ?? '',
         title: taskTitle.trim() || undefined,
         description,
+        labels: normalizedLabels,
         workspaceId,
         workspaceLabel: workspace
           ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
@@ -97,7 +113,8 @@ export function useLocalTaskComposer({
     onClose,
     selectedWorkspaceId,
     taskDescription,
-    taskTitle
+    taskTitle,
+    normalizedLabels
   ])
 
   const createTaskAfterNewWorkspace = useCallback(
@@ -124,6 +141,7 @@ export function useLocalTaskComposer({
           projectPath: workspace?.path ?? cardProps.selectedRepoPath ?? '',
           title: taskTitle.trim() || undefined,
           description,
+          labels: normalizedLabels,
           workspaceId: completion.worktreeId,
           workspaceLabel: workspace
             ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
@@ -147,7 +165,14 @@ export function useLocalTaskComposer({
           setTaskError(error instanceof Error ? error.message : '本地任务创建失败')
         )
     },
-    [cardProps.selectedRepoPath, modalData.initialRepoId, onClose, taskDescription, taskTitle]
+    [
+      cardProps.selectedRepoPath,
+      modalData.initialRepoId,
+      onClose,
+      taskDescription,
+      normalizedLabels,
+      taskTitle
+    ]
   )
 
   const openModalWithTaskDraft = useCallback(
@@ -155,22 +180,28 @@ export function useLocalTaskComposer({
       useAppStore.getState().openModal('new-workspace-composer', {
         localTaskMode: true,
         localTaskWorkspaceMode: workspaceMode,
-        localTaskDraft: { title: taskTitle, description: taskDescription },
+        localTaskDraft: {
+          title: taskTitle,
+          description: taskDescription,
+          labels: normalizedLabels
+        },
         ...(cardProps.repoId ? { initialRepoId: cardProps.repoId } : {}),
         telemetrySource: modalData.telemetrySource ?? 'sidebar'
       })
     },
-    [cardProps.repoId, modalData.telemetrySource, taskDescription, taskTitle]
+    [cardProps.repoId, modalData.telemetrySource, normalizedLabels, taskDescription, taskTitle]
   )
 
   return {
     taskTitle,
     taskDescription,
+    taskLabels,
     taskError,
     taskWorkspaces,
     selectedWorkspaceId,
     setTaskTitle,
     setTaskDescription,
+    setTaskLabels,
     setSelectedWorkspaceId,
     createTaskDirectly,
     createTaskAfterNewWorkspace,

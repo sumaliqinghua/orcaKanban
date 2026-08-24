@@ -67,6 +67,7 @@ export type CreateLocalTaskArgs = {
   projectPath: string
   title?: string
   description: string
+  labels?: string[]
   workspaceId?: string
   workspaceLabel?: string
 }

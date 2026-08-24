@@ -21,6 +21,7 @@ export const createLocalTaskArgsSchema = z
     projectPath: z.string().trim().min(1).max(4_096),
     title: shortText.optional(),
     description: longText,
+    labels: z.array(shortText).max(20).optional(),
     workspaceId: id.optional(),
     workspaceLabel: shortText.optional()
   })
