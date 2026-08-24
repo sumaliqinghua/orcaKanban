@@ -28,6 +28,7 @@ export type WorkItem = {
   sessionsList: { id?: string; title: string; status: 'working' | 'idle' | 'done'; time: string }[]
   titleSource?: 'first-line' | 'ai-suggestion' | 'user'
   titleSuggestion?: string | null
+  archivedAt?: number | null
 }
 
 export const STATUS_ORDER: WorkItemStatus[] = [
@@ -39,10 +40,10 @@ export const STATUS_ORDER: WorkItemStatus[] = [
 ]
 
 export function getTaskPerspectiveStatus(item: WorkItem): WorkItemStatus {
-  if (item.status === 'Waiting' || item.status === 'Needs review' || item.status === 'Done') {
-    return item.status
+  if (item.status === 'Waiting') {
+    return 'Waiting'
   }
-  const latest = item.subtasks.find((subtask) => subtask.status === 'doing') ?? item.subtasks.at(-1)
+  const latest = item.subtasks[0]
   if (!latest) {
     return item.status
   }

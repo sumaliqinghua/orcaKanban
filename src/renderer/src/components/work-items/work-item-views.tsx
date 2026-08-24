@@ -109,15 +109,7 @@ export function ListView({
                                     : 'bg-muted-foreground/30'
                               )}
                             />
-                            <span
-                              className={cn(
-                                step.status === 'done' || step.status === 'canceled'
-                                  ? 'text-muted-foreground line-through'
-                                  : 'text-foreground'
-                              )}
-                            >
-                              {step.title}
-                            </span>
+                            <span className="text-foreground">{step.title}</span>
                             <span className="ml-auto text-[10px] text-muted-foreground">
                               {step.status === 'doing'
                                 ? 'AI 处理中'

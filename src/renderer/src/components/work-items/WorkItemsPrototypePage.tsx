@@ -30,7 +30,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const [perspective, setPerspective] = useState<BoardPerspective>('subtasks')
   const [tab, setTab] = useState<'work-items' | 'external'>('work-items')
   const [query, setQuery] = useState('')
-  const [detailOpen, setDetailOpen] = useState(true)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
   const openTaskComposer = (): void => {
@@ -64,6 +64,11 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   useEffect(() => {
     void loadTasks()
     return window.api.localTasks.onChanged((task) => {
+      if (task.archivedAt !== null) {
+        setItems((current) => current.filter((item) => item.id !== task.id))
+        setSelectedId((current) => (current === task.id ? null : current))
+        return
+      }
       const viewItem = localTaskToViewModel(task)
       setItems((current) => {
         const existing = current.some((item) => item.id === viewItem.id)

@@ -176,7 +176,9 @@
 - **Why（为什么这么做）**：`Local Mac` 是运行环境，已有本地 HEAD 和 worktree 都是可绑定 workspace，不应默认创建新 worktree；只有用户明确选择“新建 workspace”时才执行工作树创建。
 - **How（怎么实现的）**：项目选择 → workspace 下拉 → 已有 workspace：`localTasks.create`；新建 workspace：保留任务草稿 → 创建工作树 → completion callback → `localTasks.create`。
 - **用户须知**：本地 HEAD 是合法 workspace，不要求任务必须使用新 worktree；普通工作树创建入口与任务创建入口的行为现在明确分开。
+
 ## [2026-08-23] 接入 session-bound Agent 本地任务工具桥接
+
 - **What（做了什么）**：
   - `src/main/runtime/rpc/methods/local-tasks.ts`：新增 `localTask.current`、`localTask.updateDescription`、`localTask.createSubtask`、`localTask.updateSubtask`、`localTask.updateStep`、`localTask.reportCompleted` 六个 runtime RPC 方法。方法从任务 Agent 的环境上下文接收任务、会话和 workspace 标识，检查任务/会话/步骤归属；首次 `current` 可幂等创建真实 tab 的任务会话；跨 workspace 操作和修改已开始步骤标题会被拒绝；写入后广播完整任务快照。
   - `src/main/runtime/rpc/methods/index.ts`：将六个方法加入统一 RPC 注册表，使本地 CLI 和运行时调用可以发现它们。
@@ -201,7 +203,9 @@
   - 任务数据库仍位于 Orca 用户数据目录的 `local-tasks.db`；项目文档只有在用户明确要求时才由 Agent 维护。
 - **已知限制**：provider hook 目前不会自动从每条模型输出推断步骤，Agent 需要按提示主动调用 CLI；文件锁、provider 自动汇报和 `.orca/tasks/` 镜像仍是后置能力。
 - **关联假设**：`ASSUMPTIONS.md` 的“本地数据库作为任务状态真相”“文件锁后置”“Agent 通过当前会话绑定任务工具”。
+
 ## [2026-08-23] 将本地任务真相迁移到项目文件
+
 - **What（做了什么）**：
   - `src/main/local-tasks/file-store-format.ts`：新增任务文件格式和原子写入工具，任务目录固定为项目根目录 `orca/<task-id>/`，包含 `task.json`、`plan.json`、`prd.md`、`records.md`。
   - `src/main/local-tasks/store.ts`：将 `LocalTaskStore` 从 SQLite 改为项目文件 Store；任务、会话、子任务、步骤、状态和最新输出全部写入 `task.json`；完成报告追加到 `records.md`；读取时重新扫描项目文件；监听外部文件变化并广播任务快照。
@@ -225,7 +229,9 @@
   - 任务状态查看不再依赖 `~/Library/Application Support/orca-dev/local-tasks.db`。
 - **已知限制**：当前只扫描任务中心选中的本地项目路径；远程 SSH 项目的文件写入和跨项目全局索引仍是后置能力。
 - **关联假设**：`ASSUMPTIONS.md` 的“任务上下文跟随项目文件”和“Agent 通过当前会话绑定任务工具”。
+
 ## [2026-08-23] 修正关联会话输入与外部任务文件兼容
+
 - **What（做了什么）**：
   - `LocalTaskAgentPicker.tsx`：首次启动任务仍直接选择 Agent；已有会话时先打开输入框，用户填写本轮独立请求，再选择 Agent；prompt 只保留任务标题/ID/描述、用户请求、`current`/`--help` 渐进式提示和直接读取 `task.json` 的兜底，不再重复发送整套命令清单或共享项目状态文件说明。
   - `local-task-center-actions.ts` 及详情面板类型：会话创建时把用户请求作为会话标题，并把项目路径传入文件 Store。
@@ -240,7 +246,9 @@
   - 关联会话：任务详情 → 输入本轮请求 → 选择 Agent → prompt 注入用户请求 →真实 tab → 以请求首行创建会话标题。
   - 文件读取：`task.json` → 状态/会话/输出归一化 → 若 subtasks 为空则读取 `plan.json` → 任务面板快照。
 - **已知限制**：已经运行的旧生产 Orca 进程仍可能使用旧 CLI，必须重启新的 `pnpm dev` 实例；文件格式兼容只在读取时归一化，不回写用户原文件。
+
 ## [2026-08-24] 修复任务会话关联失败与误归档
+
 - **What（做了什么）**：
   - `src/main/ipc/local-task-ipc-validation.ts`：允许 `localTasks:createSession` 接收项目路径，和文件 Store 的任务定位参数保持一致。
   - `src/main/ipc/local-task-ipc-validation.test.ts`：增加项目路径会话关联校验测试。
@@ -251,3 +259,19 @@
 - **How（怎么实现的）**：
   - renderer → `localTasks:createSession({ taskId, projectPath, sessionId })` → zod schema → 文件 Store → `task.json`。
 - **验证结果**：相关定向测试通过；提交 `7fcf55e09`。
+
+## [2026-08-24] 修正任务状态视角、归档刷新和执行步骤展示
+
+- **What（做了什么）**：
+  - `mock-data.ts`：任务视角有子任务时以最新子任务状态为准，完成子任务映射为 `Needs review`；无子任务时才使用任务自身状态；Waiting 仍保留任务级优先级。
+  - `work-item-pieces.tsx`：子任务卡片同时显示子任务状态和父任务状态，避免子任务 `Done` 被误解为父任务已验收。
+  - `WorkItemsPrototypePage.tsx`：详情抽屉默认关闭；收到归档任务变更时立即从内存列表和选中项移除。
+  - `local-task-view-model.ts`：保留 `archivedAt` 给界面事件过滤。
+  - `LocalTaskDetailPanel.tsx`、`work-item-views.tsx`：执行步骤改为 `text-xs`，完成后保留勾选图标但不再划线。
+  - `LocalTaskAgentPicker.tsx`：完成提示要求 Agent 将完整最终交付文本写入 `report-completed --output`，避免任务中心只显示一句摘要。
+  - `mock-data.test.ts`：增加任务视角状态计算回归测试。
+- **Why（为什么这么做）**：
+  - 子任务视角中的 `Done` 是子任务完成，不等于父任务已经验收；任务视角必须按最新子任务计算并显示待验收。
+  - 归档属于即时列表变更，不能等下一次进入任务中心才生效。
+  - 详情页不应在每次进入任务中心时抢占用户视线；执行步骤是状态信息，划线会降低未读性。
+- **验证结果**：42 个相关测试通过，Web 类型检查和 UI lint 通过。

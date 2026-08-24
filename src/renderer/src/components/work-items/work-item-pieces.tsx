@@ -173,6 +173,7 @@ export function SubtaskCard({
   ).length
   const statusLabel =
     subtask.status === 'doing' ? 'In progress' : subtask.status === 'done' ? 'Done' : 'Open'
+  const taskStatus = getTaskPerspectiveStatus(item)
   return (
     <button
       type="button"
@@ -202,6 +203,7 @@ export function SubtaskCard({
         >
           {statusLabel}
         </Badge>
+        <span className="truncate text-[10px] text-muted-foreground">任务：{taskStatus}</span>
         <span className="truncate text-[10px] text-muted-foreground">来自：{item.title}</span>
       </div>
       <div className="flex items-center gap-3 text-[10px] text-muted-foreground">

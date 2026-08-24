@@ -28,7 +28,7 @@ function buildTaskPrompt(item: WorkItem, request: string): string {
     '',
     `用户本轮请求：${request.trim()}`,
     '',
-    '本轮会话属于这个任务。先执行 `orca local-task current --json` 读取当前上下文；需要创建或更新子任务、执行步骤或完成状态时，再查看 `orca local-task --help` 使用对应命令。若当前 CLI 不可用，直接读取项目目录 `orca/<任务ID>/task.json`，并按需要更新任务文件。不要创建新的顶层任务。'
+    '本轮会话属于这个任务。先执行 `orca local-task current --json` 读取当前上下文；需要创建或更新子任务、执行步骤或完成状态时，再查看 `orca local-task --help` 使用对应命令。完成本轮时，请把完整最终回复（包括已完成、验证、限制和待确认项）原样作为 report-completed 的 output，不要只写一句摘要。若当前 CLI 不可用，直接读取项目目录 `orca/<任务ID>/task.json`，并按需要更新任务文件。不要创建新的顶层任务。'
   ].join('\n')
 }
 

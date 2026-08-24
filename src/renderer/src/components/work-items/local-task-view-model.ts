@@ -41,6 +41,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
       time: new Date(session.updatedAt).toLocaleString()
     })),
     titleSource: task.titleSource,
-    titleSuggestion: task.titleSuggestion
+    titleSuggestion: task.titleSuggestion,
+    archivedAt: task.archivedAt
   }
 }

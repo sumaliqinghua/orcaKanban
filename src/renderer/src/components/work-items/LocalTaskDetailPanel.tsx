@@ -49,11 +49,9 @@ function SubtaskBlock({
       </div>
       <div className="space-y-1 p-2">
         {subtask.steps.map((step) => (
-          <div key={step.id} className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          <div key={step.id} className="flex items-center gap-2 text-xs text-muted-foreground">
             <StepStatus status={step.status} />
-            <span className={cn('flex-1', step.status === 'done' && 'line-through')}>
-              {step.title}
-            </span>
+            <span className="flex-1">{step.title}</span>
             <span>
               {step.status === 'doing'
                 ? 'AI 处理中'
