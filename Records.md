@@ -334,7 +334,9 @@
 - **Why（为什么这么做）**：任务中心默认应先展示任务状态；终端关闭后仍需保留会话上下文并支持恢复；空的 `plan.json` 会误导其他 AI 认为没有计划。
 - **How（怎么实现的）**：请求 → `initialPrompt`；完成事件 → `latestOutput`；Store 写 `task.json` → 同步写 `plan.json.subtasks`；无实时卡片时通过 `aiVault.listSessions(scopePaths)` 匹配历史并调用现有 `handleResume`。
 - **用户须知**：旧会话没有 `initialPrompt` 时显示默认提示；恢复依赖 Agent Session History 扫描结果。
-- **验证结果**：20 个定向测试、Web TypeScript 检查和 oxlint 通过。
+- **验证结果**：21 个定向测试、Web TypeScript 检查和 oxlint 通过。
+
+补充：`plan.json` 同步只替换 `subtasks`，会保留用户或其他 AI 写入的 `owner`、`notes` 等自定义字段。
 
 ## [2026-08-25] 规划异步员工模式
 
