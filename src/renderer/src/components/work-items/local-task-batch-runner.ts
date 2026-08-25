@@ -1,5 +1,6 @@
 import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
 import { useAppStore } from '@/store'
+import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import type {
   LocalTaskBatchCandidate,
   LocalTaskRunStatus
@@ -69,6 +70,10 @@ async function runCandidate(candidate: LocalTaskBatchCandidate, agent: TuiAgent)
     await updateRun(candidate, 'failed', undefined, '任务没有可用的 workspace')
     return
   }
+  if (!activateAndRevealWorktree(worktreeId)) {
+    await updateRun(candidate, 'failed', undefined, '任务 workspace 不存在或无法激活')
+    return
+  }
   const result = launchAgentInNewTab({
     agent,
     worktreeId,
@@ -90,6 +95,7 @@ async function runCandidate(candidate: LocalTaskBatchCandidate, agent: TuiAgent)
       sessionId: result.tabId,
       workspaceId: candidate.task.workspaceId,
       title: `批量执行 · ${candidate.task.title}`,
+      initialPrompt: buildBatchPrompt(candidate),
       associationSource: 'task-center'
     })
     await updateRun(candidate, 'running', result.tabId)

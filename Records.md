@@ -355,6 +355,14 @@
 - **Why（为什么这么做）**：批量任务可能绑定了后台 workspace，用户当前激活的 workspace 为空不应让按钮变灰；恢复会话必须完成“创建恢复终端 + 激活目标 workspace”两步；已有标签应能复用，减少重复输入。
 - **验证结果**：14 个相关测试、Web TypeScript 检查和 work-items oxlint 通过。
 
+## [2026-08-25] 修复批量会话启动和活跃会话误恢复
+
+- **What（做了什么）**：
+  - `local-task-batch-runner.ts`：批量启动每个任务前先激活任务绑定的 workspace，再创建 Agent tab；创建任务会话时保存完整批量提示作为 `initialPrompt`。
+  - `LocalTaskDetailAside.tsx`：运行中的任务会话点击“打开工作树查看会话”，不会再调用历史恢复；只有 idle/done 会话才允许 `resume`，避免 Codex 的 active writer 冲突。
+- **Why（为什么这么做）**：此前批量 runner 只创建 tab，不激活后台 workspace，任务进入 `In progress` 后用户看不到实际会话；对运行中的 Codex 会话执行 resume 会触发 `thread already has an active writer`。
+- **验证结果**：21 个本地任务定向测试、Web TypeScript 检查和 work-items oxlint 通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：

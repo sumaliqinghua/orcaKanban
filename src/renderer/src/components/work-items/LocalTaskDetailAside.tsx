@@ -23,6 +23,7 @@ function LocalTaskSessionPreview({
   sessionId: string
   session: {
     title: string
+    status: 'working' | 'idle' | 'done'
     initialPrompt?: string | null
     latestOutput?: string | null
   }
@@ -54,6 +55,10 @@ function LocalTaskSessionPreview({
   })
   const [historyLoading, setHistoryLoading] = useState(false)
   const restoreFromHistory = async (): Promise<void> => {
+    if (session.status === 'working') {
+      onOpenWorkspace()
+      return
+    }
     setHistoryLoading(true)
     try {
       const result = await window.api.aiVault.listSessions({
@@ -101,9 +106,13 @@ function LocalTaskSessionPreview({
             onClick={() => void restoreFromHistory()}
             disabled={historyLoading}
           >
-            在工作树中恢复
+            {session.status === 'working' ? '打开工作树查看会话' : '在工作树中恢复'}
           </Button>
-          <p>当前会话没有可显示的实时终端，可能已经结束或尚未挂载。</p>
+          <p>
+            {session.status === 'working'
+              ? '会话正在运行，不会重复恢复；请打开工作树查看当前会话。'
+              : '当前会话没有可显示的实时终端，可能已经结束或尚未挂载。'}
+          </p>
         </div>
       </section>
     )
@@ -286,6 +295,7 @@ export function LocalTaskDetailAside({
             session={
               item.sessionsList.find((candidate) => candidate.id === embeddedSessionId) ?? {
                 title: '关联会话',
+                status: 'done',
                 initialPrompt: null,
                 latestOutput: null
               }
