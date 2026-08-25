@@ -74,9 +74,15 @@ export function createLocalTaskCenterActions(context: ActionContext): {
         setItems((current) => current.filter((item) => item.id !== task.id))
         setSelectedId(null)
       })
-      .catch((error: unknown) =>
-        setLoadError(error instanceof Error ? error.message : '任务归档失败')
-      )
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        if (message.includes('Local task not found')) {
+          setItems((current) => current.filter((item) => item.id !== selected.id))
+          setSelectedId(null)
+          return
+        }
+        setLoadError(message || '任务归档失败')
+      })
   }
   const promoteSelected = (): void => {
     if (!selected || selected.intakeState !== 'inbox') {
@@ -116,6 +122,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
         sessionId: tabId,
         title: request.split(/\r?\n/, 1)[0]?.trim().slice(0, 120) || 'Agent 会话',
         workspaceId,
+        initialPrompt: request,
         associationSource: 'task-center'
       })
       .then(() => window.api.localTasks.get(selected.id, selected.projectPath))

@@ -241,6 +241,11 @@ export class LocalTaskStore {
   private writeTask(task: LocalTask): LocalTask {
     const path = localTaskFile(task.projectPath, task.id)
     writeJson(path, task)
+    writeJson(join(localTaskDirectory(task.projectPath, task.id), LOCAL_TASK_PLAN_FILE_NAME), {
+      schemaVersion: 1,
+      taskId: task.id,
+      subtasks: task.subtasks
+    })
     this.locations.set(task.id, path)
     this.changeListener?.(task)
     return task

@@ -30,7 +30,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('board')
-  const [perspective, setPerspective] = useState<BoardPerspective>('subtasks')
+  const [perspective, setPerspective] = useState<BoardPerspective>('tasks')
   const [tab, setTab] = useState<'work-items' | 'external'>('work-items')
   const [query, setQuery] = useState('')
   const [labelFilter, setLabelFilter] = useState('')

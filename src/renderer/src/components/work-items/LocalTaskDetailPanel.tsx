@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowUpRight, Bot, Check, Clock3, GitBranch, Pencil } from 'lucide-react'
+import { ArrowUpRight, Bot, Check, ChevronDown, Clock3, GitBranch, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -110,6 +110,7 @@ export function DetailPanel({
 }): React.JSX.Element {
   const [titleDialogOpen, setTitleDialogOpen] = useState(false)
   const [labelsDialogOpen, setLabelsDialogOpen] = useState(false)
+  const [expandedSessionHistoryId, setExpandedSessionHistoryId] = useState<string | null>(null)
   const [titleDraft, setTitleDraft] = useState(item.title)
   const [labelsDraft, setLabelsDraft] = useState((item.labels ?? []).join(', '))
   const openTitleDialog = (): void => {
@@ -230,29 +231,69 @@ export function DetailPanel({
             <span className="text-[10px] text-muted-foreground">仅从任务中心关联</span>
           </div>
           <div className="space-y-1">
-            {item.sessionsList.map((session) => (
-              <button
-                type="button"
-                key={session.title}
-                onClick={() => onOpenSession(session.id ?? session.title)}
-                className="flex w-full items-center gap-2 rounded-md border border-border/70 px-2.5 py-2 text-left hover:bg-accent"
-              >
-                <Bot className="size-3.5 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate text-[11px]">{session.title}</span>
-                <span
-                  className={cn(
-                    'size-1.5 rounded-full',
-                    session.status === 'working'
-                      ? 'bg-sky-500'
-                      : session.status === 'done'
-                        ? 'bg-emerald-500'
-                        : 'bg-muted-foreground/40'
-                  )}
-                />
-                <span className="text-[10px] text-muted-foreground">{session.time}</span>
-                <ArrowUpRight className="size-3 text-muted-foreground" />
-              </button>
-            ))}
+            {item.sessionsList.map((session) => {
+              const sessionId = session.id ?? session.title
+              const historyExpanded = expandedSessionHistoryId === sessionId
+              return (
+                <div key={sessionId} className="rounded-md border border-border/70">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onOpenSession(sessionId)}
+                      className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left hover:bg-accent"
+                    >
+                      <Bot className="size-3.5 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate text-[11px]">{session.title}</span>
+                      <span
+                        className={cn(
+                          'size-1.5 rounded-full',
+                          session.status === 'working'
+                            ? 'bg-sky-500'
+                            : session.status === 'done'
+                              ? 'bg-emerald-500'
+                              : 'bg-muted-foreground/40'
+                        )}
+                      />
+                      <span className="text-[10px] text-muted-foreground">{session.time}</span>
+                      <ArrowUpRight className="size-3 text-muted-foreground" />
+                    </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="mr-1 size-6"
+                      aria-label={historyExpanded ? '收起会话历史' : '展开会话历史'}
+                      onClick={() =>
+                        setExpandedSessionHistoryId(historyExpanded ? null : sessionId)
+                      }
+                    >
+                      <ChevronDown
+                        className={cn(
+                          'size-3.5 transition-transform',
+                          historyExpanded && 'rotate-180'
+                        )}
+                      />
+                    </Button>
+                  </div>
+                  {historyExpanded ? (
+                    <div className="grid gap-2 border-t border-border/60 p-2 text-[11px]">
+                      <div className="rounded border border-border/60 bg-muted/20 p-2">
+                        <div className="mb-1 text-[10px] text-muted-foreground">首次提示</div>
+                        <div className="max-h-24 overflow-y-auto whitespace-pre-wrap leading-relaxed scrollbar-sleek">
+                          {session.initialPrompt || '没有保存首次提示。'}
+                        </div>
+                      </div>
+                      <div className="rounded border border-border/60 bg-muted/20 p-2">
+                        <div className="mb-1 text-[10px] text-muted-foreground">最近轮次</div>
+                        <div className="max-h-24 overflow-y-auto whitespace-pre-wrap leading-relaxed scrollbar-sleek">
+                          {session.latestOutput || '没有保存最近一轮输出。'}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
           </div>
           <LocalTaskAgentPicker item={item} onStarted={onSessionStarted} />
         </section>

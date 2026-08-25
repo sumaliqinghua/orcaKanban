@@ -38,6 +38,7 @@ export type LocalTaskSession = {
   taskId: string
   workspaceId: string
   title: string
+  initialPrompt?: string | null
   status: 'working' | 'idle' | 'done'
   latestOutput: string | null
   createdAt: number
@@ -150,6 +151,7 @@ export type CreateLocalTaskSessionArgs = {
   sessionId?: string
   workspaceId?: string
   title?: string
+  initialPrompt?: string
   associationSource?: 'task-center' | 'explicit'
 }
 

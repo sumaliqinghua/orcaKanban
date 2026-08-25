@@ -180,6 +180,7 @@ export function readLocalTaskFile(path: string): LocalTask {
   const sessions = Array.isArray(value.sessions)
     ? value.sessions.filter(isRecord).map((session) => ({
         ...session,
+        initialPrompt: typeof session.initialPrompt === 'string' ? session.initialPrompt : null,
         status: (session.status as string) === 'completed' ? 'done' : session.status
       }))
     : []

@@ -25,7 +25,14 @@ export type WorkItem = {
   waitingReason?: string
   subtasks: Subtask[]
   latestOutput: { session: string; text: string }
-  sessionsList: { id?: string; title: string; status: 'working' | 'idle' | 'done'; time: string }[]
+  sessionsList: {
+    id?: string
+    title: string
+    initialPrompt?: string | null
+    latestOutput?: string | null
+    status: 'working' | 'idle' | 'done'
+    time: string
+  }[]
   titleSource?: 'first-line' | 'ai-suggestion' | 'user'
   titleSuggestion?: string | null
   labels?: string[]

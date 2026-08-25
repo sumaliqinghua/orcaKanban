@@ -1,23 +1,87 @@
 import { useEffect, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { PanelRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAppStore } from '@/store'
 import type { WorkItem, WorkItemStatus } from './mock-data'
 import { DetailPanel } from './LocalTaskDetailPanel'
 import { LocalTaskActions, StatusBadge } from './work-item-pieces'
 import { AgentTerminalPanel } from '../dashboard-popout/AgentTerminalDialog'
 import { useLiveDashboardSnapshot } from '../dashboard/useLiveDashboardSnapshot'
+import { useAiVaultSessionLaunchActions } from '../right-sidebar/ai-vault-session-launch-actions'
+import { findWorktreeById } from '@/store/slices/worktree-helpers'
+import type { AiVaultSessionResumeTargetState } from '../right-sidebar/ai-vault-session-resume'
 
 function LocalTaskSessionPreview({
   sessionId,
+  session,
+  projectPath,
+  workspaceId,
   onClose,
   onOpenWorkspace
 }: {
   sessionId: string
+  session: {
+    title: string
+    initialPrompt?: string | null
+    latestOutput?: string | null
+  }
+  projectPath: string
+  workspaceId: string
   onClose: () => void
   onOpenWorkspace: () => void
 }): React.JSX.Element {
   const snapshot = useLiveDashboardSnapshot()
   const card = snapshot.cards.find((candidate) => candidate.tabId === sessionId) ?? null
+  const activeWorktreeId = useAppStore((state) => state.activeWorktreeId)
+  const activeWorktree = useAppStore((state) =>
+    activeWorktreeId ? (findWorktreeById(state.worktreesByRepo, activeWorktreeId) ?? null) : null
+  )
+  const targetState = useAppStore(
+    useShallow(
+      (state): AiVaultSessionResumeTargetState => ({
+        folderWorkspaces: state.folderWorkspaces,
+        projectGroups: state.projectGroups,
+        repos: state.repos,
+        worktreesByRepo: state.worktreesByRepo
+      })
+    )
+  )
+  const { handleResume } = useAiVaultSessionLaunchActions({
+    activeWorktree,
+    activeWorktreeId,
+    targetState
+  })
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const restoreFromHistory = async (): Promise<void> => {
+    setHistoryLoading(true)
+    try {
+      const result = await window.api.aiVault.listSessions({
+        scopePaths: [projectPath],
+        limit: 200,
+        force: true
+      })
+      const matching = result.sessions.find((candidate) => {
+        const prompt = candidate.firstUserPrompt ?? candidate.lastUserPrompt ?? ''
+        return (
+          (session.initialPrompt?.trim() ? prompt.includes(session.initialPrompt.trim()) : false) ||
+          candidate.title === session.title
+        )
+      })
+      if (matching) {
+        handleResume(
+          matching,
+          workspaceId === 'local' ? (activeWorktreeId ?? undefined) : workspaceId
+        )
+      } else {
+        onOpenWorkspace()
+      }
+    } catch {
+      onOpenWorkspace()
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
   if (!card) {
     return (
       <section className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-border bg-muted/10">
@@ -27,26 +91,64 @@ function LocalTaskSessionPreview({
             <PanelRight className="size-3.5" />
           </Button>
         </div>
-        <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-muted-foreground">
-          当前会话没有可显示的实时终端，可能已经结束或尚未挂载。
+        <div className="scrollbar-sleek flex flex-1 flex-col gap-3 overflow-y-auto p-4 text-xs text-muted-foreground">
+          <SessionHistory session={session} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void restoreFromHistory()}
+            disabled={historyLoading}
+          >
+            在工作树中恢复
+          </Button>
+          <p>当前会话没有可显示的实时终端，可能已经结束或尚未挂载。</p>
         </div>
       </section>
     )
   }
   return (
-    <AgentTerminalPanel
-      card={card}
-      className="m-0 min-h-0 flex-1 rounded-none border-0 shadow-none"
-      onOpenChange={(open) => {
-        if (!open) {
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-border">
+      <div className="scrollbar-sleek max-h-56 shrink-0 overflow-y-auto p-3">
+        <SessionHistory session={session} />
+      </div>
+      <AgentTerminalPanel
+        card={card}
+        className="m-0 min-h-0 flex-1 rounded-none border-0 border-t shadow-none"
+        onOpenChange={(open) => {
+          if (!open) {
+            onClose()
+          }
+        }}
+        onReveal={() => {
+          onOpenWorkspace()
           onClose()
-        }
-      }}
-      onReveal={() => {
-        onOpenWorkspace()
-        onClose()
-      }}
-    />
+        }}
+      />
+    </section>
+  )
+}
+
+function SessionHistory({
+  session
+}: {
+  session: { initialPrompt?: string | null; latestOutput?: string | null }
+}): React.JSX.Element {
+  return (
+    <div className="space-y-2 text-xs">
+      <div className="font-medium text-foreground">会话历史</div>
+      <div className="rounded-md border border-border/70 bg-muted/20 p-2.5">
+        <div className="mb-1 text-[10px] font-medium text-muted-foreground">首次提示</div>
+        <div className="scrollbar-sleek max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+          {session.initialPrompt || '没有保存首次提示。'}
+        </div>
+      </div>
+      <div className="rounded-md border border-border/70 bg-muted/20 p-2.5">
+        <div className="mb-1 text-[10px] font-medium text-muted-foreground">最近轮次</div>
+        <div className="scrollbar-sleek max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+          {session.latestOutput || '没有保存最近一轮输出。'}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -123,7 +225,9 @@ export function LocalTaskDetailAside({
             onEditTitle={onEditTitle}
             onEditLabels={onEditLabels}
             onEditStep={onEditStep}
-            onOpenSession={setEmbeddedSessionId}
+            onOpenSession={(sessionId) => {
+              setEmbeddedSessionId(sessionId)
+            }}
             onOpenWorkspace={onOpenWorkspace}
             onSessionStarted={onSessionStarted}
           />
@@ -138,6 +242,15 @@ export function LocalTaskDetailAside({
         {embeddedSessionId ? (
           <LocalTaskSessionPreview
             sessionId={embeddedSessionId}
+            projectPath={item.projectPath ?? ''}
+            workspaceId={item.workspaceId ?? 'local'}
+            session={
+              item.sessionsList.find((candidate) => candidate.id === embeddedSessionId) ?? {
+                title: '关联会话',
+                initialPrompt: null,
+                latestOutput: null
+              }
+            }
             onClose={() => setEmbeddedSessionId(null)}
             onOpenWorkspace={onOpenWorkspace}
           />

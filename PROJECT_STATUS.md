@@ -45,6 +45,7 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - 文件锁和同 workspace 并行写入租约按用户决定后置。
 - v1.6 尚未实现 AI 批次排序、跨重启批次恢复和完整批次进度/待审阅 UI；批次启动仍要求任务中心窗口保持可用。
 - 全仓库 Node TypeScript 检查仍有既有 `ui-state-schema-parity-checks.ts` 类型错误；本地任务相关定向检查通过。
+- 任务中心默认使用任务视角；会话可展开查看首次提示/最近输出；实时终端关闭后可扫描 Agent Session History 并在工作树中恢复；任务 Store 会同步 `plan.json` 的子任务和步骤。
 
 ## 关键配置与环境信息
 

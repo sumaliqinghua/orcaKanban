@@ -328,6 +328,14 @@
 - **已知限制**：已结束的会话没有实时终端，只能显示不可用提示；其最近输出仍可在任务详情底部查看。
 - **验证结果**：18 个定向测试通过，Web TypeScript 检查、oxlint 和 Electron 构建通过。
 
+## [2026-08-25] 补齐任务视角、会话历史和 plan.json 同步
+
+- **What（做了什么）**：默认切换任务视角；关联会话增加首次提示/最近输出展开；终端关闭后扫描 Agent Session History 并复用工作树恢复；会话保存 `initialPrompt`；Store 写入任务时同步 `plan.json` 子任务和步骤；外部已删除任务的重复归档按幂等成功处理。
+- **Why（为什么这么做）**：任务中心默认应先展示任务状态；终端关闭后仍需保留会话上下文并支持恢复；空的 `plan.json` 会误导其他 AI 认为没有计划。
+- **How（怎么实现的）**：请求 → `initialPrompt`；完成事件 → `latestOutput`；Store 写 `task.json` → 同步写 `plan.json.subtasks`；无实时卡片时通过 `aiVault.listSessions(scopePaths)` 匹配历史并调用现有 `handleResume`。
+- **用户须知**：旧会话没有 `initialPrompt` 时显示默认提示；恢复依赖 Agent Session History 扫描结果。
+- **验证结果**：20 个定向测试、Web TypeScript 检查和 oxlint 通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：

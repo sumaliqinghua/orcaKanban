@@ -45,6 +45,7 @@ export function createSession(
     taskId: task.id,
     workspaceId: text(args.workspaceId, task.workspaceId),
     title: text(args.title, '自动创建会话'),
+    initialPrompt: args.initialPrompt?.trim() || null,
     status: 'working',
     latestOutput: null,
     createdAt,
