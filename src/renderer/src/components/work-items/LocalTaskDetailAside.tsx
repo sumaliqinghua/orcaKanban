@@ -74,6 +74,7 @@ function LocalTaskSessionPreview({
           matching,
           workspaceId === 'local' ? (activeWorktreeId ?? undefined) : workspaceId
         )
+        onOpenWorkspace()
       } else {
         onOpenWorkspace()
       }
@@ -166,7 +167,8 @@ export function LocalTaskDetailAside({
   onStatus,
   onAccept,
   onArchive,
-  onPromote
+  onPromote,
+  labelSuggestions
 }: {
   item: WorkItem
   open: boolean
@@ -181,6 +183,7 @@ export function LocalTaskDetailAside({
   onAccept: () => void
   onArchive: () => void
   onPromote: () => void
+  labelSuggestions: string[]
 }): React.JSX.Element {
   const [embeddedSessionId, setEmbeddedSessionId] = useState<string | null>(null)
   const [detailWidth, setDetailWidth] = useState(420)
@@ -259,6 +262,7 @@ export function LocalTaskDetailAside({
             onCompleteSubtask={onCompleteSubtask}
             onEditTitle={onEditTitle}
             onEditLabels={onEditLabels}
+            labelSuggestions={labelSuggestions}
             onEditStep={onEditStep}
             onOpenSession={(sessionId) => {
               setEmbeddedSessionId(sessionId)

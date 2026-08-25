@@ -346,6 +346,15 @@
 - **执行功能说明**：顶部“执行当前任务”是批量执行入口，需要选择 Agent；只处理符合条件的 Open 任务。自动/定时执行尚未完成。
 - **验证结果**：任务相关定向测试、Web TypeScript 检查和 work-items oxlint 通过。
 
+## [2026-08-25] 修复批量执行入口、会话恢复可见性和标签候选
+
+- **What（做了什么）**：
+  - `LocalTaskCenterHeader.tsx`、`WorkItemsPrototypePage.tsx`：批量执行按钮使用候选任务自身的 workspace，不再错误依赖当前激活 workspace；没有候选时标题提示可执行条件。
+  - `LocalTaskDetailAside.tsx`：历史恢复成功后显式激活任务 workspace并关闭事项中心，确保排队创建的恢复终端可见。
+  - `LocalTaskDetailPanel.tsx`、`LocalTaskLabelSuggestions.tsx`：标签编辑弹窗根据当前逗号片段过滤已有标签，显示最多 8 个快捷候选，点击后追加到输入框。
+- **Why（为什么这么做）**：批量任务可能绑定了后台 workspace，用户当前激活的 workspace 为空不应让按钮变灰；恢复会话必须完成“创建恢复终端 + 激活目标 workspace”两步；已有标签应能复用，减少重复输入。
+- **验证结果**：14 个相关测试、Web TypeScript 检查和 work-items oxlint 通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：

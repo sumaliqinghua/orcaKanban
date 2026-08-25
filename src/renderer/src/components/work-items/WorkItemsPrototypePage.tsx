@@ -213,6 +213,11 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         onRunAll={(agent) => void runAllTasks(agent)}
         runAllDisabled={batchRunning}
         candidateCount={batchCandidates.length}
+        agentWorktreeId={
+          batchCandidates.find((item) => item.workspaceId !== 'local')?.workspaceId ??
+          useAppStore.getState().activeWorktreeId ??
+          null
+        }
       />
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-5 border-b border-border px-6 pt-3">
@@ -383,6 +388,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         onCompleteSubtask={completeSubtask}
         onEditTitle={taskActions.editTitle}
         onEditLabels={taskActions.editLabels}
+        labelSuggestions={availableLabels}
         onEditStep={taskActions.editStep}
         onOpenWorkspace={taskActions.openWorkspace}
         onSessionStarted={taskActions.sessionStarted}

@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { Subtask, WorkItem } from './mock-data'
 import { LocalTaskAgentPicker } from './LocalTaskAgentPicker'
+import { LocalTaskLabelSuggestions } from './LocalTaskLabelSuggestions'
 
 function StepStatus({ status }: { status: Subtask['steps'][number]['status'] }): React.JSX.Element {
   if (status === 'done' || status === 'canceled') {
@@ -94,6 +95,7 @@ export function DetailPanel({
   onCompleteSubtask,
   onEditTitle,
   onEditLabels,
+  labelSuggestions,
   onEditStep,
   onOpenSession,
   onOpenWorkspace,
@@ -103,6 +105,7 @@ export function DetailPanel({
   onCompleteSubtask: (subtaskId: string) => void
   onEditTitle: (title: string) => void
   onEditLabels: (labels: string[]) => void
+  labelSuggestions: string[]
   onEditStep: (subtaskId: string, stepId: string) => void
   onOpenSession: (sessionId: string) => void
   onOpenWorkspace: () => void
@@ -132,6 +135,22 @@ export function DetailPanel({
     ].slice(0, 20)
     onEditLabels(labels)
     setLabelsDialogOpen(false)
+  }
+  const labelQuery = labelsDraft.split(',').at(-1)?.trim().toLowerCase() ?? ''
+  const selectedLabels = new Set(
+    labelsDraft
+      .split(',')
+      .map((label) => label.trim())
+      .filter(Boolean)
+  )
+  const matchingLabelSuggestions = labelSuggestions
+    .filter((label) => !selectedLabels.has(label))
+    .filter((label) => !labelQuery || label.toLowerCase().includes(labelQuery))
+    .slice(0, 8)
+  const addLabelSuggestion = (label: string): void => {
+    const parts = labelsDraft.split(',')
+    parts.pop()
+    setLabelsDraft(`${[...parts.map((part) => part.trim()).filter(Boolean), label].join(', ')}, `)
   }
   return (
     <>
@@ -363,6 +382,10 @@ export function DetailPanel({
             onChange={(event) => setLabelsDraft(event.target.value)}
             placeholder="例如：性能, Unity, 待验证"
             autoFocus
+          />
+          <LocalTaskLabelSuggestions
+            labels={matchingLabelSuggestions}
+            onSelect={addLabelSuggestion}
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setLabelsDialogOpen(false)}>

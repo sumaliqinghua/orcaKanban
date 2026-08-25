@@ -7,7 +7,6 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { QuickLaunchAgentMenuItems } from '@/components/tab-bar/QuickLaunchButton'
-import { useAppStore } from '@/store'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 
 export function LocalTaskCenterHeader({
@@ -15,15 +14,16 @@ export function LocalTaskCenterHeader({
   onOpenWorkspaceBoard,
   onRunAll,
   runAllDisabled,
-  candidateCount
+  candidateCount,
+  agentWorktreeId
 }: {
   onCreate: () => void
   onOpenWorkspaceBoard: () => void
   onRunAll: (agent: TuiAgent) => void
   runAllDisabled: boolean
   candidateCount: number
+  agentWorktreeId: string | null
 }): React.JSX.Element {
-  const activeWorktreeId = useAppStore((state) => state.activeWorktreeId)
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border px-6">
       <div className="flex min-w-0 items-center gap-3">
@@ -42,8 +42,12 @@ export function LocalTaskCenterHeader({
               variant="outline"
               size="sm"
               className="gap-1.5 text-xs"
-              disabled={runAllDisabled || candidateCount === 0 || !activeWorktreeId}
-              title="按 workspace 串行执行当前可执行任务"
+              disabled={runAllDisabled || candidateCount === 0 || !agentWorktreeId}
+              title={
+                candidateCount === 0
+                  ? '没有可执行任务：需要 Open、已整理、绑定 workspace 且未运行'
+                  : '按 workspace 串行执行当前可执行任务'
+              }
             >
               <ListChecks className="size-3.5" />
               执行当前任务
@@ -54,9 +58,9 @@ export function LocalTaskCenterHeader({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-56">
             <DropdownMenuLabel>选择批量执行的 Agent</DropdownMenuLabel>
-            {activeWorktreeId ? (
+            {agentWorktreeId ? (
               <QuickLaunchAgentMenuItems
-                worktreeId={activeWorktreeId}
+                worktreeId={agentWorktreeId}
                 launchSource="task_page"
                 onSelectAgent={onRunAll}
                 onFocusTerminal={() => {}}
