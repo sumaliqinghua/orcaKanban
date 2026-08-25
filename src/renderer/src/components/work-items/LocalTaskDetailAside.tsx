@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { PanelRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -64,6 +64,7 @@ function LocalTaskSessionPreview({
       const matching = result.sessions.find((candidate) => {
         const prompt = candidate.firstUserPrompt ?? candidate.lastUserPrompt ?? ''
         return (
+          candidate.cwd === projectPath ||
           (session.initialPrompt?.trim() ? prompt.includes(session.initialPrompt.trim()) : false) ||
           candidate.title === session.title
         )
@@ -182,9 +183,29 @@ export function LocalTaskDetailAside({
   onPromote: () => void
 }): React.JSX.Element {
   const [embeddedSessionId, setEmbeddedSessionId] = useState<string | null>(null)
+  const [detailWidth, setDetailWidth] = useState(420)
+  const resizeStartRef = useRef<{ x: number; width: number } | null>(null)
   useEffect(() => {
     setEmbeddedSessionId(null)
   }, [item.id])
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent): void => {
+      const start = resizeStartRef.current
+      if (!start) {
+        return
+      }
+      setDetailWidth(Math.min(720, Math.max(360, start.width + start.x - event.clientX)))
+    }
+    const handlePointerUp = (): void => {
+      resizeStartRef.current = null
+    }
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [])
   if (!open) {
     return (
       <Button
@@ -201,8 +222,22 @@ export function LocalTaskDetailAside({
   }
   return (
     <aside
-      className={`fixed inset-y-0 right-0 z-20 flex max-w-[calc(100vw-24px)] flex-col border-l border-border bg-background shadow-xl ${embeddedSessionId ? 'w-[min(960px,calc(100vw-24px))]' : 'w-[420px]'}`}
+      className="fixed inset-y-0 right-0 z-20 flex max-w-[calc(100vw-24px)] flex-col border-l border-border bg-background shadow-xl"
+      style={{
+        width: embeddedSessionId
+          ? `min(${detailWidth + 540}px, calc(100vw - 24px))`
+          : `${detailWidth}px`
+      }}
     >
+      <div
+        role="separator"
+        aria-label="调整任务详情侧边栏宽度"
+        className="absolute inset-y-0 -left-1 z-30 w-2 cursor-ew-resize"
+        onPointerDown={(event) => {
+          event.preventDefault()
+          resizeStartRef.current = { x: event.clientX, width: detailWidth }
+        }}
+      />
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-3">
         <span className="font-mono text-[10px] text-muted-foreground">{item.id}</span>
         <StatusBadge status={item.status} />
@@ -218,7 +253,7 @@ export function LocalTaskDetailAside({
         </Button>
       </div>
       <div className="flex min-h-0 flex-1">
-        <div className="flex min-h-0 w-[420px] shrink-0 flex-col">
+        <div className="flex min-h-0 shrink-0 flex-col" style={{ width: `${detailWidth}px` }}>
           <DetailPanel
             item={item}
             onCompleteSubtask={onCompleteSubtask}

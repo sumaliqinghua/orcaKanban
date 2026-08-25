@@ -338,6 +338,14 @@
 
 补充：`plan.json` 同步只替换 `subtasks`，会保留用户或其他 AI 写入的 `owner`、`notes` 等自定义字段。
 
+## [2026-08-25] 修复历史会话恢复并支持详情侧栏调宽
+
+- **What（做了什么）**：`LocalTaskDetailAside.tsx` 的历史会话匹配增加 `cwd` 条件；旧会话没有首次提示或标题变化时，也能按任务项目路径找到并调用现有恢复启动逻辑。详情抽屉左边缘增加拖拽分隔条，宽度限制在 360-720px；会话预览打开时保留左侧宽度。
+- **Why（为什么这么做）**：旧会话通常没有任务中心保存的 `initialPrompt`，标题也可能被 Agent 自动生成，之前匹配失败后只打开 workspace，没有真正恢复会话。
+- **How（怎么实现的）**：点击恢复 → `aiVault.listSessions({ scopePaths: [projectPath] })` → 优先匹配同项目 `cwd`，再匹配首次提示/标题 → `handleResume` → 创建恢复终端并激活目标 workspace。
+- **执行功能说明**：顶部“执行当前任务”是批量执行入口，需要选择 Agent；只处理符合条件的 Open 任务。自动/定时执行尚未完成。
+- **验证结果**：任务相关定向测试、Web TypeScript 检查和 work-items oxlint 通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：
