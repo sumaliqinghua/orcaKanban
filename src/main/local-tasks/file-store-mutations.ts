@@ -78,6 +78,7 @@ export function updateSessionOutput(
         }
       : session
   )
+  const hasEndedSession = sessions.some((session) => session.status !== 'working')
   const hasWorkingSession = sessions.some((session) => session.status === 'working')
   const activeRun = task.executionRunId
     ? task.runs.find((run) => run.id === task.executionRunId)
@@ -101,7 +102,14 @@ export function updateSessionOutput(
     runs,
     executionState: activeRun ? 'needs_review' : task.executionState,
     reviewKind: activeRun ? 'delivery' : task.reviewKind,
-    status: task.status === 'Done' ? 'Done' : hasWorkingSession ? 'In progress' : 'Needs review',
+    status:
+      task.status === 'Done'
+        ? 'Done'
+        : hasEndedSession
+          ? 'Needs review'
+          : hasWorkingSession
+            ? 'In progress'
+            : 'Needs review',
     latestOutput: textValue
       ? { sessionId: args.sessionId, text: textValue, updatedAt }
       : task.latestOutput,

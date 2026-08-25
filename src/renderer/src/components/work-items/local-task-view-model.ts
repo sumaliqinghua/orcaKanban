@@ -13,11 +13,12 @@ function mapSubtask(subtask: LocalTaskSubtask): Subtask {
 
 export function localTaskToViewModel(task: LocalTask): WorkItem {
   const activeSessions = task.sessions.filter((session) => session.status === 'working').length
+  const hasEndedSession = task.sessions.some((session) => session.status !== 'working')
   return {
     id: task.id,
     title: task.title,
     description: task.description,
-    status: activeSessions > 0 ? 'In progress' : task.status,
+    status: hasEndedSession ? 'Needs review' : activeSessions > 0 ? 'In progress' : task.status,
     workspace: task.workspaceLabel,
     workspaceId: task.workspaceId,
     projectPath: task.projectPath,

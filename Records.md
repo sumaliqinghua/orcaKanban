@@ -366,13 +366,19 @@
 ## [2026-08-25] 统一由 Agent 状态主导任务状态
 
 - **What（做了什么）**：
-  - `file-store-mutations.ts`：创建新会话时，无论任务原来是 `Needs review` 还是 `Done`，都先进入 `In progress`；Agent 完成事件写入最后输出时，如果仍有其他工作会话则保持 `In progress`，全部结束后进入 `Needs review`，不再因为会话结束自动进入 `Waiting`。
-  - `local-task-view-model.ts`：只要任务有一个 `working` 会话，任务中心视图状态优先显示 `In progress`，避免文件状态落后于智能体仪表盘。
+  - `file-store-mutations.ts`：创建新会话时，无论任务原来是 `Needs review` 还是 `Done`，都先进入 `In progress`；任意一个 Agent 完成事件写入最后输出时，任务进入 `Needs review`，不再因为会话结束自动进入 `Waiting`。
+  - `local-task-view-model.ts`：任务只要存在已结束会话就优先显示 `Needs review`；没有已结束会话且有 `working` 会话时才显示 `In progress`。
   - `work-item-pieces.tsx`：详情底部移除“等待/继续”和“要求修改”状态操作，主状态交互只保留“开始执行”和“验收通过”；旧 `Waiting` 状态仍可读取显示以兼容既有任务文件。
 - **Why（为什么这么做）**：智能体仪表盘的运行态是当前最及时的事实来源；用户不应手动维护 Waiting/继续/要求修改等中间状态，任务只需由启动、Agent 运行/结束和用户验收驱动。
-- **How（怎么实现的）**：创建会话 → `In progress`；任意 session=`working` → 任务视图=`In progress`；最后一个 session 结束 → `Needs review`；用户验收 → `Done`。
+- **How（怎么实现的）**：创建会话 → `In progress`；任意 session 结束 → `Needs review`；没有结束会话但存在 `working` → `In progress`；用户验收 → `Done`。
 - **用户须知**：Agent 结束但没有完成报告时也会进入 `Needs review`，用户可直接验收；旧任务文件中的 `Waiting` 不会被破坏，但新 UI 不再提供设置入口。
 - **验证结果**：21 个本地任务定向测试、Web TypeScript 检查和 work-items oxlint 通过。
+
+## [2026-08-26] 审查 BallsOutProj 本地任务工作流
+
+- **What（做了什么）**：新增 `docs/local-task-workflow-review.md`，基于 `/Users/lmy/proj/Tile/BallsOutProj/orca` 的 7 个任务文件和当前 Store/批次/UI 调用链，记录实际矛盾、重复字段、缺失动作和修复优先级。
+- **关键发现**：存在已归档但会话仍 working 的隐藏任务；存在 In progress 但无会话的孤儿任务；同一请求被登记为两个 working 会话；旧 task.json 与 plan.json 不一致；“开始执行”按钮只改状态而不启动 Agent；批次生命周期由 renderer 轮询，关闭 Orca 后可能留下 queued/running。
+- **结论**：当前文件方案适合作为上下文载体，但还缺一致性诊断、停止/取消、启动失败展示、重启恢复和请求去重。
 
 ## [2026-08-25] 规划异步员工模式
 

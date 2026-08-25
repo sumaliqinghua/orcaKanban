@@ -40,7 +40,8 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 
 - Agent CLI 依赖从任务中心启动的终端环境变量；直接从 workspace 启动的会话不会自动归属本地任务，需从任务中心显式关联。
 - 事项中心详情抽屉左边缘可拖拽调整宽度；顶部“执行当前任务”是批量执行入口，会对可执行 Open 任务按 workspace 串行启动所选 Agent；自动/定时执行尚未完成。
-- 状态规则：任务中心以关联 Agent 状态为主；任意 session working 显示 In progress，全部会话结束后进入 Needs review，用户验收后进入 Done；新 UI 不再提供 Waiting/继续/要求修改入口，旧 Waiting 文件仍兼容读取。
+- 状态规则：任务中心以关联 Agent 状态为主；任意 session 已结束就显示 Needs review，没有结束会话但存在 working 才显示 In progress，用户验收后进入 Done；新 UI 不再提供 Waiting/继续/要求修改入口，旧 Waiting 文件仍兼容读取。
+- 工作流审查：详见 `docs/local-task-workflow-review.md`。当前已知矛盾包括已归档运行任务、无会话的 In progress 任务、重复会话、历史 plan.json 空数组和 renderer 批次生命周期。
 - provider hook 尚未自动解析每条模型输出并更新步骤；Agent 需要按启动提示主动执行 `orca local-task` 命令。
 - 旧的已运行生产 Orca 进程可能仍使用不含 `local-task` 的 CLI；重启新的 `pnpm dev` 后会先构建 CLI。Agent 提示保留直接读取 `orca/<task-id>/task.json` 的兜底路径。
 - workspace/Agent Dashboard 尚未增加反向“打开本地任务”入口。
