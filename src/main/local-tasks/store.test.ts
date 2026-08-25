@@ -253,6 +253,20 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('preserves custom plan fields while syncing subtasks', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '计划字段' })
+    const planPath = join(root, 'orca', task.id, 'plan.json')
+    writeFileSync(planPath, JSON.stringify({ owner: 'user', notes: ['保留'] }), 'utf8')
+    store.createSubtask({ taskId: task.id, projectPath: root, title: '同步子任务' })
+    expect(JSON.parse(readFileSync(planPath, 'utf8'))).toMatchObject({
+      owner: 'user',
+      notes: ['保留']
+    })
+    store.close()
+  })
+
   it('persists the last assistant output separately from task completion', () => {
     const root = projectPath()
     const store = new LocalTaskStore()

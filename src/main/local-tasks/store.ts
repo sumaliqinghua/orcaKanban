@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type {
   CreateLocalTaskArgs,
@@ -241,7 +241,18 @@ export class LocalTaskStore {
   private writeTask(task: LocalTask): LocalTask {
     const path = localTaskFile(task.projectPath, task.id)
     writeJson(path, task)
-    writeJson(join(localTaskDirectory(task.projectPath, task.id), LOCAL_TASK_PLAN_FILE_NAME), {
+    const planPath = join(localTaskDirectory(task.projectPath, task.id), LOCAL_TASK_PLAN_FILE_NAME)
+    let plan: Record<string, unknown> = {}
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(planPath, 'utf8'))
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        plan = parsed as Record<string, unknown>
+      }
+    } catch {
+      // A missing or malformed plan gets a minimal valid document; task.json remains authoritative.
+    }
+    writeJson(planPath, {
+      ...plan,
       schemaVersion: 1,
       taskId: task.id,
       subtasks: task.subtasks
