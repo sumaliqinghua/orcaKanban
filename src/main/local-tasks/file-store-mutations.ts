@@ -52,7 +52,8 @@ export function createSession(
     updatedAt: createdAt,
     associationSource: args.associationSource ?? 'task-center'
   }
-  const status = task.status === 'Open' || task.status === 'Waiting' ? 'In progress' : task.status
+  const status =
+    task.status === 'Done' || task.status === 'Needs review' ? 'In progress' : task.status
   store.writeTask({ ...task, sessions: [session, ...task.sessions], status, updatedAt: createdAt })
   return session
 }
@@ -77,6 +78,7 @@ export function updateSessionOutput(
         }
       : session
   )
+  const hasWorkingSession = sessions.some((session) => session.status === 'working')
   const activeRun = task.executionRunId
     ? task.runs.find((run) => run.id === task.executionRunId)
     : undefined
@@ -99,7 +101,7 @@ export function updateSessionOutput(
     runs,
     executionState: activeRun ? 'needs_review' : task.executionState,
     reviewKind: activeRun ? 'delivery' : task.reviewKind,
-    status: activeRun && task.status !== 'Done' ? 'Needs review' : task.status,
+    status: task.status === 'Done' ? 'Done' : hasWorkingSession ? 'In progress' : 'Needs review',
     latestOutput: textValue
       ? { sessionId: args.sessionId, text: textValue, updatedAt }
       : task.latestOutput,

@@ -283,7 +283,7 @@ describe('LocalTaskStore file-first persistence', () => {
 
     expect(updated.latestOutput?.text).toContain('## 验证')
     expect(updated.sessions[0]?.latestOutput).toContain('完整最终回复')
-    expect(updated.status).toBe('In progress')
+    expect(updated.status).toBe('Needs review')
     const reported = store.reportCompleted({
       taskId: task.id,
       projectPath: root,
@@ -318,7 +318,7 @@ describe('LocalTaskStore file-first persistence', () => {
     })
     expect(
       store.reportCompleted({ taskId: task.id, projectPath: root, sessionId: afterDone.id }).status
-    ).toBe('Done')
+    ).toBe('Needs review')
     store.close()
   })
 

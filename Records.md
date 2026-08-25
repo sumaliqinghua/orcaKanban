@@ -363,6 +363,17 @@
 - **Why（为什么这么做）**：此前批量 runner 只创建 tab，不激活后台 workspace，任务进入 `In progress` 后用户看不到实际会话；对运行中的 Codex 会话执行 resume 会触发 `thread already has an active writer`。
 - **验证结果**：21 个本地任务定向测试、Web TypeScript 检查和 work-items oxlint 通过。
 
+## [2026-08-25] 统一由 Agent 状态主导任务状态
+
+- **What（做了什么）**：
+  - `file-store-mutations.ts`：创建新会话时，无论任务原来是 `Needs review` 还是 `Done`，都先进入 `In progress`；Agent 完成事件写入最后输出时，如果仍有其他工作会话则保持 `In progress`，全部结束后进入 `Needs review`，不再因为会话结束自动进入 `Waiting`。
+  - `local-task-view-model.ts`：只要任务有一个 `working` 会话，任务中心视图状态优先显示 `In progress`，避免文件状态落后于智能体仪表盘。
+  - `work-item-pieces.tsx`：详情底部移除“等待/继续”和“要求修改”状态操作，主状态交互只保留“开始执行”和“验收通过”；旧 `Waiting` 状态仍可读取显示以兼容既有任务文件。
+- **Why（为什么这么做）**：智能体仪表盘的运行态是当前最及时的事实来源；用户不应手动维护 Waiting/继续/要求修改等中间状态，任务只需由启动、Agent 运行/结束和用户验收驱动。
+- **How（怎么实现的）**：创建会话 → `In progress`；任意 session=`working` → 任务视图=`In progress`；最后一个 session 结束 → `Needs review`；用户验收 → `Done`。
+- **用户须知**：Agent 结束但没有完成报告时也会进入 `Needs review`，用户可直接验收；旧任务文件中的 `Waiting` 不会被破坏，但新 UI 不再提供设置入口。
+- **验证结果**：21 个本地任务定向测试、Web TypeScript 检查和 work-items oxlint 通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：

@@ -36,7 +36,7 @@ export function LocalTaskActions({
   onPromote
 }: {
   item: WorkItem
-  onStatus: (status: WorkItemStatus, waitingReason?: string) => void
+  onStatus: (status: WorkItemStatus) => void
   onAccept: () => void
   onArchive: () => void
   onPromote: () => void
@@ -54,22 +54,9 @@ export function LocalTaskActions({
       ) : (
         <Button className="flex-1 gap-1.5 text-xs" onClick={() => onStatus('In progress')}>
           <Play className="size-3.5" />
-          {item.status === 'Done' ? '要求修改' : item.sessions > 0 ? '继续执行' : '开始执行'}
+          开始执行
         </Button>
       )}
-      <Button
-        variant="outline"
-        className="gap-1.5 text-xs"
-        onClick={() =>
-          onStatus(
-            item.status === 'Waiting' ? 'In progress' : 'Waiting',
-            item.status === 'Waiting' ? undefined : '等待你的确认'
-          )
-        }
-      >
-        <Clock3 className="size-3.5" />
-        {item.status === 'Waiting' ? '继续' : '等待'}
-      </Button>
       <Button variant="ghost" size="icon" aria-label="归档本地任务" onClick={onArchive}>
         <Archive className="size-4" />
       </Button>
