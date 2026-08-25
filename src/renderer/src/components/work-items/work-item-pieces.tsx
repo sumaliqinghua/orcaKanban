@@ -3,7 +3,6 @@ import {
   Bot,
   CheckCircle2,
   Circle,
-  Clock3,
   GitBranch,
   MessageSquare,
   MoreHorizontal,
@@ -23,20 +22,17 @@ import {
 const statusTone: Record<WorkItemStatus, string> = {
   Open: 'border-border bg-muted/45 text-muted-foreground',
   'In progress': 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  Waiting: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   'Needs review': 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
   Done: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
 }
 
 export function LocalTaskActions({
   item,
-  onStatus,
   onAccept,
   onArchive,
   onPromote
 }: {
   item: WorkItem
-  onStatus: (status: WorkItemStatus) => void
   onAccept: () => void
   onArchive: () => void
   onPromote: () => void
@@ -51,12 +47,7 @@ export function LocalTaskActions({
         <Button className="flex-1 gap-1.5 text-xs" onClick={onAccept}>
           验收通过
         </Button>
-      ) : (
-        <Button className="flex-1 gap-1.5 text-xs" onClick={() => onStatus('In progress')}>
-          <Play className="size-3.5" />
-          开始执行
-        </Button>
-      )}
+      ) : null}
       <Button variant="ghost" size="icon" aria-label="归档本地任务" onClick={onArchive}>
         <Archive className="size-4" />
       </Button>
@@ -70,9 +61,6 @@ export function StatusIcon({ status }: { status: WorkItemStatus }): React.JSX.El
   }
   if (status === 'In progress') {
     return <Play className="size-3.5" />
-  }
-  if (status === 'Waiting') {
-    return <Clock3 className="size-3.5" />
   }
   if (status === 'Needs review') {
     return <Sparkles className="size-3.5" />

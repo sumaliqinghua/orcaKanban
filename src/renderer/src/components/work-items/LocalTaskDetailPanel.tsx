@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowUpRight, Bot, Check, ChevronDown, Clock3, GitBranch, Pencil } from 'lucide-react'
+import { ArrowUpRight, Bot, Check, ChevronDown, GitBranch, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -194,16 +194,6 @@ export function DetailPanel({
             <Pencil className="size-3" />
           </Button>
         </div>
-        {item.waitingReason ? (
-          <div className="mt-4 flex gap-2 rounded-md border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
-            <Clock3 className="mt-0.5 size-3.5 shrink-0" />
-            <span>
-              <strong className="font-medium">等待你的确认</strong>
-              <br />
-              {item.waitingReason}
-            </span>
-          </div>
-        ) : null}
         <div className="mt-5 flex items-center gap-2 text-[11px] text-muted-foreground">
           <span className="rounded bg-muted px-1.5 py-0.5">{item.project}</span>
           <span>·</span>

@@ -14,11 +14,11 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 
 ## 已完成功能
 
-- 本地任务实体：标题、描述、Open/In progress/Waiting/Needs review/Done、单一 workspace、归档和标题来源。
+- 本地任务实体：标题、描述、Open/In progress/Needs review/Done、单一 workspace、归档和标题来源。
 - workspace 关系：一个任务最多一个 workspace，一个 workspace 可关联多个任务；创建时使用当前 workspace，没有可选 workspace 时使用 `local + 当前 HEAD`。
 - 会话关系：一个任务多个会话；指定 session ID 只能关联一个任务；详情可创建关联会话。
 - 子任务/步骤：默认子任务视角和可切换的任务视角；列表可展开子任务及 AI 执行步骤；用户完成子任务，AI 更新步骤。
-- 生命周期：任务进入 In progress 后，在会话数为 0 时通过现有 Agent 菜单启动真实会话；Waiting 必须有原因；AI 完成且步骤完成/取消后进入 Needs review；用户验收后进入 Done；任务可归档和恢复。
+- 生命周期：通过 Agent 菜单或批量入口启动真实会话后进入 In progress；任意会话结束进入 Needs review；用户验收后进入 Done；运行中任务禁止归档。
 - 标题规则：创建时无自定义标题取描述第一行；首次 AI 完成可生成一次标题；用户编辑后 AI 只更新描述。
 - 详情交互：标题编辑、会话最后输出、workspace/session 跳转入口、详情抽屉收起和空状态创建。
 - 持久化与验证：任务目录初始化、原子 JSON 写入、文件监听、zod IPC 参数校验、任务变更广播。
@@ -40,7 +40,8 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 
 - Agent CLI 依赖从任务中心启动的终端环境变量；直接从 workspace 启动的会话不会自动归属本地任务，需从任务中心显式关联。
 - 事项中心详情抽屉左边缘可拖拽调整宽度；顶部“执行当前任务”是批量执行入口，会对可执行 Open 任务按 workspace 串行启动所选 Agent；自动/定时执行尚未完成。
-- 状态规则：任务中心以关联 Agent 状态为主；任意 session 已结束就显示 Needs review，没有结束会话但存在 working 才显示 In progress，用户验收后进入 Done；新 UI 不再提供 Waiting/继续/要求修改入口，旧 Waiting 文件仍兼容读取。
+- 状态规则：任务只使用 Open/In progress/Needs review/Done；任意 session 已结束就显示 Needs review，没有结束会话但存在 working 或 queued/running 批次才显示 In progress，用户验收后进入 Done。
+- 启动规则：详情不再提供只改状态的“开始执行”；Agent 必须通过启动任务/关联会话或顶部批量入口创建真实会话；同一首条提示的重复 working 会话会复用。
 - 工作流审查：详见 `docs/local-task-workflow-review.md`。当前已知矛盾包括已归档运行任务、无会话的 In progress 任务、重复会话、历史 plan.json 空数组和 renderer 批次生命周期。
 - provider hook 尚未自动解析每条模型输出并更新步骤；Agent 需要按启动提示主动执行 `orca local-task` 命令。
 - 旧的已运行生产 Orca 进程可能仍使用不含 `local-task` 的 CLI；重启新的 `pnpm dev` 后会先构建 CLI。Agent 提示保留直接读取 `orca/<task-id>/task.json` 的兜底路径。

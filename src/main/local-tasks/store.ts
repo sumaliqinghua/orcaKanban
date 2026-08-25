@@ -110,8 +110,7 @@ export class LocalTaskStore {
       subtasks: [],
       sessions: [],
       latestOutput: null,
-      latestOutputSource: 'report',
-      waitingReason: null
+      latestOutputSource: 'report'
     }
     this.writeTask(task)
     const directory = localTaskDirectory(task.projectPath, task.id)
@@ -135,17 +134,12 @@ export class LocalTaskStore {
     if (updates.status === 'Done' || updates.status === 'Needs review') {
       throw new Error('This status is controlled by the review lifecycle')
     }
-    if (updates.status === 'Waiting' && !text(updates.waitingReason, current.waitingReason ?? '')) {
-      throw new Error('Waiting status requires a reason')
-    }
     const nextStatus = updates.status ?? current.status
     return this.writeTask({
       ...current,
       title: updates.title?.trim() || current.title,
       description: updates.description?.trim() || current.description,
       status: nextStatus,
-      waitingReason:
-        nextStatus === 'Waiting' ? (updates.waitingReason ?? current.waitingReason) : null,
       archivedAt:
         updates.archived === true
           ? timestamp()
@@ -174,7 +168,6 @@ export class LocalTaskStore {
     return this.writeTask({
       ...task,
       status: 'Done',
-      waitingReason: null,
       executionState: 'idle',
       executionRunId: null,
       reviewKind: null,
@@ -184,6 +177,10 @@ export class LocalTaskStore {
   }
 
   archive(id: string): LocalTask {
+    const task = this.require(id)
+    if (task.sessions.some((session) => session.status === 'working')) {
+      throw new Error('Cannot archive a task with a running Agent session')
+    }
     return this.update(id, { archived: true })
   }
   restore(id: string): LocalTask {

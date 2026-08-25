@@ -105,28 +105,6 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
     () => [...new Set(items.flatMap((item) => item.labels ?? []))].sort(),
     [items]
   )
-  const updateSelected = (updates: Partial<WorkItem>): void => {
-    if (!selected) {
-      return
-    }
-    void window.api.localTasks
-      .update({
-        taskId: selected.id,
-        updates: {
-          ...(updates.status ? { status: updates.status } : {}),
-          ...(updates.description ? { description: updates.description } : {}),
-          ...(updates.waitingReason !== undefined ? { waitingReason: updates.waitingReason } : {})
-        }
-      })
-      .then((task) =>
-        setItems((current) =>
-          current.map((item) => (item.id === task.id ? localTaskToViewModel(task) : item))
-        )
-      )
-      .catch((error: unknown) =>
-        setLoadError(error instanceof Error ? error.message : '本地任务更新失败')
-      )
-  }
   const taskActions = createLocalTaskCenterActions({
     selected,
     setItems,
@@ -392,7 +370,6 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         onEditStep={taskActions.editStep}
         onOpenWorkspace={taskActions.openWorkspace}
         onSessionStarted={taskActions.sessionStarted}
-        onStatus={(status, waitingReason) => updateSelected({ status, waitingReason })}
         onAccept={taskActions.acceptSelected}
         onArchive={taskActions.archiveSelected}
         onPromote={taskActions.promoteSelected}

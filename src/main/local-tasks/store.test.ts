@@ -176,8 +176,7 @@ describe('LocalTaskStore file-first persistence', () => {
           associationSource: 'task-center'
         }
       ],
-      latestOutput: '完成',
-      waitingReason: null
+      latestOutput: '完成'
     }
     mkdirSync(directory, { recursive: true })
     writeFileSync(join(directory, 'task.json'), `${JSON.stringify(task)}\n`, 'utf8')
@@ -306,6 +305,26 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('does not create duplicate working sessions for the same prompt', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '去重' })
+    const first = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'session-a',
+      initialPrompt: '分析同一个问题'
+    })
+    const duplicate = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'session-b',
+      initialPrompt: '分析同一个问题'
+    })
+    expect(duplicate.id).toBe(first.id)
+    store.close()
+  })
+
   it('keeps review and done states for follow-up questions', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
@@ -334,16 +353,23 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
-  it('requires a waiting reason and keeps archived files recoverable', () => {
+  it('keeps archived files recoverable', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
-    const task = store.create({ projectId: 'orca', projectPath: root, description: '等待确认' })
-    expect(() => store.update(task.id, { status: 'Waiting' })).toThrow('requires a reason')
-    store.update(task.id, { status: 'Waiting', waitingReason: '请确认方案' })
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '归档恢复' })
     store.archive(task.id)
     expect(store.list('orca', root)).toHaveLength(0)
     expect(store.restore(task.id).archivedAt).toBeNull()
     expect(store.list('orca', root)).toHaveLength(1)
+    store.close()
+  })
+
+  it('rejects archiving while an Agent session is running', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '运行中归档' })
+    store.createSession({ taskId: task.id, projectPath: root, sessionId: 'running-session' })
+    expect(() => store.archive(task.id)).toThrow('running Agent session')
     store.close()
   })
 })

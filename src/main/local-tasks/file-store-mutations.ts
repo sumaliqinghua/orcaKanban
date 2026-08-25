@@ -39,13 +39,23 @@ export function createSession(
   if (existing) {
     return existing
   }
+  const requestedPrompt = args.initialPrompt?.trim() || null
+  const duplicate = task.sessions.find(
+    (session) =>
+      session.status === 'working' &&
+      requestedPrompt !== null &&
+      session.initialPrompt?.trim() === requestedPrompt
+  )
+  if (duplicate) {
+    return duplicate
+  }
   const createdAt = time()
   const session: LocalTaskSession = {
     id: sessionId,
     taskId: task.id,
     workspaceId: text(args.workspaceId, task.workspaceId),
     title: text(args.title, '自动创建会话'),
-    initialPrompt: args.initialPrompt?.trim() || null,
+    initialPrompt: requestedPrompt,
     status: 'working',
     latestOutput: null,
     createdAt,

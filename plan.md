@@ -201,6 +201,11 @@
 - **验收标准**：没有已结束会话且存在 Agent 运行时显示 In progress；任意一个会话结束即显示 Needs review；会话结束不自动进入 Waiting；验收后为 Done；再次开始后回到 In progress。
 - **补充规则**：任意一个 Agent 会话结束即进入 `Needs review`，即使其他 Agent 仍在运行；已结束会话优先级高于 working 会话。
 
+## [x] 5.17 收敛状态枚举和真实启动入口
+
+- **执行步骤**：移除 Waiting；删除只写状态的开始执行按钮；批次和工作会话统一驱动 In progress；任意会话结束进入 Needs review；运行中任务禁止归档；重复首条提示复用已有 working session。
+- **验收标准**：任务只显示 Open/In progress/Needs review/Done；用户不会通过按钮制造无 Agent 的 In progress；运行任务不会从列表消失；重复启动不会产生同一请求的多个 working session。
+
 ## 后置，不阻塞本期交付
 
 - [ ] 文件级写入锁和租约；

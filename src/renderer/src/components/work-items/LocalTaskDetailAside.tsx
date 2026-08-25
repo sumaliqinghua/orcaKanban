@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { PanelRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store'
-import type { WorkItem, WorkItemStatus } from './mock-data'
+import type { WorkItem } from './mock-data'
 import { DetailPanel } from './LocalTaskDetailPanel'
 import { LocalTaskActions, StatusBadge } from './work-item-pieces'
 import { AgentTerminalPanel } from '../dashboard-popout/AgentTerminalDialog'
@@ -173,7 +173,6 @@ export function LocalTaskDetailAside({
   onEditStep,
   onOpenWorkspace,
   onSessionStarted,
-  onStatus,
   onAccept,
   onArchive,
   onPromote,
@@ -188,7 +187,6 @@ export function LocalTaskDetailAside({
   onEditStep: (subtaskId: string, stepId: string) => void
   onOpenWorkspace: () => void
   onSessionStarted: (tabId: string, request: string) => void
-  onStatus: (status: WorkItemStatus, waitingReason?: string) => void
   onAccept: () => void
   onArchive: () => void
   onPromote: () => void
@@ -281,7 +279,6 @@ export function LocalTaskDetailAside({
           />
           <LocalTaskActions
             item={item}
-            onStatus={onStatus}
             onAccept={onAccept}
             onArchive={onArchive}
             onPromote={onPromote}

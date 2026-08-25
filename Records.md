@@ -380,6 +380,14 @@
 - **关键发现**：存在已归档但会话仍 working 的隐藏任务；存在 In progress 但无会话的孤儿任务；同一请求被登记为两个 working 会话；旧 task.json 与 plan.json 不一致；“开始执行”按钮只改状态而不启动 Agent；批次生命周期由 renderer 轮询，关闭 Orca 后可能留下 queued/running。
 - **结论**：当前文件方案适合作为上下文载体，但还缺一致性诊断、停止/取消、启动失败展示、重启恢复和请求去重。
 
+## [2026-08-26] 收敛任务状态和启动入口
+
+- **What（做了什么）**：任务状态收敛为 `Open`、`In progress`、`Needs review`、`Done`；移除 `Waiting`/`waitingReason`；详情底部移除只改状态、不启动 Agent 的“开始执行”；批次 queued/running 和工作会话显示 `In progress`；任意会话结束进入 `Needs review`；同一任务同一首条提示的重复 working 会话复用；运行中任务禁止归档。
+- **Why（为什么这么做）**：状态按钮与真实 Agent 启动脱节会制造假进度；Waiting 与 Needs review 重叠；重复点击会产生重复 Agent；运行中归档会让任务从列表消失。
+- **How（怎么实现的）**：Agent 启动/批量启动 → working session → In progress；任意 session 结束 → Needs review；用户验收 → Done；归档前检查 working session。
+- **用户须知**：启动 Agent 请使用“启动任务/新建关联会话”或顶部批量入口；本轮不保留旧 Waiting 文件兼容。
+- **验证结果**：23 个本地任务定向测试、Web TypeScript 检查和 oxlint 通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：

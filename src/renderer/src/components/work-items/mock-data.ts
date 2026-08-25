@@ -1,4 +1,4 @@
-export type WorkItemStatus = 'Open' | 'In progress' | 'Waiting' | 'Needs review' | 'Done'
+export type WorkItemStatus = 'Open' | 'In progress' | 'Needs review' | 'Done'
 export type StepStatus = 'todo' | 'doing' | 'done' | 'canceled'
 export type FollowUpStatus = 'open' | 'active' | 'resolved'
 
@@ -22,7 +22,6 @@ export type WorkItem = {
   updated: string
   sessions: number
   activeSessions: number
-  waitingReason?: string
   subtasks: Subtask[]
   latestOutput: { session: string; text: string }
   sessionsList: {
@@ -44,20 +43,11 @@ export type WorkItem = {
   reviewKind?: 'delivery' | 'needs_input' | 'execution_failed' | null
 }
 
-export const STATUS_ORDER: WorkItemStatus[] = [
-  'Open',
-  'In progress',
-  'Waiting',
-  'Needs review',
-  'Done'
-]
+export const STATUS_ORDER: WorkItemStatus[] = ['Open', 'In progress', 'Needs review', 'Done']
 
 export function getTaskPerspectiveStatus(item: WorkItem): WorkItemStatus {
   if (item.status === 'Done') {
     return 'Done'
-  }
-  if (item.status === 'Waiting') {
-    return 'Waiting'
   }
   const latest = item.subtasks[0]
   if (!latest) {
@@ -157,13 +147,12 @@ export const MOCK_ITEMS: WorkItem[] = [
     id: 'LT-098',
     title: '补充 Windows 路径兼容测试',
     description: '覆盖 WSL UNC 路径、远端 workspace 和路径重命名场景。',
-    status: 'Waiting',
+    status: 'Needs review',
     workspace: 'local · HEAD 92ce77b · feature/path-tests',
     project: 'Orca',
     updated: '1 小时前',
     sessions: 1,
     activeSessions: 0,
-    waitingReason: '等待确认测试样例是否纳入 Linux CI',
     subtasks: [
       {
         id: 'st1',

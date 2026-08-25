@@ -39,7 +39,6 @@ export const updateLocalTaskArgsSchema = z
         title: shortText.optional(),
         description: longText.optional(),
         status: taskStatus.optional(),
-        waitingReason: z.string().trim().max(10_000).nullable().optional(),
         archived: z.boolean().optional(),
         labels: z.array(shortText).max(20).optional(),
         intakeState: z.enum(['inbox', 'ready']).optional(),

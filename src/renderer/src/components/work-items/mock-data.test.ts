@@ -26,10 +26,6 @@ describe('getTaskPerspectiveStatus', () => {
     expect(getTaskPerspectiveStatus(item('Needs review', 'done'))).toBe('Needs review')
   })
 
-  it('keeps task-level Waiting when no subtask is currently actionable', () => {
-    expect(getTaskPerspectiveStatus(item('Waiting', 'done'))).toBe('Waiting')
-  })
-
   it('uses the task status when no subtask exists', () => {
     expect(getTaskPerspectiveStatus(item('Done'))).toBe('Done')
   })

@@ -1,12 +1,6 @@
 import type { TuiAgent } from './tui-agent'
 
-export const LOCAL_TASK_STATUSES = [
-  'Open',
-  'In progress',
-  'Waiting',
-  'Needs review',
-  'Done'
-] as const
+export const LOCAL_TASK_STATUSES = ['Open', 'In progress', 'Needs review', 'Done'] as const
 
 export type LocalTaskStatus = (typeof LOCAL_TASK_STATUSES)[number]
 export type LocalTaskIntakeState = 'inbox' | 'ready'
@@ -88,7 +82,6 @@ export type LocalTask = {
   sessions: LocalTaskSession[]
   latestOutput: { sessionId: string; text: string; updatedAt: number } | null
   latestOutputSource?: 'agent-status' | 'report'
-  waitingReason: string | null
 }
 
 export type CreateLocalTaskArgs = {
@@ -107,7 +100,6 @@ export type UpdateLocalTaskArgs = {
   title?: string
   description?: string
   status?: LocalTaskStatus
-  waitingReason?: string | null
   archived?: boolean
   labels?: string[]
   intakeState?: LocalTaskIntakeState
