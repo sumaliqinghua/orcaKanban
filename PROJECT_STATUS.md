@@ -53,6 +53,8 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 
 ## 关键配置与环境信息
 
+- 会话上下文：每个会话显示当前正在解决的问题，并保存最近 30 轮用户问题与 Agent 小结；任务详情和右侧预览共用轮次历史，不再只显示首次提示/最近输出。
+
 - 任务文件：项目目录下的 `orca/<task-id>/task.json`、`plan.json`、`prd.md`、`records.md`。
 - 开发命令：`pnpm run dev`。
 - Electron 构建：`pnpm run build:electron-vite`。

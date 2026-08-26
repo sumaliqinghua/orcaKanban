@@ -61,7 +61,12 @@ export const createLocalTaskSessionArgsSchema = z
   .strict()
 
 export const updateLocalTaskSessionOutputArgsSchema = z
-  .object({ sessionId: id, latestOutput: z.string().trim().max(100_000).optional() })
+  .object({
+    sessionId: id,
+    prompt: z.string().trim().max(100_000).optional(),
+    sessionStatus: z.enum(['working', 'done']).optional(),
+    latestOutput: z.string().trim().max(100_000).optional()
+  })
   .strict()
 
 export const createLocalTaskSubtaskArgsSchema = z

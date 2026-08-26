@@ -43,6 +43,8 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     sessionsList: task.sessions.map((session) => ({
       id: session.id,
       title: session.title,
+      currentPrompt: session.currentPrompt,
+      turns: session.turns,
       initialPrompt: session.initialPrompt,
       latestOutput: session.latestOutput,
       status: session.status,

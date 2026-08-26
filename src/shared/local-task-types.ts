@@ -32,12 +32,22 @@ export type LocalTaskSession = {
   taskId: string
   workspaceId: string
   title: string
+  currentPrompt: string | null
+  turns: LocalTaskSessionTurn[]
   initialPrompt?: string | null
   status: 'working' | 'idle' | 'done'
   latestOutput: string | null
   createdAt: number
   updatedAt: number
   associationSource: 'task-center' | 'explicit'
+}
+
+export type LocalTaskSessionTurn = {
+  id: string
+  prompt: string
+  summary: string | null
+  createdAt: number
+  updatedAt: number
 }
 
 export type LocalTaskRun = {
@@ -149,6 +159,8 @@ export type CreateLocalTaskSessionArgs = {
 
 export type UpdateLocalTaskSessionOutputArgs = {
   sessionId: string
+  prompt?: string
+  sessionStatus?: 'working' | 'done'
   latestOutput?: string
 }
 

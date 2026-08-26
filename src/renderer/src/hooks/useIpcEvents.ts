@@ -3493,8 +3493,8 @@ export function useIpcEvents(): void {
           })
         }
       }
-      const persistLocalTaskFinalOutput = (): void => {
-        if (data.state !== 'done' || !ownerTabId) {
+      const persistLocalTaskTurn = (): void => {
+        if (!ownerTabId || (data.state !== 'done' && !data.prompt?.trim())) {
           return
         }
         const updateSessionOutput = window.api.localTasks?.updateSessionOutput
@@ -3503,6 +3503,8 @@ export function useIpcEvents(): void {
         }
         void updateSessionOutput({
           sessionId: ownerTabId,
+          sessionStatus: data.state === 'done' ? 'done' : 'working',
+          ...(data.prompt?.trim() ? { prompt: data.prompt.trim() } : {}),
           ...(data.lastAssistantMessage?.trim()
             ? { latestOutput: data.lastAssistantMessage.trim() }
             : {})
@@ -3515,7 +3517,7 @@ export function useIpcEvents(): void {
           return 'dropped'
         }
         options.batch.notificationEffects.push(applyPostCommitNotification)
-        options.batch.notificationEffects.push(persistLocalTaskFinalOutput)
+        options.batch.notificationEffects.push(persistLocalTaskTurn)
         if (
           terminalTitle &&
           shouldApplyResolvedAgentTerminalTitleToTab(store, paneKey, title, terminalTitle)
@@ -3544,7 +3546,7 @@ export function useIpcEvents(): void {
         )
         applyResolvedAgentTerminalTitleToTab(useAppStore.getState(), paneKey, title, terminalTitle)
         applyPostCommitNotification()
-        persistLocalTaskFinalOutput()
+        persistLocalTaskTurn()
       }
       return 'applied'
     }

@@ -388,6 +388,14 @@
 - **用户须知**：启动 Agent 请使用“启动任务/新建关联会话”或顶部批量入口；本轮不保留旧 Waiting 文件兼容。
 - **验证结果**：23 个本地任务定向测试、Web TypeScript 检查和 oxlint 通过。
 
+## [2026-08-26] 增加会话当前问题和轮次小结
+
+- **What（做了什么）**：会话增加 `currentPrompt` 和最多 30 条 `turns`；Agent working 状态更新当前问题，done 状态追加“用户问题 + Agent 小结”；任务详情和右侧预览统一显示当前问题及轮次历史，移除首次提示/最近轮次展示。
+- **Why（为什么这么做）**：用户主要需要快速知道每个会话当前在解决什么，以及之前每轮聊过什么；复制完整 transcript 或引入交互段都会增加复杂度。
+- **How（怎么实现的）**：Agent 状态 prompt → `currentPrompt`；Agent done + 最终回复 → `turns[]`；任务详情/预览 → `LocalTaskSessionTurnHistory`。
+- **用户须知**：会话仍通过现有任务 ID + session ID 关联；只有 Orca 接收到 Agent 状态事件的会话会自动记录轮次。
+- **验证结果**：24 个本地任务定向测试、Web TypeScript 检查和 oxlint 通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：

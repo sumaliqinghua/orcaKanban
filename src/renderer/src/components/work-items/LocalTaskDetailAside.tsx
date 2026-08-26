@@ -11,6 +11,7 @@ import { useLiveDashboardSnapshot } from '../dashboard/useLiveDashboardSnapshot'
 import { useAiVaultSessionLaunchActions } from '../right-sidebar/ai-vault-session-launch-actions'
 import { findWorktreeById } from '@/store/slices/worktree-helpers'
 import type { AiVaultSessionResumeTargetState } from '../right-sidebar/ai-vault-session-resume'
+import { LocalTaskSessionTurnHistory } from './LocalTaskSessionTurnHistory'
 
 function LocalTaskSessionPreview({
   sessionId,
@@ -24,8 +25,14 @@ function LocalTaskSessionPreview({
   session: {
     title: string
     status: 'working' | 'idle' | 'done'
-    initialPrompt?: string | null
-    latestOutput?: string | null
+    currentPrompt?: string | null
+    turns?: {
+      id: string
+      prompt: string
+      summary: string | null
+      createdAt: number
+      updatedAt: number
+    }[]
   }
   projectPath: string
   workspaceId: string
@@ -70,7 +77,7 @@ function LocalTaskSessionPreview({
         const prompt = candidate.firstUserPrompt ?? candidate.lastUserPrompt ?? ''
         return (
           candidate.cwd === projectPath ||
-          (session.initialPrompt?.trim() ? prompt.includes(session.initialPrompt.trim()) : false) ||
+          (session.currentPrompt?.trim() ? prompt.includes(session.currentPrompt.trim()) : false) ||
           candidate.title === session.title
         )
       })
@@ -142,25 +149,18 @@ function LocalTaskSessionPreview({
 function SessionHistory({
   session
 }: {
-  session: { initialPrompt?: string | null; latestOutput?: string | null }
+  session: {
+    currentPrompt?: string | null
+    turns?: {
+      id: string
+      prompt: string
+      summary: string | null
+      createdAt: number
+      updatedAt: number
+    }[]
+  }
 }): React.JSX.Element {
-  return (
-    <div className="space-y-2 text-xs">
-      <div className="font-medium text-foreground">会话历史</div>
-      <div className="rounded-md border border-border/70 bg-muted/20 p-2.5">
-        <div className="mb-1 text-[10px] font-medium text-muted-foreground">首次提示</div>
-        <div className="scrollbar-sleek max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-          {session.initialPrompt || '没有保存首次提示。'}
-        </div>
-      </div>
-      <div className="rounded-md border border-border/70 bg-muted/20 p-2.5">
-        <div className="mb-1 text-[10px] font-medium text-muted-foreground">最近轮次</div>
-        <div className="scrollbar-sleek max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-          {session.latestOutput || '没有保存最近一轮输出。'}
-        </div>
-      </div>
-    </div>
-  )
+  return <LocalTaskSessionTurnHistory currentPrompt={session.currentPrompt} turns={session.turns} />
 }
 
 export function LocalTaskDetailAside({
@@ -293,8 +293,8 @@ export function LocalTaskDetailAside({
               item.sessionsList.find((candidate) => candidate.id === embeddedSessionId) ?? {
                 title: '关联会话',
                 status: 'done',
-                initialPrompt: null,
-                latestOutput: null
+                currentPrompt: null,
+                turns: []
               }
             }
             onClose={() => setEmbeddedSessionId(null)}

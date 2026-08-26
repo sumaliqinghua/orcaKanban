@@ -325,6 +325,41 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('records the current prompt and completed turn summaries', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '会话轮次' })
+    const session = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'turn-session',
+      initialPrompt: '先分析加载流程'
+    })
+    store.updateSessionOutput({
+      sessionId: session.id,
+      prompt: '先分析加载流程',
+      sessionStatus: 'done',
+      latestOutput: '已定位加载入口'
+    })
+    store.updateSessionOutput({
+      sessionId: session.id,
+      prompt: '再检查释放边界',
+      sessionStatus: 'working'
+    })
+    const completed = store.updateSessionOutput({
+      sessionId: session.id,
+      prompt: '再检查释放边界',
+      sessionStatus: 'done',
+      latestOutput: '已补充释放说明'
+    })
+    const saved = completed.sessions[0]!
+    expect(saved.currentPrompt).toBe('再检查释放边界')
+    expect(saved.turns).toHaveLength(2)
+    expect(saved.turns[0]).toMatchObject({ prompt: '先分析加载流程', summary: '已定位加载入口' })
+    expect(saved.turns[1]).toMatchObject({ prompt: '再检查释放边界', summary: '已补充释放说明' })
+    store.close()
+  })
+
   it('keeps review and done states for follow-up questions', () => {
     const root = projectPath()
     const store = new LocalTaskStore()

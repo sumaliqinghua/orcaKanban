@@ -180,6 +180,27 @@ export function readLocalTaskFile(path: string): LocalTask {
   const sessions = Array.isArray(value.sessions)
     ? value.sessions.filter(isRecord).map((session) => ({
         ...session,
+        currentPrompt:
+          typeof session.currentPrompt === 'string'
+            ? session.currentPrompt
+            : typeof session.initialPrompt === 'string'
+              ? session.initialPrompt
+              : null,
+        turns: Array.isArray(session.turns)
+          ? session.turns.filter(isRecord).flatMap((turn) =>
+              typeof turn.prompt === 'string'
+                ? [
+                    {
+                      id: typeof turn.id === 'string' ? turn.id : `turn-${Date.now()}`,
+                      prompt: turn.prompt,
+                      summary: typeof turn.summary === 'string' ? turn.summary : null,
+                      createdAt: typeof turn.createdAt === 'number' ? turn.createdAt : Date.now(),
+                      updatedAt: typeof turn.updatedAt === 'number' ? turn.updatedAt : Date.now()
+                    }
+                  ]
+                : []
+            )
+          : [],
         initialPrompt: typeof session.initialPrompt === 'string' ? session.initialPrompt : null,
         status: (session.status as string) === 'completed' ? 'done' : session.status
       }))

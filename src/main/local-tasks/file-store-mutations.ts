@@ -13,6 +13,7 @@ import type {
 } from '../../shared/local-task-types'
 import { findStep, findSubtask, findTaskWithSession } from './file-store-index'
 import { appendRecord, localTaskDirectory, LOCAL_TASK_RECORDS_FILE_NAME } from './file-store-format'
+import { appendSessionTurn } from './session-turn-mutations'
 
 export type FileStoreMutationAccess = {
   requireTask: (id: string, projectPath?: string) => LocalTask
@@ -55,6 +56,8 @@ export function createSession(
     taskId: task.id,
     workspaceId: text(args.workspaceId, task.workspaceId),
     title: text(args.title, '自动创建会话'),
+    currentPrompt: requestedPrompt,
+    turns: [],
     initialPrompt: requestedPrompt,
     status: 'working',
     latestOutput: null,
@@ -77,12 +80,22 @@ export function updateSessionOutput(
     throw new Error('Session is not associated with any local task')
   }
   const updatedAt = time()
+  const session = task.sessions.find((candidate) => candidate.id === args.sessionId)
+  if (!session) {
+    throw new Error('Session is not associated with this local task')
+  }
+  const prompt = args.prompt?.trim() || session.currentPrompt || ''
   const textValue = args.latestOutput?.trim() ?? ''
   const sessions = task.sessions.map((session) =>
     session.id === args.sessionId
       ? {
           ...session,
-          status: 'done' as const,
+          currentPrompt: prompt || session.currentPrompt,
+          turns:
+            args.sessionStatus === 'done' && prompt
+              ? appendSessionTurn(session.turns, prompt, textValue, updatedAt)
+              : session.turns,
+          status: args.sessionStatus === 'working' ? ('working' as const) : ('done' as const),
           latestOutput: textValue || session.latestOutput,
           updatedAt
         }

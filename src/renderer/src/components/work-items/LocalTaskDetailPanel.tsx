@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import type { Subtask, WorkItem } from './mock-data'
 import { LocalTaskAgentPicker } from './LocalTaskAgentPicker'
 import { LocalTaskLabelSuggestions } from './LocalTaskLabelSuggestions'
+import { LocalTaskSessionTurnHistory } from './LocalTaskSessionTurnHistory'
 
 function StepStatus({ status }: { status: Subtask['steps'][number]['status'] }): React.JSX.Element {
   if (status === 'done' || status === 'canceled') {
@@ -284,20 +285,18 @@ export function DetailPanel({
                       />
                     </Button>
                   </div>
+                  {session.currentPrompt ? (
+                    <div className="border-t border-border/50 px-2.5 py-1.5 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
+                      当前：{session.currentPrompt}
+                    </div>
+                  ) : null}
                   {historyExpanded ? (
-                    <div className="grid gap-2 border-t border-border/60 p-2 text-[11px]">
-                      <div className="rounded border border-border/60 bg-muted/20 p-2">
-                        <div className="mb-1 text-[10px] text-muted-foreground">首次提示</div>
-                        <div className="max-h-24 overflow-y-auto whitespace-pre-wrap leading-relaxed scrollbar-sleek">
-                          {session.initialPrompt || '没有保存首次提示。'}
-                        </div>
-                      </div>
-                      <div className="rounded border border-border/60 bg-muted/20 p-2">
-                        <div className="mb-1 text-[10px] text-muted-foreground">最近轮次</div>
-                        <div className="max-h-24 overflow-y-auto whitespace-pre-wrap leading-relaxed scrollbar-sleek">
-                          {session.latestOutput || '没有保存最近一轮输出。'}
-                        </div>
-                      </div>
+                    <div className="border-t border-border/60 p-2">
+                      <LocalTaskSessionTurnHistory
+                        currentPrompt={session.currentPrompt}
+                        turns={session.turns}
+                        compact
+                      />
                     </div>
                   ) : null}
                 </div>
