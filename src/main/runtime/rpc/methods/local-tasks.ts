@@ -40,6 +40,7 @@ const RequestReview = Context.extend({
   sessionId: Id,
   question: z.string().trim().min(1).max(20_000)
 })
+const TransferSubtask = Context.extend({ subtaskId: Id, force: z.boolean().optional() })
 
 function getTask(taskId: string, projectPath?: string): LocalTask {
   const task = getLocalTaskStore().get(taskId, projectPath)
@@ -146,13 +147,14 @@ export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
     name: 'localTask.updateSubtask',
     params: UpdateSubtask,
     handler: (params) => {
-      const { task } = ensureContext(params)
+      const { task, session } = ensureContext(params)
       requireSubtask(task, params.subtaskId)
       return result(
         getLocalTaskStore().updateSubtask({
           subtaskId: params.subtaskId,
           status: params.status,
-          title: params.title
+          title: params.title,
+          actorSessionId: session!.id
         })
       )
     }
@@ -161,7 +163,7 @@ export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
     name: 'localTask.updateStep',
     params: UpdateStep,
     handler: (params) => {
-      const { task } = ensureContext(params)
+      const { task, session } = ensureContext(params)
       const subtask = requireSubtask(task, params.subtaskId)
       const step = subtask.steps.find((candidate) => candidate.id === params.stepId)
       if (!step) {
@@ -175,7 +177,23 @@ export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
           subtaskId: params.subtaskId,
           stepId: params.stepId,
           status: params.status,
-          title: params.title
+          title: params.title,
+          actorSessionId: session!.id
+        })
+      )
+    }
+  }),
+  defineMethod({
+    name: 'localTask.transferSubtask',
+    params: TransferSubtask,
+    handler: (params) => {
+      const { task, session } = ensureContext(params)
+      requireSubtask(task, params.subtaskId)
+      return result(
+        getLocalTaskStore().transferSubtask({
+          subtaskId: params.subtaskId,
+          sessionId: session!.id,
+          force: params.force
         })
       )
     }

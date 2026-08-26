@@ -3,15 +3,12 @@ import { join } from 'node:path'
 import type {
   CreateLocalTaskSessionArgs,
   CreateLocalTaskSubtaskArgs,
-  EditLocalTaskStepTitleArgs,
   LocalTask,
   LocalTaskSession,
   ReportLocalTaskCompletedArgs,
-  UpdateLocalTaskSessionOutputArgs,
-  UpdateLocalTaskStepArgs,
-  UpdateLocalTaskSubtaskArgs
+  UpdateLocalTaskSessionOutputArgs
 } from '../../shared/local-task-types'
-import { findStep, findSubtask, findTaskWithSession } from './file-store-index'
+import { findTaskWithSession } from './file-store-index'
 import { appendRecord, localTaskDirectory, LOCAL_TASK_RECORDS_FILE_NAME } from './file-store-format'
 import { appendSessionTurn } from './session-turn-mutations'
 
@@ -165,67 +162,6 @@ export function createSubtask(
     updatedAt: createdAt
   }
   return store.writeTask({ ...task, subtasks: [subtask, ...task.subtasks], updatedAt: createdAt })
-}
-
-export function updateSubtask(
-  store: FileStoreMutationAccess,
-  args: UpdateLocalTaskSubtaskArgs
-): LocalTask {
-  const { task, index } = findSubtask(store.taskPaths(), args.subtaskId, store.readTask)
-  const subtasks = [...task.subtasks]
-  const current = subtasks[index]
-  subtasks[index] = {
-    ...current,
-    title: args.title?.trim() || current.title,
-    status: args.status ?? current.status,
-    updatedAt: time()
-  }
-  return store.writeTask({ ...task, subtasks, updatedAt: time() })
-}
-
-export function updateStep(
-  store: FileStoreMutationAccess,
-  args: UpdateLocalTaskStepArgs
-): LocalTask {
-  const { task, subtaskIndex, stepIndex } = findStep(
-    store.taskPaths(),
-    args.stepId,
-    args.subtaskId,
-    store.readTask
-  )
-  const subtasks = task.subtasks.map((subtask, index) => {
-    if (index !== subtaskIndex) {
-      return subtask
-    }
-    const steps = subtask.steps.map((step, currentIndex) =>
-      currentIndex === stepIndex
-        ? {
-            ...step,
-            title: args.title?.trim() || step.title,
-            status: args.status ?? step.status,
-            updatedAt: time()
-          }
-        : step
-    )
-    return { ...subtask, steps, updatedAt: time() }
-  })
-  return store.writeTask({ ...task, subtasks, updatedAt: time() })
-}
-
-export function editStepTitle(
-  store: FileStoreMutationAccess,
-  args: EditLocalTaskStepTitleArgs
-): LocalTask {
-  const { task, subtaskIndex, stepIndex } = findStep(
-    store.taskPaths(),
-    args.stepId,
-    args.subtaskId,
-    store.readTask
-  )
-  if (task.subtasks[subtaskIndex].steps[stepIndex].status !== 'todo') {
-    throw new Error('Only an unstarted AI step can be edited')
-  }
-  return updateStep(store, { subtaskId: args.subtaskId, stepId: args.stepId, title: args.title })
 }
 
 export function reportCompleted(

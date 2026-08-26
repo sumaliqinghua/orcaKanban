@@ -15,7 +15,8 @@ import type {
   UpdateLocalTaskArgs,
   UpdateLocalTaskStepArgs,
   UpdateLocalTaskSubtaskArgs,
-  UpdateLocalTaskSessionOutputArgs
+  UpdateLocalTaskSessionOutputArgs,
+  TransferLocalTaskSubtaskArgs
 } from '../../shared/local-task-types'
 import {
   atomicWrite,
@@ -30,6 +31,8 @@ import {
 } from './file-store-format'
 import { LocalTaskFileWatchers } from './file-store-watch'
 import * as mutations from './file-store-mutations'
+import { transferSubtask } from './subtask-session-assignment'
+import * as subtaskMutations from './subtask-progress-mutations'
 import * as batchMutations from './file-store-batch-mutations'
 
 let singleton: LocalTaskStore | null = null
@@ -193,14 +196,17 @@ export class LocalTaskStore {
   createSubtask(args: CreateLocalTaskSubtaskArgs & { projectPath?: string }): LocalTask {
     return mutations.createSubtask(this.access(), args)
   }
-  updateSubtask(args: UpdateLocalTaskSubtaskArgs): LocalTask {
-    return mutations.updateSubtask(this.access(), args)
+  updateSubtask(args: UpdateLocalTaskSubtaskArgs & { actorSessionId?: string }): LocalTask {
+    return subtaskMutations.updateSubtask(this.access(), args)
   }
-  updateStep(args: UpdateLocalTaskStepArgs): LocalTask {
-    return mutations.updateStep(this.access(), args)
+  transferSubtask(args: TransferLocalTaskSubtaskArgs): LocalTask {
+    return transferSubtask(this.access(), args)
+  }
+  updateStep(args: UpdateLocalTaskStepArgs & { actorSessionId?: string }): LocalTask {
+    return subtaskMutations.updateStep(this.access(), args)
   }
   editStepTitle(args: EditLocalTaskStepTitleArgs): LocalTask {
-    return mutations.editStepTitle(this.access(), args)
+    return subtaskMutations.editStepTitle(this.access(), args)
   }
   reportCompleted(args: ReportLocalTaskCompletedArgs & { projectPath?: string }): LocalTask {
     return mutations.reportCompleted(this.access(), args)

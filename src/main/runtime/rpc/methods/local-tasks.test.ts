@@ -213,4 +213,68 @@ describe('local task Agent RPC', () => {
       })
     ).toThrow('unstarted')
   })
+
+  it('binds Agent-created subtasks and blocks another session until transfer', () => {
+    const store = setupStore()
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: rootOf(store),
+      description: '子任务归属',
+      workspaceId: 'wt-1'
+    })
+    store.createSession({
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: 'owner-session',
+      workspaceId: 'wt-1'
+    })
+    store.createSession({
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: 'next-session',
+      workspaceId: 'wt-1',
+      initialPrompt: '新的功能'
+    })
+    const created = call('localTask.createSubtask', {
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: 'owner-session',
+      worktreeId: 'wt-1',
+      title: '制作工具',
+      steps: ['初版实现']
+    }) as { task: typeof task }
+    const subtask = created.task.subtasks[0]!
+    const step = subtask.steps[0]!
+    expect(subtask.sessionId).toBe('owner-session')
+
+    expect(() =>
+      call('localTask.updateStep', {
+        taskId: task.id,
+        projectPath: rootOf(store),
+        sessionId: 'next-session',
+        worktreeId: 'wt-1',
+        subtaskId: subtask.id,
+        stepId: step.id,
+        status: 'doing'
+      })
+    ).toThrow('another Agent session')
+    expect(() =>
+      call('localTask.transferSubtask', {
+        taskId: task.id,
+        projectPath: rootOf(store),
+        sessionId: 'next-session',
+        worktreeId: 'wt-1',
+        subtaskId: subtask.id
+      })
+    ).toThrow('force transfer requires confirmation')
+    const transferred = call('localTask.transferSubtask', {
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: 'next-session',
+      worktreeId: 'wt-1',
+      subtaskId: subtask.id,
+      force: true
+    }) as { task: typeof task }
+    expect(transferred.task.subtasks[0]?.sessionId).toBe('next-session')
+  })
 })

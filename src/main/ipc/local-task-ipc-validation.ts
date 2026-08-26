@@ -86,6 +86,14 @@ export const updateLocalTaskSubtaskArgsSchema = z
   })
   .strict()
 
+export const transferLocalTaskSubtaskArgsSchema = z
+  .object({
+    subtaskId: id,
+    sessionId: id.nullable(),
+    force: z.boolean().optional()
+  })
+  .strict()
+
 export const updateLocalTaskStepArgsSchema = z
   .object({
     subtaskId: id,

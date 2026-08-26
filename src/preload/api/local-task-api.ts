@@ -10,7 +10,8 @@ import type {
   UpdateLocalTaskRunArgs,
   UpdateLocalTaskSessionOutputArgs,
   UpdateLocalTaskArgs,
-  UpdateLocalTaskSubtaskArgs
+  UpdateLocalTaskSubtaskArgs,
+  TransferLocalTaskSubtaskArgs
 } from '../../shared/local-task-types'
 
 export type LocalTaskApi = {
@@ -24,6 +25,7 @@ export type LocalTaskApi = {
   updateRun: (args: UpdateLocalTaskRunArgs) => Promise<LocalTask>
   createSubtask: (args: CreateLocalTaskSubtaskArgs) => Promise<LocalTask>
   updateSubtask: (args: UpdateLocalTaskSubtaskArgs) => Promise<LocalTask>
+  transferSubtask: (args: TransferLocalTaskSubtaskArgs) => Promise<LocalTask>
   editStepTitle: (args: EditLocalTaskStepTitleArgs) => Promise<LocalTask>
   accept: (args: { taskId: string }) => Promise<LocalTask>
   archive: (args: { taskId: string }) => Promise<LocalTask>

@@ -252,6 +252,57 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('claims unassigned subtasks and requires confirmation to transfer from a working session', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '归属测试' })
+    const firstSession = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'session-owner'
+    })
+    const secondSession = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'session-next',
+      initialPrompt: '另一个问题'
+    })
+    const created = store.createSubtask({
+      taskId: task.id,
+      projectPath: root,
+      title: '未绑定子任务',
+      steps: ['执行步骤']
+    })
+    const subtask = created.subtasks[0]!
+    const step = subtask.steps[0]!
+
+    const claimed = store.updateStep({
+      subtaskId: subtask.id,
+      stepId: step.id,
+      status: 'doing',
+      actorSessionId: firstSession.id
+    })
+    expect(claimed.subtasks[0]?.sessionId).toBe(firstSession.id)
+    expect(() =>
+      store.updateStep({
+        subtaskId: subtask.id,
+        stepId: step.id,
+        status: 'done',
+        actorSessionId: secondSession.id
+      })
+    ).toThrow('another Agent session')
+    expect(() =>
+      store.transferSubtask({ subtaskId: subtask.id, sessionId: secondSession.id })
+    ).toThrow('force transfer requires confirmation')
+    const transferred = store.transferSubtask({
+      subtaskId: subtask.id,
+      sessionId: secondSession.id,
+      force: true
+    })
+    expect(transferred.subtasks[0]?.sessionId).toBe(secondSession.id)
+    store.close()
+  })
+
   it('preserves custom plan fields while syncing subtasks', () => {
     const root = projectPath()
     const store = new LocalTaskStore()

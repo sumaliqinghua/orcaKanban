@@ -50,6 +50,14 @@ export const LOCAL_TASK_HANDLERS: Record<string, CommandHandler> = {
     })
     printResult(result, json, formatLocalTask)
   },
+  'local-task subtask-transfer': async ({ client, flags, json }) => {
+    const result = await client.call('localTask.transferSubtask', {
+      ...getLocalTaskContext(),
+      subtaskId: getRequiredStringFlag(flags, 'subtask'),
+      force: flags.has('force')
+    })
+    printResult(result, json, formatLocalTask)
+  },
   'local-task report-completed': async ({ client, flags, json }) => {
     const result = await client.call('localTask.reportCompleted', {
       ...getLocalTaskContext(),

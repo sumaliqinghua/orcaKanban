@@ -15,6 +15,7 @@ import {
   parseLocalTaskIpcArgs,
   reportLocalTaskCompletedArgsSchema,
   startLocalTaskBatchArgsSchema,
+  transferLocalTaskSubtaskArgsSchema,
   updateLocalTaskRunArgsSchema,
   updateLocalTaskArgsSchema,
   updateLocalTaskStepArgsSchema,
@@ -90,6 +91,12 @@ export function registerLocalTaskHandlers(): void {
   ipcMain.handle('localTasks:updateSubtask', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(updateLocalTaskSubtaskArgsSchema, args)
     const task = store.updateSubtask(parsed)
+    publishLocalTaskChange(task)
+    return task
+  })
+  ipcMain.handle('localTasks:transferSubtask', (_event, args: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(transferLocalTaskSubtaskArgsSchema, args)
+    const task = store.transferSubtask(parsed)
     publishLocalTaskChange(task)
     return task
   })

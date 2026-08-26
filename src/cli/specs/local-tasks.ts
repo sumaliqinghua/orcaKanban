@@ -35,6 +35,12 @@ export const LOCAL_TASK_COMMAND_SPECS: CommandSpec[] = [
     allowedFlags: [...GLOBAL_FLAGS, 'subtask', 'step', 'status', 'title']
   },
   {
+    path: ['local-task', 'subtask-transfer'],
+    summary: 'Transfer a subtask to the current Agent session after user confirmation',
+    usage: 'orca local-task subtask-transfer --subtask <id> [--force] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'subtask', 'force']
+  },
+  {
     path: ['local-task', 'request-review'],
     summary: 'Pause the current Agent session and request a user decision',
     usage: 'orca local-task request-review --question <text> [--json]',
