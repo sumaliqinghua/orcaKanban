@@ -396,6 +396,24 @@
 - **用户须知**：会话仍通过现有任务 ID + session ID 关联；只有 Orca 接收到 Agent 状态事件的会话会自动记录轮次。
 - **验证结果**：24 个本地任务定向测试、Web TypeScript 检查和 oxlint 通过。
 
+## [2026-08-27] 实现最小子任务会话归属模型
+
+- **What（做了什么）**：
+  - `local-task-types.ts`：增加子任务会话归属移交参数；子任务仍只保留现有勾选/步骤状态，不新增 Proposed、Ready、Blocked 等状态。
+  - `subtask-progress-mutations.ts`：AI 更新子任务或步骤时校验执行会话；未绑定子任务由首次修改它的会话自动认领，其他会话直接拒绝。
+  - `subtask-session-assignment.ts`、`store.ts`：增加显式子任务移交；原会话仍为 working 时普通移交拒绝，只有带 force 的用户确认路径才能移交。
+  - `local-task-ipc-validation.ts`、`local-tasks.ts`、preload：新增 `localTasks:transferSubtask` IPC，负责面板和主进程之间的显式移交。
+  - `runtime/rpc/methods/local-tasks.ts`：`current` 返回当前会话负责、未绑定、其他会话负责三组子任务；Agent 只能通过自身会话更新归属范围内的子任务。
+  - `cli/specs/local-tasks.ts`、`cli/handlers/local-tasks.ts`、`handler-group-manifest.ts`：新增 `orca local-task subtask-transfer --subtask <id> [--force]`，让 AI 在用户确认后移交子任务。
+  - `LocalTaskSubtaskCreateDialog.tsx`：面板支持新增子任务；已有会话时选择执行会话或新建 Agent 会话；没有会话时允许暂不绑定；新建会话会自动绑定新子任务。
+  - `LocalTaskSubtaskSessionSelect.tsx`、`LocalTaskSubtaskBlock.tsx`：子任务行展示执行会话，支持更换归属和运行中会话的二次确认。
+  - `local-task-agent-prompt.ts`、`LocalTaskAgentPicker.tsx`、批量 runner：每次追问要求先读取全部子任务，优先调整步骤，只有独立功能才新建子任务，并按当前会话归属顺序执行。
+- **Why（为什么这么做）**：用户需要一个任务下预先准备多个功能，同时允许某个功能反复对话调整和中途插入新功能；增加复杂子任务状态或依赖图会提高理解成本。单一执行会话归属足以防止两个 Agent 同时改同一子任务。
+- **How（怎么实现的）**：用户新增/AI 创建子任务 → 绑定一个 sessionId（或暂不绑定）；Agent 读取全量子任务 → 优先更新自己负责/未绑定项；遇到其他会话归属 → 拒绝并请求确认；确认后 `subtask-transfer` 修改归属；步骤完成继续使用原勾选模型。
+- **用户须知**：一个会话可以按列表顺序处理多个自己负责的子任务；一个子任务同一时间只归属一个会话。需要换会话时，从子任务行选择新会话；原会话运行中会出现确认弹窗。
+- **已知限制**：当前没有子任务依赖图和自动调度；子任务顺序由列表顺序决定，用户通过新增顺序和会话归属控制执行；完整会话 transcript 仍需在终端/会话历史查看。
+- **验证结果**：27 个领域/RPC 测试、3 个子任务面板 DOM 测试、Agent 提示词测试、Web TypeScript、oxlint 和 Electron 构建通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：
