@@ -64,7 +64,19 @@ export function createSession(
   }
   const status =
     task.status === 'Done' || task.status === 'Needs review' ? 'In progress' : task.status
-  store.writeTask({ ...task, sessions: [session, ...task.sessions], status, updatedAt: createdAt })
+  const subtasks =
+    task.sessions.length === 0
+      ? task.subtasks.map((subtask) =>
+          subtask.sessionId === null ? { ...subtask, sessionId, updatedAt: createdAt } : subtask
+        )
+      : task.subtasks
+  store.writeTask({
+    ...task,
+    subtasks,
+    sessions: [session, ...task.sessions],
+    status,
+    updatedAt: createdAt
+  })
   return session
 }
 

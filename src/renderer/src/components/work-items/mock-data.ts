@@ -6,6 +6,7 @@ export type Subtask = {
   id: string
   title: string
   status: 'todo' | 'doing' | 'done'
+  sessionId?: string | null
   session: string
   steps: { id: string; title: string; status: StepStatus }[]
 }

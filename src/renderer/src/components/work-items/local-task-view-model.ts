@@ -6,6 +6,7 @@ function mapSubtask(subtask: LocalTaskSubtask): Subtask {
     id: subtask.id,
     title: subtask.title,
     status: subtask.status,
+    sessionId: subtask.sessionId,
     session: subtask.sessionId ?? '未关联会话',
     steps: subtask.steps
   }

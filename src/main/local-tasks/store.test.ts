@@ -303,6 +303,16 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('assigns existing unbound subtasks when the first session is created', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '首次绑定' })
+    store.createSubtask({ taskId: task.id, projectPath: root, title: '预先创建的子任务' })
+    store.createSession({ taskId: task.id, projectPath: root, sessionId: 'first-session' })
+    expect(store.get(task.id, root)?.subtasks[0]?.sessionId).toBe('first-session')
+    store.close()
+  })
+
   it('preserves custom plan fields while syncing subtasks', () => {
     const root = projectPath()
     const store = new LocalTaskStore()

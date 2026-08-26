@@ -4,6 +4,7 @@ import { PanelRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store'
 import type { WorkItem } from './mock-data'
+import type { LocalTask } from '../../../../shared/local-task-types'
 import { DetailPanel } from './LocalTaskDetailPanel'
 import { LocalTaskActions, StatusBadge } from './work-item-pieces'
 import { AgentTerminalPanel } from '../dashboard-popout/AgentTerminalDialog'
@@ -176,7 +177,8 @@ export function LocalTaskDetailAside({
   onAccept,
   onArchive,
   onPromote,
-  labelSuggestions
+  labelSuggestions,
+  onTaskChanged
 }: {
   item: WorkItem
   open: boolean
@@ -191,6 +193,7 @@ export function LocalTaskDetailAside({
   onArchive: () => void
   onPromote: () => void
   labelSuggestions: string[]
+  onTaskChanged: (task: LocalTask) => void
 }): React.JSX.Element {
   const [embeddedSessionId, setEmbeddedSessionId] = useState<string | null>(null)
   const [detailWidth, setDetailWidth] = useState(420)
@@ -276,6 +279,7 @@ export function LocalTaskDetailAside({
             }}
             onOpenWorkspace={onOpenWorkspace}
             onSessionStarted={onSessionStarted}
+            onTaskChanged={onTaskChanged}
           />
           <LocalTaskActions
             item={item}

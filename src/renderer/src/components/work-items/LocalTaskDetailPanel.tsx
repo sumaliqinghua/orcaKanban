@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowUpRight, Bot, Check, ChevronDown, GitBranch, Pencil } from 'lucide-react'
+import { ArrowUpRight, Bot, ChevronDown, GitBranch, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -11,85 +11,13 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import type { Subtask, WorkItem } from './mock-data'
+import type { WorkItem } from './mock-data'
+import type { LocalTask } from '../../../../shared/local-task-types'
 import { LocalTaskAgentPicker } from './LocalTaskAgentPicker'
 import { LocalTaskLabelSuggestions } from './LocalTaskLabelSuggestions'
 import { LocalTaskSessionTurnHistory } from './LocalTaskSessionTurnHistory'
-
-function StepStatus({ status }: { status: Subtask['steps'][number]['status'] }): React.JSX.Element {
-  if (status === 'done' || status === 'canceled') {
-    return <Check className="size-3 text-emerald-600" />
-  }
-  if (status === 'doing') {
-    return <span className="size-1.5 rounded-full bg-sky-500" />
-  }
-  return <span className="size-1.5 rounded-full bg-muted-foreground/30" />
-}
-
-function SubtaskBlock({
-  subtask,
-  onComplete,
-  onEditStep
-}: {
-  subtask: Subtask
-  onComplete: () => void
-  onEditStep: (stepId: string) => void
-}): React.JSX.Element {
-  return (
-    <div className="rounded-md border border-border/60">
-      <div className="flex items-center gap-2 border-b border-border/50 bg-muted/30 px-2.5 py-2">
-        <button
-          type="button"
-          onClick={onComplete}
-          className={cn(
-            'flex size-4 items-center justify-center rounded-full border',
-            subtask.status === 'done' && 'border-emerald-500 bg-emerald-500 text-white'
-          )}
-          aria-label={subtask.status === 'done' ? '取消完成子任务' : '完成子任务'}
-        >
-          {subtask.status === 'done' ? <Check className="size-3" /> : null}
-        </button>
-        <span
-          className={cn(
-            'flex-1 text-[11px] font-medium',
-            subtask.status === 'done' && 'text-muted-foreground line-through'
-          )}
-        >
-          {subtask.title}
-        </span>
-        <span className="text-[10px] text-muted-foreground">{subtask.session}</span>
-      </div>
-      <div className="space-y-1 p-2">
-        {subtask.steps.map((step) => (
-          <div key={step.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-            <StepStatus status={step.status} />
-            <span className="flex-1">{step.title}</span>
-            <span>
-              {step.status === 'doing'
-                ? 'AI 处理中'
-                : step.status === 'done'
-                  ? 'AI 已完成'
-                  : step.status === 'canceled'
-                    ? 'AI 已取消'
-                    : '待执行'}
-            </span>
-            {step.status === 'todo' ? (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="size-5"
-                onClick={() => onEditStep(step.id)}
-                aria-label="编辑未开始步骤"
-              >
-                <Pencil className="size-3" />
-              </Button>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+import { LocalTaskSubtaskCreateDialog } from './LocalTaskSubtaskCreateDialog'
+import { LocalTaskSubtaskBlock } from './LocalTaskSubtaskBlock'
 
 export function DetailPanel({
   item,
@@ -100,7 +28,8 @@ export function DetailPanel({
   onEditStep,
   onOpenSession,
   onOpenWorkspace,
-  onSessionStarted
+  onSessionStarted,
+  onTaskChanged
 }: {
   item: WorkItem
   onCompleteSubtask: (subtaskId: string) => void
@@ -111,6 +40,7 @@ export function DetailPanel({
   onOpenSession: (sessionId: string) => void
   onOpenWorkspace: () => void
   onSessionStarted: (tabId: string, request: string) => void
+  onTaskChanged: (task: LocalTask) => void
 }): React.JSX.Element {
   const [titleDialogOpen, setTitleDialogOpen] = useState(false)
   const [labelsDialogOpen, setLabelsDialogOpen] = useState(false)
@@ -209,18 +139,18 @@ export function DetailPanel({
                 {item.subtasks.length}
               </span>
             </h3>
-            <span className="text-[10px] text-muted-foreground">
-              用户可完成子任务 · AI 维护执行步骤
-            </span>
+            <LocalTaskSubtaskCreateDialog item={item} onTaskChanged={onTaskChanged} />
           </div>
           <div className="space-y-2">
             {item.subtasks.length ? (
               item.subtasks.map((subtask) => (
-                <SubtaskBlock
+                <LocalTaskSubtaskBlock
                   key={subtask.id}
                   subtask={subtask}
+                  sessions={item.sessionsList}
                   onComplete={() => onCompleteSubtask(subtask.id)}
                   onEditStep={(stepId) => onEditStep(subtask.id, stepId)}
+                  onTaskChanged={onTaskChanged}
                 />
               ))
             ) : (

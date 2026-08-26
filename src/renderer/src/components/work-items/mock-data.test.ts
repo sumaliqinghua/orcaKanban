@@ -15,7 +15,16 @@ const item = (
   sessions: 0,
   activeSessions: 0,
   subtasks: subtaskStatus
-    ? [{ id: 'subtask-1', title: '子任务', status: subtaskStatus, session: 'session', steps: [] }]
+    ? [
+        {
+          id: 'subtask-1',
+          title: '子任务',
+          status: subtaskStatus,
+          sessionId: 'session',
+          session: 'session',
+          steps: []
+        }
+      ]
     : [],
   latestOutput: { session: 'none', text: 'none' },
   sessionsList: []

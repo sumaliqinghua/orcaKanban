@@ -111,6 +111,11 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
     setSelectedId,
     setLoadError
   })
+  const applyTaskUpdate = (task: LocalTask): void => {
+    setItems((current) =>
+      current.map((item) => (item.id === task.id ? localTaskToViewModel(task) : item))
+    )
+  }
   const completeSubtask = (subtaskId: string): void => {
     if (!selected) {
       return
@@ -373,6 +378,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         onAccept={taskActions.acceptSelected}
         onArchive={taskActions.archiveSelected}
         onPromote={taskActions.promoteSelected}
+        onTaskChanged={applyTaskUpdate}
       />
     </div>
   )
