@@ -161,7 +161,7 @@ export function createSubtask(
     createdAt,
     updatedAt: createdAt
   }
-  return store.writeTask({ ...task, subtasks: [subtask, ...task.subtasks], updatedAt: createdAt })
+  return store.writeTask({ ...task, subtasks: [...task.subtasks, subtask], updatedAt: createdAt })
 }
 
 export function reportCompleted(

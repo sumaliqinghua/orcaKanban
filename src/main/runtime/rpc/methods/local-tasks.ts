@@ -110,13 +110,30 @@ function result(task: LocalTask): { task: LocalTask } {
   return { task }
 }
 
+function subtaskScope(
+  task: LocalTask,
+  sessionId?: string
+): {
+  assigned: LocalTask['subtasks']
+  unassigned: LocalTask['subtasks']
+  assignedToOtherSessions: LocalTask['subtasks']
+} {
+  return {
+    assigned: sessionId ? task.subtasks.filter((subtask) => subtask.sessionId === sessionId) : [],
+    unassigned: task.subtasks.filter((subtask) => subtask.sessionId === null),
+    assignedToOtherSessions: task.subtasks.filter(
+      (subtask) => subtask.sessionId !== null && subtask.sessionId !== sessionId
+    )
+  }
+}
+
 export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
   defineMethod({
     name: 'localTask.current',
     params: Context,
     handler: (params) => {
       const { task, session } = ensureContext(params, false)
-      return { task, session }
+      return { task, session, subtaskScope: subtaskScope(task, session?.id) }
     }
   }),
   defineMethod({

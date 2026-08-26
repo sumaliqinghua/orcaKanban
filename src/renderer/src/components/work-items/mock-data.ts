@@ -54,18 +54,7 @@ export type WorkItem = {
 export const STATUS_ORDER: WorkItemStatus[] = ['Open', 'In progress', 'Needs review', 'Done']
 
 export function getTaskPerspectiveStatus(item: WorkItem): WorkItemStatus {
-  if (item.status === 'Done') {
-    return 'Done'
-  }
-  const latest = item.subtasks[0]
-  if (!latest) {
-    return item.status
-  }
-  return latest.status === 'doing'
-    ? 'In progress'
-    : latest.status === 'done'
-      ? 'Needs review'
-      : 'Open'
+  return item.status
 }
 
 export const MOCK_ITEMS: WorkItem[] = [
