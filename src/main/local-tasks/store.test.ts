@@ -468,4 +468,15 @@ describe('LocalTaskStore file-first persistence', () => {
     expect(() => store.archive(task.id)).toThrow('running Agent session')
     store.close()
   })
+
+  it('archives stale working sessions when live Agent evidence is empty', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '陈旧会话' })
+    store.createSession({ taskId: task.id, projectPath: root, sessionId: 'stale-session' })
+    const archived = store.archive(task.id, [])
+    expect(archived.archivedAt).not.toBeNull()
+    expect(archived.sessions[0]?.status).toBe('done')
+    store.close()
+  })
 })

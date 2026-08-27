@@ -28,7 +28,7 @@ export type LocalTaskApi = {
   transferSubtask: (args: TransferLocalTaskSubtaskArgs) => Promise<LocalTask>
   editStepTitle: (args: EditLocalTaskStepTitleArgs) => Promise<LocalTask>
   accept: (args: { taskId: string }) => Promise<LocalTask>
-  archive: (args: { taskId: string }) => Promise<LocalTask>
+  archive: (args: { taskId: string; activeSessionIds?: string[] }) => Promise<LocalTask>
   restore: (args: { taskId: string }) => Promise<LocalTask>
   onChanged: (callback: (task: LocalTask) => void) => () => void
 }

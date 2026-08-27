@@ -40,6 +40,7 @@ export type WorkItem = {
     latestOutput?: string | null
     status: 'working' | 'idle' | 'done'
     time: string
+    updatedAt?: number
   }[]
   titleSource?: 'first-line' | 'ai-suggestion' | 'user'
   titleSuggestion?: string | null

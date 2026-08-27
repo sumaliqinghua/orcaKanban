@@ -6,6 +6,7 @@ import type {
 } from '../../shared/local-task-types'
 import {
   acceptLocalTaskArgsSchema,
+  archiveLocalTaskArgsSchema,
   createLocalTaskArgsSchema,
   createLocalTaskSessionArgsSchema,
   createLocalTaskSubtaskArgsSchema,
@@ -113,8 +114,8 @@ export function registerLocalTaskHandlers(): void {
     return task
   })
   ipcMain.handle('localTasks:archive', (_event, args: unknown) => {
-    const parsed = parseLocalTaskIpcArgs(acceptLocalTaskArgsSchema, args)
-    const task = store.archive(parsed.taskId)
+    const parsed = parseLocalTaskIpcArgs(archiveLocalTaskArgsSchema, args)
+    const task = store.archive(parsed.taskId, parsed.activeSessionIds)
     publishLocalTaskChange(task)
     return task
   })

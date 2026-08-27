@@ -11,9 +11,10 @@ import { LocalTaskDetailAside } from './LocalTaskDetailAside'
 import { LocalTaskCenterHeader } from './LocalTaskCenterHeader'
 import { createLocalTaskCenterActions } from './local-task-center-actions'
 import { BoardView, ListView, SubtaskBoardView, SubtaskListView } from './work-item-views'
-import { localTaskToViewModel } from './local-task-view-model'
+import { localTaskToViewModel, reconcileWorkItemSessionLiveness } from './local-task-view-model'
 import { useLocalTaskBatchController } from './use-local-task-batch-controller'
 import { LocalTaskQueueTabs } from './LocalTaskQueueTabs'
+import { useLiveDashboardSnapshot } from '@/components/dashboard/useLiveDashboardSnapshot'
 
 type ViewMode = 'board' | 'list'
 type BoardPerspective = 'subtasks' | 'tasks'
@@ -37,7 +38,17 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const [queueView, setQueueView] = useState<QueueView>('all')
   const [detailOpen, setDetailOpen] = useState(false)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
-  const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
+  const dashboardSnapshot = useLiveDashboardSnapshot()
+  const liveSessionIds = useMemo(
+    () => new Set(dashboardSnapshot.cards.map((card) => card.tabId)),
+    [dashboardSnapshot.cards]
+  )
+  const effectiveItems = useMemo(
+    () => items.map((item) => reconcileWorkItemSessionLiveness(item, liveSessionIds)),
+    [items, liveSessionIds]
+  )
+  const selected =
+    effectiveItems.find((item) => item.id === selectedId) ?? effectiveItems[0] ?? null
   const openTaskComposer = (): void => {
     useAppStore.getState().openModal('new-workspace-composer', {
       localTaskMode: true,
@@ -67,7 +78,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
     }
   }, [activeRepoPath, createProjectId])
   const { batchCandidates, batchRunning, runAllTasks } = useLocalTaskBatchController({
-    items,
+    items: effectiveItems,
     loadTasks,
     setLoadError
   })
@@ -90,7 +101,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   }, [loadTasks])
   const filtered = useMemo(
     () =>
-      items.filter(
+      effectiveItems.filter(
         (item) =>
           (item.title.toLowerCase().includes(query.toLowerCase()) ||
             item.id.toLowerCase().includes(query.toLowerCase())) &&
@@ -99,11 +110,11 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
             (queueView === 'review' && item.status === 'Needs review')) &&
           (!labelFilter || (item.labels ?? []).includes(labelFilter))
       ),
-    [items, labelFilter, query, queueView]
+    [effectiveItems, labelFilter, query, queueView]
   )
   const availableLabels = useMemo(
-    () => [...new Set(items.flatMap((item) => item.labels ?? []))].sort(),
-    [items]
+    () => [...new Set(effectiveItems.flatMap((item) => item.labels ?? []))].sort(),
+    [effectiveItems]
   )
   const taskActions = createLocalTaskCenterActions({
     selected,
@@ -214,7 +225,8 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
                 : 'border-transparent text-muted-foreground'
             )}
           >
-            本地任务 <span className="ml-1 text-[10px] text-muted-foreground">{items.length}</span>
+            本地任务{' '}
+            <span className="ml-1 text-[10px] text-muted-foreground">{effectiveItems.length}</span>
           </button>
           <button
             type="button"
@@ -252,7 +264,11 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         ) : (
           <>
             <div className="flex shrink-0 items-center gap-2 px-6 py-3">
-              <LocalTaskQueueTabs items={items} value={queueView} onChange={setQueueView} />
+              <LocalTaskQueueTabs
+                items={effectiveItems}
+                value={queueView}
+                onChange={setQueueView}
+              />
               <div className="relative w-64">
                 <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
                 <Input

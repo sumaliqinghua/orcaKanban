@@ -69,7 +69,12 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       return
     }
     void window.api.localTasks
-      .archive({ taskId: selected.id })
+      .archive({
+        taskId: selected.id,
+        activeSessionIds: selected.sessionsList.flatMap((session) =>
+          session.id && session.status === 'working' ? [session.id] : []
+        )
+      })
       .then((task) => {
         setItems((current) => current.filter((item) => item.id !== task.id))
         setSelectedId(null)

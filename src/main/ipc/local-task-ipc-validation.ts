@@ -119,6 +119,10 @@ export const reportLocalTaskCompletedArgsSchema = z
 
 export const acceptLocalTaskArgsSchema = z.object({ taskId: id }).strict()
 
+export const archiveLocalTaskArgsSchema = z
+  .object({ taskId: id, activeSessionIds: z.array(id).max(500).optional() })
+  .strict()
+
 export const startLocalTaskBatchArgsSchema = z
   .object({
     tasks: z

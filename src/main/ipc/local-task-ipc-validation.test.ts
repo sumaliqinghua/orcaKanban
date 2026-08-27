@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createLocalTaskArgsSchema,
   createLocalTaskSessionArgsSchema,
+  archiveLocalTaskArgsSchema,
   editLocalTaskStepTitleArgsSchema,
   parseLocalTaskIpcArgs,
   startLocalTaskBatchArgsSchema,
@@ -107,5 +108,11 @@ describe('local task IPC validation', () => {
       })
     ).toMatchObject({ status: 'running', sessionId: 'tab-1' })
     expect(() => updateLocalTaskRunArgsSchema.parse({ runId: 'ltr_1' })).toThrow()
+  })
+
+  it('accepts bounded live session evidence when archiving', () => {
+    expect(
+      archiveLocalTaskArgsSchema.parse({ taskId: 'lt_1', activeSessionIds: ['session-1'] })
+    ).toEqual({ taskId: 'lt_1', activeSessionIds: ['session-1'] })
   })
 })

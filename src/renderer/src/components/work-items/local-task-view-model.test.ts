@@ -1,0 +1,50 @@
+import { describe, expect, it } from 'vitest'
+import { reconcileWorkItemSessionLiveness } from './local-task-view-model'
+import type { WorkItem } from './mock-data'
+
+const NOW = 100_000
+
+function item(updatedAt: number): WorkItem {
+  return {
+    id: 'task-1',
+    title: '任务',
+    description: '描述',
+    status: 'In progress',
+    workspace: 'workspace',
+    project: 'project',
+    updated: 'now',
+    sessions: 1,
+    activeSessions: 1,
+    subtasks: [],
+    latestOutput: { session: 'none', text: 'none' },
+    sessionsList: [
+      {
+        id: 'session-1',
+        title: '会话',
+        status: 'working',
+        time: 'now',
+        updatedAt
+      }
+    ]
+  }
+}
+
+describe('local task live session reconciliation', () => {
+  it('keeps a dashboard-visible session running', () => {
+    const result = reconcileWorkItemSessionLiveness(item(NOW - 60_000), new Set(['session-1']), NOW)
+    expect(result.status).toBe('In progress')
+    expect(result.activeSessions).toBe(1)
+  })
+
+  it('keeps a newly created session running during its startup grace period', () => {
+    const result = reconcileWorkItemSessionLiveness(item(NOW - 1_000), new Set(), NOW)
+    expect(result.status).toBe('In progress')
+  })
+
+  it('marks a stale file-only working session ready for review', () => {
+    const result = reconcileWorkItemSessionLiveness(item(NOW - 60_000), new Set(), NOW)
+    expect(result.status).toBe('Needs review')
+    expect(result.activeSessions).toBe(0)
+    expect(result.sessionsList[0]?.status).toBe('done')
+  })
+})

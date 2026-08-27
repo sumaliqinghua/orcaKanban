@@ -414,6 +414,18 @@
 - **已知限制**：当前没有子任务依赖图和自动调度；子任务顺序由列表顺序决定，用户通过新增顺序和会话归属控制执行；完整会话 transcript 仍需在终端/会话历史查看。
 - **验证结果**：27 个领域/RPC 测试、3 个子任务面板 DOM 测试、Agent 提示词测试、Web TypeScript、oxlint 和 Electron 构建通过。
 
+## [2026-08-27] 用实时智能体状态修复陈旧 working 会话
+
+- **What（做了什么）**：
+  - `local-task-view-model.ts`：新增实时会话校正；task.json 标为 working 但智能体仪表盘没有对应 tab 的会话，在 15 秒启动宽限后投影为 done，任务转为 Needs review、运行中数量归零。
+  - `WorkItemsPrototypePage.tsx`：订阅 `useLiveDashboardSnapshot`，任务卡片、筛选、详情和批量候选统一使用实时校正后的视图模型。
+  - `local-task-center-actions.ts`：归档时提交当前实时 working 会话 ID。
+  - `local-task-types.ts`、IPC 校验、preload、`store.ts`：归档接口接受可选实时会话证据；真实运行会话继续拒绝归档，没有实时证据的残留 working 会话在归档前写为 done。
+- **Why（为什么这么做）**：Agent 终端可能已关闭但完成事件未写回 task.json，导致任务永久显示 In progress、详情误报正在运行并禁止归档；智能体仪表盘已有更准确的实时状态。
+- **How（怎么实现的）**：实时 dashboard cards → tab ID 集合 → 校正 WorkItem sessions；用户归档 → 传递实时 working ID → Store 仅阻止真实运行会话，并收敛陈旧文件状态。
+- **用户须知**：刚创建的会话在仪表盘卡片出现前有 15 秒宽限；超过宽限仍没有实时卡片时会被视为已结束。归档会把其文件状态从 working 写为 done。
+- **验证结果**：8 个测试文件、50 项测试，Web TypeScript、oxlint 和 Electron 构建全部通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：

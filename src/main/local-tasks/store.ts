@@ -179,12 +179,26 @@ export class LocalTaskStore {
     })
   }
 
-  archive(id: string): LocalTask {
+  archive(id: string, activeSessionIds?: string[]): LocalTask {
     const task = this.require(id)
-    if (task.sessions.some((session) => session.status === 'working')) {
+    const activeIds = new Set(
+      activeSessionIds ??
+        task.sessions.filter((session) => session.status === 'working').map((session) => session.id)
+    )
+    if (task.sessions.some((session) => activeIds.has(session.id))) {
       throw new Error('Cannot archive a task with a running Agent session')
     }
-    return this.update(id, { archived: true })
+    const updatedAt = timestamp()
+    const sessions = task.sessions.map((session) =>
+      session.status === 'working' ? { ...session, status: 'done' as const, updatedAt } : session
+    )
+    return this.writeTask({
+      ...task,
+      sessions,
+      status: task.status === 'Done' ? 'Done' : sessions.length ? 'Needs review' : task.status,
+      archivedAt: updatedAt,
+      updatedAt
+    })
   }
   restore(id: string): LocalTask {
     return this.update(id, { archived: false })

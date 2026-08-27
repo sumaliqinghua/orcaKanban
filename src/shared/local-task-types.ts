@@ -165,7 +165,7 @@ export type UpdateLocalTaskSessionOutputArgs = {
 }
 
 export type AcceptLocalTaskArgs = { taskId: string }
-export type ArchiveLocalTaskArgs = { taskId: string }
+export type ArchiveLocalTaskArgs = { taskId: string; activeSessionIds?: string[] }
 
 export type CreateLocalTaskSubtaskArgs = {
   taskId: string

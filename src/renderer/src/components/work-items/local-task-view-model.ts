@@ -1,6 +1,8 @@
 import type { LocalTask, LocalTaskSubtask } from '../../../../shared/local-task-types'
 import type { WorkItem, Subtask } from './mock-data'
 
+const SESSION_START_GRACE_MS = 15_000
+
 function mapSubtask(subtask: LocalTaskSubtask): Subtask {
   return {
     id: subtask.id,
@@ -49,7 +51,8 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
       initialPrompt: session.initialPrompt,
       latestOutput: session.latestOutput,
       status: session.status,
-      time: new Date(session.updatedAt).toLocaleString()
+      time: new Date(session.updatedAt).toLocaleString(),
+      updatedAt: session.updatedAt
     })),
     titleSource: task.titleSource,
     titleSuggestion: task.titleSuggestion,
@@ -61,4 +64,37 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     executionRunId: task.executionRunId,
     reviewKind: task.reviewKind
   }
+}
+
+export function reconcileWorkItemSessionLiveness(
+  item: WorkItem,
+  liveSessionIds: ReadonlySet<string>,
+  now = Date.now()
+): WorkItem {
+  const sessionsList = item.sessionsList.map((session) => {
+    if (session.status !== 'working' || !session.id) {
+      return session
+    }
+    const withinStartGrace =
+      typeof session.updatedAt === 'number' && now - session.updatedAt < SESSION_START_GRACE_MS
+    return liveSessionIds.has(session.id) || withinStartGrace
+      ? session
+      : { ...session, status: 'done' as const }
+  })
+  const activeSessions = sessionsList.filter((session) => session.status === 'working').length
+  const hasEndedSession = sessionsList.some((session) => session.status !== 'working')
+  const executionActive = item.executionState === 'queued' || item.executionState === 'running'
+  const status =
+    item.status === 'Done'
+      ? 'Done'
+      : hasEndedSession
+        ? 'Needs review'
+        : activeSessions > 0 || executionActive
+          ? 'In progress'
+          : item.sessions > 0
+            ? 'Needs review'
+            : item.status === 'In progress'
+              ? 'Open'
+              : item.status
+  return { ...item, status, activeSessions, sessionsList }
 }
