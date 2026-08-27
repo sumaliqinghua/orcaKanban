@@ -84,7 +84,7 @@ export function LocalTaskSubtaskCreateDialog({
         sessionId: tabId,
         workspaceId: item.workspaceId,
         title: `子任务 · ${title.trim()}`,
-        initialPrompt: request,
+        currentPrompt: request,
         associationSource: 'task-center'
       })
       await create(tabId)

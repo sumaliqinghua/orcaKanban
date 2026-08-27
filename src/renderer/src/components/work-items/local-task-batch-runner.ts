@@ -96,7 +96,7 @@ async function runCandidate(candidate: LocalTaskBatchCandidate, agent: TuiAgent)
       sessionId: result.tabId,
       workspaceId: candidate.task.workspaceId,
       title: `批量执行 · ${candidate.task.title}`,
-      initialPrompt: buildBatchPrompt(candidate),
+      currentPrompt: buildBatchPrompt(candidate),
       associationSource: 'task-center'
     })
     await updateRun(candidate, 'running', result.tabId)

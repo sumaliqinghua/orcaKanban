@@ -226,6 +226,11 @@
 - **执行步骤**：任务页订阅实时智能体卡片，用真实 tab ID 校正任务文件中的 working 会话；新会话保留 15 秒启动宽限；归档时把实时运行会话 ID 交给主进程，残留 working 不再阻止归档。
 - **验收标准**：仪表盘没有会话时任务不显示运行中；详情不提示“会话正在运行”；陈旧 working 可归档；真实运行 Agent 仍禁止归档；刚启动的会话不会被误判结束。
 
+## [x] 5.22 删除旧任务文件兼容层
+
+- **执行步骤**：用严格 Zod schema 校验当前 task.json；删除 Completed/completed/in_progress/cancelled 状态别名、字符串 latestOutput、plan-only 子任务回退、缺字段默认值和 initialPrompt 历史字段。
+- **验收标准**：只有完整 schemaVersion=1 文件能加载；旧枚举、缺字段和未知字段明确报错；JSON 损坏不覆盖、原子写入和 schemaVersion 保留。
+
 ## 后置，不阻塞本期交付
 
 - [ ] 文件级写入锁和租约；

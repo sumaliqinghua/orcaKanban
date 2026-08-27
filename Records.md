@@ -426,6 +426,19 @@
 - **用户须知**：刚创建的会话在仪表盘卡片出现前有 15 秒宽限；超过宽限仍没有实时卡片时会被视为已结束。归档会把其文件状态从 working 写为 done。
 - **验证结果**：8 个测试文件、50 项测试，Web TypeScript、oxlint 和 Electron 构建全部通过。
 
+## [2026-08-27] 删除旧任务文件兼容逻辑
+
+- **What（做了什么）**：
+  - `file-store-format.ts`：用严格 Zod schema 替换手写归一化；所有 task、session、subtask、step、turn、run 和输出字段必须完整且枚举合法，未知字段也拒绝。
+  - 删除 `Completed -> Needs review`、会话 `completed -> done`、`in_progress/completed/cancelled` 别名、字符串 latestOutput 转换、task.subtasks 为空时读取 plan.json、缺字段自动补默认值、时间戳 `Date.now()` 兜底。
+  - 删除已被 `currentPrompt + turns` 替代的 `initialPrompt`；创建会话参数统一改为 `currentPrompt`。
+  - `store.test.ts`：删除旧格式迁移测试，新增旧状态、缺字段和未知字段必须拒绝的回归测试。
+- **Why（为什么这么做）**：现有任务均可删除，不需要为测试数据持续维护迁移分支；严格单一格式能保证任务中心、Agent 和其他工具读取相同结论。
+- **How（怎么实现的）**：读取 JSON → `taskSchema.safeParse` → 完整通过才返回 LocalTask；否则错误中包含具体字段路径。写入仍使用临时文件加原子 rename。
+- **用户须知**：删除现有 `orca/<task-id>` 任务目录后重新创建任务。任何旧格式或手动漏字段的 task.json 都不会加载，需要按当前完整 schema 修正或删除。
+- **保留的安全机制**：schemaVersion、原子写入、JSON 解析错误、文件监听错误隔离和损坏文件不覆盖。这些不是旧任务兼容。
+- **验证结果**：8 个测试文件、51 项测试，Web TypeScript 和 oxlint 通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：

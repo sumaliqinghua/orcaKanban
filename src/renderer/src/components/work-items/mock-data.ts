@@ -36,7 +36,6 @@ export type WorkItem = {
       createdAt: number
       updatedAt: number
     }[]
-    initialPrompt?: string | null
     latestOutput?: string | null
     status: 'working' | 'idle' | 'done'
     time: string

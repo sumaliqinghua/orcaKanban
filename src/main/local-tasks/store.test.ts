@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -67,6 +67,31 @@ describe('LocalTaskStore file-first persistence', () => {
       expect.arrayContaining([first.id, second.id])
     )
     secondStore.close()
+  })
+
+  it('rejects legacy status values instead of normalizing them', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '严格状态' })
+    const taskPath = join(root, 'orca', task.id, 'task.json')
+    const saved = JSON.parse(readFileSync(taskPath, 'utf8')) as Record<string, unknown>
+    saved.status = 'Completed'
+    writeFileSync(taskPath, JSON.stringify(saved), 'utf8')
+    expect(() => store.list('orca', root)).toThrow('status')
+    store.close()
+  })
+
+  it('rejects missing and unknown persisted fields', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '严格字段' })
+    const taskPath = join(root, 'orca', task.id, 'task.json')
+    const saved = JSON.parse(readFileSync(taskPath, 'utf8')) as Record<string, unknown>
+    delete saved.executionState
+    saved.waitingReason = '旧字段'
+    writeFileSync(taskPath, JSON.stringify(saved), 'utf8')
+    expect(() => store.list('orca', root)).toThrow(/executionState|Unrecognized key/)
+    store.close()
   })
 
   it('captures only ready open tasks in a batch and completes runs into review', () => {
@@ -143,67 +168,6 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
-  it('normalizes Completed task files and falls back to plan subtasks', () => {
-    const root = projectPath()
-    const taskId = 'lt_legacy-completed'
-    const directory = join(root, 'orca', taskId)
-    const task = {
-      schemaVersion: 1,
-      id: taskId,
-      projectId: 'orca',
-      projectPath: root,
-      title: '资源文档',
-      description: '整理资源调用方式',
-      status: 'Completed',
-      workspaceId: 'wt-1',
-      workspaceLabel: '主 workspace',
-      createdAt: 1,
-      updatedAt: 2,
-      archivedAt: null,
-      titleSource: 'first-line',
-      titleSuggestion: null,
-      subtasks: [],
-      sessions: [
-        {
-          id: 'session-1',
-          taskId,
-          workspaceId: 'wt-1',
-          title: '文档会话',
-          status: 'completed',
-          latestOutput: '完成',
-          createdAt: 1,
-          updatedAt: 2,
-          associationSource: 'task-center'
-        }
-      ],
-      latestOutput: '完成'
-    }
-    mkdirSync(directory, { recursive: true })
-    writeFileSync(join(directory, 'task.json'), `${JSON.stringify(task)}\n`, 'utf8')
-    writeFileSync(
-      join(directory, 'plan.json'),
-      JSON.stringify({
-        subtasks: [
-          {
-            id: 'sub-1',
-            title: '整理入口',
-            status: 'done',
-            steps: [{ id: 'step-1', title: '核对调用方式', status: 'done' }]
-          }
-        ]
-      }),
-      'utf8'
-    )
-
-    const store = new LocalTaskStore()
-    const loaded = store.list('orca', root)[0]!
-    expect(loaded.status).toBe('Needs review')
-    expect(loaded.sessions[0]?.status).toBe('done')
-    expect(loaded.latestOutput?.text).toBe('完成')
-    expect(loaded.subtasks[0]?.steps[0]?.status).toBe('done')
-    store.close()
-  })
-
   it('tracks sessions, subtasks and steps, then enters review only when work is done', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
@@ -265,7 +229,7 @@ describe('LocalTaskStore file-first persistence', () => {
       taskId: task.id,
       projectPath: root,
       sessionId: 'session-next',
-      initialPrompt: '另一个问题'
+      currentPrompt: '另一个问题'
     })
     const created = store.createSubtask({
       taskId: task.id,
@@ -374,13 +338,13 @@ describe('LocalTaskStore file-first persistence', () => {
       taskId: task.id,
       projectPath: root,
       sessionId: 'session-a',
-      initialPrompt: '分析同一个问题'
+      currentPrompt: '分析同一个问题'
     })
     const duplicate = store.createSession({
       taskId: task.id,
       projectPath: root,
       sessionId: 'session-b',
-      initialPrompt: '分析同一个问题'
+      currentPrompt: '分析同一个问题'
     })
     expect(duplicate.id).toBe(first.id)
     store.close()
@@ -394,7 +358,7 @@ describe('LocalTaskStore file-first persistence', () => {
       taskId: task.id,
       projectPath: root,
       sessionId: 'turn-session',
-      initialPrompt: '先分析加载流程'
+      currentPrompt: '先分析加载流程'
     })
     store.updateSessionOutput({
       sessionId: session.id,

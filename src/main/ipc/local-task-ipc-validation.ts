@@ -21,7 +21,6 @@ export const createLocalTaskArgsSchema = z
     projectId: id,
     projectPath: z.string().trim().min(1).max(4_096),
     title: shortText.optional(),
-    initialPrompt: z.string().trim().max(100_000).optional(),
     description: longText,
     labels: z.array(shortText).max(20).optional(),
     intakeState: z.enum(['inbox', 'ready']).optional(),
@@ -55,7 +54,7 @@ export const createLocalTaskSessionArgsSchema = z
     sessionId: id.optional(),
     workspaceId: id.optional(),
     title: shortText.optional(),
-    initialPrompt: z.string().trim().max(100_000).optional(),
+    currentPrompt: z.string().trim().max(100_000).optional(),
     associationSource: z.enum(['task-center', 'explicit']).optional()
   })
   .strict()

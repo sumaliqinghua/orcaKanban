@@ -34,7 +34,6 @@ export type LocalTaskSession = {
   title: string
   currentPrompt: string | null
   turns: LocalTaskSessionTurn[]
-  initialPrompt?: string | null
   status: 'working' | 'idle' | 'done'
   latestOutput: string | null
   createdAt: number
@@ -91,7 +90,7 @@ export type LocalTask = {
   subtasks: LocalTaskSubtask[]
   sessions: LocalTaskSession[]
   latestOutput: { sessionId: string; text: string; updatedAt: number } | null
-  latestOutputSource?: 'agent-status' | 'report'
+  latestOutputSource: 'agent-status' | 'report'
 }
 
 export type CreateLocalTaskArgs = {
@@ -153,7 +152,7 @@ export type CreateLocalTaskSessionArgs = {
   sessionId?: string
   workspaceId?: string
   title?: string
-  initialPrompt?: string
+  currentPrompt?: string
   associationSource?: 'task-center' | 'explicit'
 }
 

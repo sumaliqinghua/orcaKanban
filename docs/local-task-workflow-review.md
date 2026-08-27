@@ -31,7 +31,7 @@ Done > Needs review（任意会话结束） > In progress（仅有运行中会�
 3. `lt_b97a2c2d-cfe6-4231-9d55-5d93464befb1` 对同一条 YooAsset 问题登记了两个 `working` 会话，说明重复点击或重复关联没有被业务层去重。
 4. `lt_2e3f0eb9-eb32-4cd7-a866-7b76cea74347` 的两个会话都已 `done`，但文件仍是 `In progress`，说明旧版本写入没有在读取时完全修复父任务状态。
 5. 多个任务的 `task.json` 已有子任务，但同目录 `plan.json` 仍是空数组。原因是这些文件在“每次 Store 写入同步 plan”之前创建，当前代码只保证后续写入会同步，不会自动修复历史文件。
-6. 部分旧任务没有 `intakeState`、`executionState`、`runs` 等新字段。读取器会填默认值，因此页面能打开，但原文件本身并不完整，其他 AI 直接读取文件时会得到不同结论。
+6. 部分旧任务没有 `intakeState`、`executionState`、`runs` 等当前字段。读取器现已改为严格 schema，这类文件会明确报错，不再补默认值；删除旧任务后重新创建即可。
 
 ## 多余或重复
 

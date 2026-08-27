@@ -37,12 +37,12 @@ export function createSession(
   if (existing) {
     return existing
   }
-  const requestedPrompt = args.initialPrompt?.trim() || null
+  const requestedPrompt = args.currentPrompt?.trim() || null
   const duplicate = task.sessions.find(
     (session) =>
       session.status === 'working' &&
       requestedPrompt !== null &&
-      session.initialPrompt?.trim() === requestedPrompt
+      session.currentPrompt?.trim() === requestedPrompt
   )
   if (duplicate) {
     return duplicate
@@ -55,7 +55,6 @@ export function createSession(
     title: text(args.title, '自动创建会话'),
     currentPrompt: requestedPrompt,
     turns: [],
-    initialPrompt: requestedPrompt,
     status: 'working',
     latestOutput: null,
     createdAt,

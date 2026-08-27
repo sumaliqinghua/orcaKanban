@@ -127,7 +127,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
         sessionId: tabId,
         title: request.split(/\r?\n/, 1)[0]?.trim().slice(0, 120) || 'Agent 会话',
         workspaceId,
-        initialPrompt: request,
+        currentPrompt: request,
         associationSource: 'task-center'
       })
       .then(() => window.api.localTasks.get(selected.id, selected.projectPath))
