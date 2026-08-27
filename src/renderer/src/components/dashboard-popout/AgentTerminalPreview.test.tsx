@@ -232,7 +232,7 @@ describe('AgentTerminalPreview', () => {
     expect(input).toHaveBeenCalledWith('pty-1', 'k')
 
     act(() => terminal.writeCallbacks.shift()?.())
-    expect(ack).toHaveBeenCalledWith('pty-1', 4)
+    expect(ack).toHaveBeenCalledWith('pty-1', 4, expect.any(String))
   })
 
   it('installs the macOS IME native-text forwarder and lets its claims bypass chord handling', async () => {
@@ -847,7 +847,7 @@ describe('AgentTerminalPreview', () => {
     await waitFor(() => expect(view.getByText(/No live terminal/)).toBeInTheDocument())
     expect(terminal.dispose).toHaveBeenCalledTimes(1)
     expect(terminalHarness.userInputDispose).toHaveBeenCalledTimes(1)
-    expect(unsubscribe).toHaveBeenCalledWith('pty-1')
+    expect(unsubscribe).toHaveBeenCalledWith('pty-1', expect.any(String))
   })
 
   it('connects a replacement pty after the previous pty was gone', async () => {
@@ -861,7 +861,10 @@ describe('AgentTerminalPreview', () => {
     view.rerender(<AgentTerminalPreview ptyId="pty-live" />)
 
     await waitFor(() => expect(terminalHarness.instances).toHaveLength(1))
-    expect(connect).toHaveBeenLastCalledWith('pty-live', { scrollbackRows: 24 })
+    expect(connect).toHaveBeenLastCalledWith('pty-live', {
+      scrollbackRows: 24,
+      previewId: expect.any(String)
+    })
     expect(view.queryByText(/No live terminal/)).not.toBeInTheDocument()
   })
 
@@ -883,7 +886,7 @@ describe('AgentTerminalPreview', () => {
 
     await vi.advanceTimersByTimeAsync(200)
     expect(fit).toHaveBeenCalledTimes(1)
-    expect(fit).toHaveBeenCalledWith('pty-1', 90, 30)
+    expect(fit).toHaveBeenCalledWith('pty-1', 90, 30, expect.any(String))
 
     // A reconnect (e.g. the host reclaiming the grid) computes the same
     // target — no repeat claim, so no resize tug-of-war with the host.

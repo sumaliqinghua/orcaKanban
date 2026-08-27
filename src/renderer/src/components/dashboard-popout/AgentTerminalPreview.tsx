@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { getShortcutPlatform } from '@/lib/shortcut-platform'
@@ -30,9 +30,8 @@ const PREVIEW_SCROLLBACK_ROWS = 24
 // Why: main only ever serializes PREVIEW_SCROLLBACK_ROWS of history into this
 // terminal, so the pane's user-configured scrollback would only cost memory.
 const PREVIEW_SCROLLBACK_BUFFER_ROWS = 1000
-const FALLBACK_COLS = 80
-const FALLBACK_ROWS = 24
 const RESYNC_RETRY_DELAY_MS = 150
+let previewStreamSequence = 0
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -59,6 +58,7 @@ export function AgentTerminalPreview({
   terminalInput?: DashboardCardTerminalInput | null
   className?: string
 }): React.JSX.Element {
+  const previewId = useId()
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const settings = useAppStore((state) => state.settings)
@@ -100,6 +100,7 @@ export function AgentTerminalPreview({
     if (!container) {
       return
     }
+    const streamId = `${previewId}:${++previewStreamSequence}`
     let disposed = false
     let terminal: Terminal | null = null
     let offData: (() => void) | null = null
@@ -148,6 +149,7 @@ export function AgentTerminalPreview({
 
     const gridClaim = createPreviewGridClaim({
       ptyId,
+      previewId: streamId,
       container,
       getTerminal: () => terminal
     })
@@ -190,7 +192,7 @@ export function AgentTerminalPreview({
         payload.data,
         () => {
           if (!disposed) {
-            void window.api.terminalPreview.ack(ptyId, payload.bytes)
+            void window.api.terminalPreview.ack(ptyId, payload.bytes, streamId)
           }
         },
         true
@@ -286,8 +288,8 @@ export function AgentTerminalPreview({
             macOptionIsMeta: macOptionAsAltRef.current === 'true',
             theme: terminalTheme,
             themeMode: terminalMode,
-            cols: clamp(snap.cols ?? FALLBACK_COLS, 2, 500),
-            rows: clamp(snap.rows ?? FALLBACK_ROWS, 2, 200),
+            cols: clamp(snap.cols ?? 80, 2, 500),
+            rows: clamp(snap.rows ?? 24, 2, 200),
             scrollback: PREVIEW_SCROLLBACK_BUFFER_ROWS
           })
         )
@@ -305,10 +307,7 @@ export function AgentTerminalPreview({
         installKeyHandler()
       } else if (replaceExisting) {
         // Why: keep the old frame visible during capture, then atomically replace it once the authoritative snapshot arrives.
-        terminal.resize(
-          clamp(snap.cols ?? FALLBACK_COLS, 2, 500),
-          clamp(snap.rows ?? FALLBACK_ROWS, 2, 200)
-        )
+        terminal.resize(clamp(snap.cols ?? 80, 2, 500), clamp(snap.rows ?? 24, 2, 200))
         terminal.reset()
       }
       replayPreviewConnectionSnapshot({
@@ -349,7 +348,8 @@ export function AgentTerminalPreview({
       }
       refreshInFlight = true
       const connection = await window.api.terminalPreview.connect(ptyId, {
-        scrollbackRows: PREVIEW_SCROLLBACK_ROWS
+        scrollbackRows: PREVIEW_SCROLLBACK_ROWS,
+        previewId: streamId
       })
       if (disposed) {
         return
@@ -370,7 +370,7 @@ export function AgentTerminalPreview({
         terminal?.dispose()
         terminal = null
         terminalRef.current = null
-        void window.api.terminalPreview.unsubscribe(ptyId)
+        void window.api.terminalPreview.unsubscribe(ptyId, streamId)
         return
       }
       refreshInFlight = false
@@ -388,7 +388,8 @@ export function AgentTerminalPreview({
     })
 
     offData = window.api.terminalPreview.onData((payload) => {
-      if (payload.ptyId !== ptyId) {
+      const belongsToAnotherPreview = payload.previewId && payload.previewId !== streamId
+      if (payload.ptyId !== ptyId || belongsToAnotherPreview) {
         return
       }
       if (payload.type === 'resync') {
@@ -413,11 +414,11 @@ export function AgentTerminalPreview({
       disposeImeNativeTextBridge()
       disposeTerminalCompatibility?.()
       disposeKeyHandler?.()
-      void window.api.terminalPreview.unsubscribe(ptyId)
+      void window.api.terminalPreview.unsubscribe(ptyId, streamId)
       terminal?.dispose()
       terminalRef.current = null
     }
-  }, [ptyId, terminalTheme, terminalMode])
+  }, [ptyId, previewId, terminalTheme, terminalMode])
 
   // Why: appearance settings must land on the open terminal, and the OS input
   // source can flip Option-as-Alt with no settings change at all. A remount

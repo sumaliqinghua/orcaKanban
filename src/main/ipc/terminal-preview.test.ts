@@ -152,6 +152,56 @@ describe('registerTerminalPreviewHandlers', () => {
     expect(sender.send).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps same-pty preview instances isolated when one preview disconnects', async () => {
+    vi.useFakeTimers()
+    const runtime = makeRuntime()
+    registerTerminalPreviewHandlers(runtime as never)
+    const sender = makeSender()
+    await handlers.get('terminalPreview:connect')!(eventFor(sender), {
+      ptyId: 'p1',
+      opts: { previewId: 'preview-a' }
+    })
+    await handlers.get('terminalPreview:connect')!(eventFor(sender), {
+      ptyId: 'p1',
+      opts: { previewId: 'preview-b' }
+    })
+
+    expect(runtime.unsubscribe).not.toHaveBeenCalled()
+    runtime.listeners[0]!('a')
+    runtime.listeners[1]!('b')
+    await vi.advanceTimersByTimeAsync(5)
+    expect(sender.send).toHaveBeenCalledWith('terminalPreview:data', {
+      type: 'data',
+      ptyId: 'p1',
+      previewId: 'preview-a',
+      data: 'a',
+      bytes: 1
+    })
+    expect(sender.send).toHaveBeenCalledWith('terminalPreview:data', {
+      type: 'data',
+      ptyId: 'p1',
+      previewId: 'preview-b',
+      data: 'b',
+      bytes: 1
+    })
+
+    handlers.get('terminalPreview:unsubscribe')!(eventFor(sender), {
+      ptyId: 'p1',
+      previewId: 'preview-a'
+    })
+    expect(runtime.unsubscribe).toHaveBeenCalledTimes(1)
+    sender.send.mockClear()
+    runtime.listeners[1]!('still-live')
+    await vi.advanceTimersByTimeAsync(5)
+    expect(sender.send).toHaveBeenCalledWith('terminalPreview:data', {
+      type: 'data',
+      ptyId: 'p1',
+      previewId: 'preview-b',
+      data: 'still-live',
+      bytes: 10
+    })
+  })
+
   it('bounds an unresponsive renderer and requests a snapshot resync after prior writes drain', async () => {
     const runtime = makeRuntime()
     registerTerminalPreviewHandlers(runtime as never)
@@ -539,6 +589,60 @@ describe('registerTerminalPreviewHandlers', () => {
     sender.fireDestroyed()
     expect(runtime.unregisterRemoteDesktopViewer).toHaveBeenCalledWith('p2', 'dashboard-popout:1')
     expect(runtime.unregisterRemoteDesktopViewer).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps same-pty fit claims isolated by preview instance', async () => {
+    const runtime = makeRuntime()
+    registerTerminalPreviewHandlers(runtime as never)
+    const sender = makeSender()
+
+    await handlers.get('terminalPreview:fit')!(eventFor(sender), {
+      ptyId: 'p1',
+      previewId: 'preview-a',
+      cols: 100,
+      rows: 30
+    })
+    await handlers.get('terminalPreview:fit')!(eventFor(sender), {
+      ptyId: 'p1',
+      previewId: 'preview-b',
+      cols: 120,
+      rows: 40
+    })
+    expect(runtime.updateRemoteDesktopViewer).toHaveBeenNthCalledWith(
+      1,
+      'p1',
+      'dashboard-popout:1:preview-a',
+      'dashboard-popout:1:preview-a',
+      100,
+      30
+    )
+    expect(runtime.updateRemoteDesktopViewer).toHaveBeenNthCalledWith(
+      2,
+      'p1',
+      'dashboard-popout:1:preview-b',
+      'dashboard-popout:1:preview-b',
+      120,
+      40
+    )
+
+    handlers.get('terminalPreview:unsubscribe')!(eventFor(sender), {
+      ptyId: 'p1',
+      previewId: 'preview-a'
+    })
+    expect(runtime.unregisterRemoteDesktopViewer).toHaveBeenCalledOnce()
+    expect(runtime.unregisterRemoteDesktopViewer).toHaveBeenCalledWith(
+      'p1',
+      'dashboard-popout:1:preview-a'
+    )
+
+    handlers.get('terminalPreview:unsubscribe')!(eventFor(sender), {
+      ptyId: 'p1',
+      previewId: 'preview-b'
+    })
+    expect(runtime.unregisterRemoteDesktopViewer).toHaveBeenLastCalledWith(
+      'p1',
+      'dashboard-popout:1:preview-b'
+    )
   })
 
   it('rejects fit calls from non-dashboard senders', async () => {

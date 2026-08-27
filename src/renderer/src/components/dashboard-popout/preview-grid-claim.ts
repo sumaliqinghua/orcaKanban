@@ -22,6 +22,7 @@ function clampGridAxis(value: number, min: number, max: number): number {
  */
 export function createPreviewGridClaim(args: {
   ptyId: string
+  previewId?: string
   container: HTMLElement
   getTerminal: () => Terminal | null
 }): { schedule: () => void; dispose: () => void } {
@@ -66,7 +67,10 @@ export function createPreviewGridClaim(args: {
     // The resize triggers a main-side resync push; the reconnect snapshot
     // carries the new grid. If the claim didn't land (a phone owns the size),
     // the dialog's scaled fallback rendering stays correct as-is.
-    void window.api.terminalPreview.fit(args.ptyId, cols, rows).catch(() => undefined)
+    const fit = args.previewId
+      ? window.api.terminalPreview.fit(args.ptyId, cols, rows, args.previewId)
+      : window.api.terminalPreview.fit(args.ptyId, cols, rows)
+    void fit.catch(() => undefined)
   }
 
   const schedule = (): void => {

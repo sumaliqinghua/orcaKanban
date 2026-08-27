@@ -31,12 +31,17 @@ export type DashboardApi = {
 export type TerminalPreviewApi = {
   connect: (
     ptyId: string,
-    opts?: { scrollbackRows?: number }
+    opts?: { scrollbackRows?: number; previewId?: string }
   ) => Promise<TerminalPreviewConnectResult>
   input: (ptyId: string, data: string) => Promise<boolean>
   /** Claim the PTY grid for the preview dialog; resolves to the size actually in effect. */
-  fit: (ptyId: string, cols: number, rows: number) => Promise<{ cols: number; rows: number } | null>
-  ack: (ptyId: string, bytes: number) => Promise<void>
-  unsubscribe: (ptyId: string) => Promise<void>
+  fit: (
+    ptyId: string,
+    cols: number,
+    rows: number,
+    previewId?: string
+  ) => Promise<{ cols: number; rows: number } | null>
+  ack: (ptyId: string, bytes: number, previewId?: string) => Promise<void>
+  unsubscribe: (ptyId: string, previewId?: string) => Promise<void>
   onData: (callback: (payload: TerminalPreviewDataPayload) => void) => () => void
 }

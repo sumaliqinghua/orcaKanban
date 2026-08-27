@@ -2529,7 +2529,7 @@ const api = {
   terminalPreview: {
     connect: (
       ptyId: string,
-      opts?: { scrollbackRows?: number }
+      opts?: { scrollbackRows?: number; previewId?: string }
     ): Promise<TerminalPreviewConnectResult> =>
       ipcRenderer.invoke('terminalPreview:connect', { ptyId, opts }),
     input: (ptyId: string, data: string): Promise<boolean> =>
@@ -2537,13 +2537,14 @@ const api = {
     fit: (
       ptyId: string,
       cols: number,
-      rows: number
+      rows: number,
+      previewId?: string
     ): Promise<{ cols: number; rows: number } | null> =>
-      ipcRenderer.invoke('terminalPreview:fit', { ptyId, cols, rows }),
-    ack: (ptyId: string, bytes: number): Promise<void> =>
-      ipcRenderer.invoke('terminalPreview:ack', { ptyId, bytes }),
-    unsubscribe: (ptyId: string): Promise<void> =>
-      ipcRenderer.invoke('terminalPreview:unsubscribe', { ptyId }),
+      ipcRenderer.invoke('terminalPreview:fit', { ptyId, cols, rows, previewId }),
+    ack: (ptyId: string, bytes: number, previewId?: string): Promise<void> =>
+      ipcRenderer.invoke('terminalPreview:ack', { ptyId, bytes, previewId }),
+    unsubscribe: (ptyId: string, previewId?: string): Promise<void> =>
+      ipcRenderer.invoke('terminalPreview:unsubscribe', { ptyId, previewId }),
     onData: (callback: (payload: TerminalPreviewDataPayload) => void): (() => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,
