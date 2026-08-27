@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createLocalTaskArgsSchema,
   createLocalTaskSessionArgsSchema,
+  createLocalTaskSubtaskArgsSchema,
   archiveLocalTaskArgsSchema,
   editLocalTaskStepTitleArgsSchema,
   parseLocalTaskIpcArgs,
@@ -90,6 +91,22 @@ describe('local task IPC validation', () => {
         sessionId: 'tab-1'
       })
     ).toMatchObject({ taskId: 'lt_1', projectPath: '/tmp/project' })
+  })
+
+  it('accepts projectPath when creating a subtask in the project file store', () => {
+    expect(
+      createLocalTaskSubtaskArgsSchema.parse({
+        taskId: 'lt_1',
+        projectPath: '/tmp/project',
+        title: '制作校验工具',
+        sessionId: null
+      })
+    ).toEqual({
+      taskId: 'lt_1',
+      projectPath: '/tmp/project',
+      title: '制作校验工具',
+      sessionId: null
+    })
   })
 
   it('validates batch references and run transitions', () => {

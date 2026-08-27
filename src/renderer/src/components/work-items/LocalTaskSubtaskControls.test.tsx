@@ -8,19 +8,32 @@ import { LocalTaskSubtaskCreateDialog } from './LocalTaskSubtaskCreateDialog'
 import { LocalTaskSubtaskSessionSelect } from './LocalTaskSubtaskSessionSelect'
 import type { WorkItem } from './mock-data'
 
-const storeState = {
-  activeWorktreeId: 'wt-1',
-  activeGroupIdByWorktree: {} as Record<string, string>,
-  groupsByWorktree: {} as Record<string, { id: string }[]>
-}
+const storeMocks = vi.hoisted(() => ({ closeTab: vi.fn() }))
 
-vi.mock('@/store', () => ({
-  useAppStore: (selector: (state: typeof storeState) => unknown) => selector(storeState)
-}))
+vi.mock('@/store', () => {
+  const state = {
+    activeWorktreeId: 'wt-1',
+    activeGroupIdByWorktree: {} as Record<string, string>,
+    groupsByWorktree: {} as Record<string, { id: string }[]>
+  }
+  const useAppStore = (selector: (value: typeof state) => unknown): unknown => selector(state)
+  return {
+    useAppStore: Object.assign(useAppStore, {
+      getState: () => ({ ...state, closeTab: storeMocks.closeTab })
+    })
+  }
+})
 
 vi.mock('@/components/tab-bar/QuickLaunchButton', () => ({
-  QuickLaunchAgentMenuItems: () => <div>Agent options</div>
+  QuickLaunchAgentMenuItems: ({ onSelectAgent }: { onSelectAgent?: (agent: 'codex') => void }) => (
+    <button type="button" onClick={() => onSelectAgent?.('codex')}>
+      Codex
+    </button>
+  )
 }))
+
+const launchMocks = vi.hoisted(() => ({ launchAgentInNewTab: vi.fn() }))
+vi.mock('@/lib/launch-agent-in-new-tab', () => launchMocks)
 
 const localTaskApi = {
   createSubtask: vi.fn(),
@@ -85,6 +98,136 @@ describe('local task subtask controls', () => {
     render(<LocalTaskSubtaskCreateDialog item={item([])} onTaskChanged={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: '新增子任务' }))
     expect(screen.getByRole('option', { name: '暂不绑定' })).toBeInTheDocument()
+  })
+
+  it('creates the subtask before launching and closes after binding the new session', async () => {
+    const onTaskChanged = vi.fn()
+    const taskWithSubtask = {
+      ...taskResult,
+      subtasks: [
+        {
+          id: 'subtask-new',
+          title: 'test',
+          status: 'todo',
+          sessionId: null,
+          createdAt: 1,
+          updatedAt: 1,
+          steps: []
+        }
+      ]
+    } as LocalTask
+    const boundTask = {
+      ...taskWithSubtask,
+      subtasks: [{ ...taskWithSubtask.subtasks[0]!, sessionId: 'tab-new' }]
+    } as LocalTask
+    localTaskApi.createSubtask.mockResolvedValue(taskWithSubtask)
+    localTaskApi.createSession.mockResolvedValue({ id: 'tab-new' })
+    localTaskApi.transferSubtask.mockResolvedValue(boundTask)
+    launchMocks.launchAgentInNewTab.mockReturnValue({ tabId: 'tab-new' })
+    render(<LocalTaskSubtaskCreateDialog item={item([])} onTaskChanged={onTaskChanged} />)
+    fireEvent.click(screen.getByRole('button', { name: '新增子任务' }))
+    fireEvent.change(screen.getByPlaceholderText(/Import Settings/), { target: { value: 'test' } })
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: '__new__' }
+    })
+    fireEvent.pointerDown(screen.getByRole('button', { name: '选择 Agent' }), {
+      button: 0,
+      ctrlKey: false
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Codex' }))
+
+    await waitFor(() => expect(localTaskApi.transferSubtask).toHaveBeenCalled())
+    expect(localTaskApi.createSubtask.mock.invocationCallOrder[0]).toBeLessThan(
+      launchMocks.launchAgentInNewTab.mock.invocationCallOrder[0]!
+    )
+    expect(localTaskApi.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: 'tab-new', currentPrompt: '请执行子任务：test' })
+    )
+    expect(localTaskApi.transferSubtask).toHaveBeenCalledWith({
+      subtaskId: 'subtask-new',
+      sessionId: 'tab-new'
+    })
+    expect(onTaskChanged).toHaveBeenLastCalledWith(boundTask)
+    expect(screen.queryByRole('heading', { name: '新增子任务' })).not.toBeInTheDocument()
+  })
+
+  it('reuses the launched session when subtask binding is retried', async () => {
+    const taskWithSubtask = {
+      ...taskResult,
+      subtasks: [
+        {
+          id: 'subtask-new',
+          title: 'test',
+          status: 'todo',
+          sessionId: null,
+          createdAt: 1,
+          updatedAt: 1,
+          steps: []
+        }
+      ]
+    } as LocalTask
+    localTaskApi.createSubtask.mockResolvedValue(taskWithSubtask)
+    localTaskApi.createSession.mockResolvedValue({ id: 'tab-new' })
+    localTaskApi.transferSubtask
+      .mockRejectedValueOnce(new Error('子任务绑定失败'))
+      .mockResolvedValueOnce({
+        ...taskWithSubtask,
+        subtasks: [{ ...taskWithSubtask.subtasks[0]!, sessionId: 'tab-new' }]
+      })
+    launchMocks.launchAgentInNewTab.mockReturnValue({ tabId: 'tab-new' })
+    render(<LocalTaskSubtaskCreateDialog item={item([])} onTaskChanged={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: '新增子任务' }))
+    fireEvent.change(screen.getByPlaceholderText(/Import Settings/), { target: { value: 'test' } })
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '__new__' } })
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: '选择 Agent' }), {
+      button: 0,
+      ctrlKey: false
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Codex' }))
+    expect(await screen.findByText('子任务绑定失败')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '重试绑定' }))
+
+    await waitFor(() => expect(localTaskApi.transferSubtask).toHaveBeenCalled())
+    expect(localTaskApi.createSubtask).toHaveBeenCalledTimes(1)
+    expect(localTaskApi.createSession).toHaveBeenCalledTimes(1)
+    expect(launchMocks.launchAgentInNewTab).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes the launched tab when the task session cannot be persisted', async () => {
+    const taskWithSubtask = {
+      ...taskResult,
+      subtasks: [
+        {
+          id: 'subtask-new',
+          title: 'test',
+          status: 'todo',
+          sessionId: null,
+          createdAt: 1,
+          updatedAt: 1,
+          steps: []
+        }
+      ]
+    } as LocalTask
+    localTaskApi.createSubtask.mockResolvedValue(taskWithSubtask)
+    localTaskApi.createSession.mockRejectedValue(new Error('会话记录写入失败'))
+    launchMocks.launchAgentInNewTab.mockReturnValue({ tabId: 'tab-new' })
+    render(<LocalTaskSubtaskCreateDialog item={item([])} onTaskChanged={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: '新增子任务' }))
+    fireEvent.change(screen.getByPlaceholderText(/Import Settings/), { target: { value: 'test' } })
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '__new__' } })
+    fireEvent.pointerDown(screen.getByRole('button', { name: '选择 Agent' }), {
+      button: 0,
+      ctrlKey: false
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Codex' }))
+
+    expect(await screen.findByText('会话记录写入失败')).toBeInTheDocument()
+    expect(storeMocks.closeTab).toHaveBeenCalledWith('tab-new', {
+      recordInteraction: false,
+      reason: 'cleanup'
+    })
+    expect(localTaskApi.transferSubtask).not.toHaveBeenCalled()
   })
 
   it('requires confirmation before transferring from a working session', async () => {

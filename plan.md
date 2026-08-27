@@ -231,6 +231,11 @@
 - **执行步骤**：用严格 Zod schema 校验当前 task.json；删除 Completed/completed/in_progress/cancelled 状态别名、字符串 latestOutput、plan-only 子任务回退、缺字段默认值和 initialPrompt 历史字段。
 - **验收标准**：只有完整 schemaVersion=1 文件能加载；旧枚举、缺字段和未知字段明确报错；JSON 损坏不覆盖、原子写入和 schemaVersion 保留。
 
+## [x] 5.23 修复新增子任务与新会话的创建流程
+
+- **执行步骤**：在 createLocalTaskSubtask IPC schema 中接受可选 projectPath；把“新建关联会话”改为先持久化子任务、再启动 Agent、写入会话并绑定子任务；增加提交防重入和失败重试。
+- **验收标准**：projectPath 不再被 strict schema 拒绝；Agent 启动前子任务已经存在；成功后刷新任务并关闭弹窗；绑定失败只重试绑定，不重复创建子任务或启动 Agent。
+
 ## 后置，不阻塞本期交付
 
 - [ ] 文件级写入锁和租约；

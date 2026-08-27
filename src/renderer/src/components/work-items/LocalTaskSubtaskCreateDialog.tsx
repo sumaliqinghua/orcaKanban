@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,8 +18,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { QuickLaunchAgentMenuItems } from '@/components/tab-bar/QuickLaunchButton'
+import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
 import { useAppStore } from '@/store'
 import type { LocalTask } from '../../../../shared/local-task-types'
+import type { TuiAgent } from '../../../../shared/tui-agent'
 import { buildTaskPrompt } from './local-task-agent-prompt'
 import type { WorkItem } from './mock-data'
 
@@ -48,10 +50,21 @@ export function LocalTaskSubtaskCreateDialog({
   const [title, setTitle] = useState('')
   const [sessionId, setSessionId] = useState(initialAssignment)
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [createdSubtaskId, setCreatedSubtaskId] = useState<string | null>(null)
+  const [createdSessionId, setCreatedSessionId] = useState<string | null>(null)
+  const submittingRef = useRef(false)
+  const setSubmissionState = (next: boolean): void => {
+    submittingRef.current = next
+    setSubmitting(next)
+  }
   const openDialog = (): void => {
     setTitle('')
     setSessionId(availableSessions[0]?.id ?? UNASSIGNED)
     setError(null)
+    setSubmissionState(false)
+    setCreatedSubtaskId(null)
+    setCreatedSessionId(null)
     setOpen(true)
   }
   const close = (): void => {
@@ -59,8 +72,15 @@ export function LocalTaskSubtaskCreateDialog({
     setTitle('')
     setSessionId(initialAssignment)
     setError(null)
+    setSubmissionState(false)
+    setCreatedSubtaskId(null)
+    setCreatedSessionId(null)
   }
   const create = async (assignedSessionId: string | null): Promise<void> => {
+    if (submittingRef.current) {
+      return
+    }
+    setSubmissionState(true)
     try {
       const task = await window.api.localTasks.createSubtask({
         taskId: item.id,
@@ -72,28 +92,93 @@ export function LocalTaskSubtaskCreateDialog({
       close()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '子任务创建失败')
+      setSubmissionState(false)
     }
   }
   const request = `请执行子任务：${title.trim()}`
   const launchPrompt = buildTaskPrompt(item, request)
-  const createWithNewSession = async (tabId: string): Promise<void> => {
+  const createWithNewSession = async (agent?: TuiAgent): Promise<void> => {
+    if (submittingRef.current || !worktreeId) {
+      return
+    }
+    setSubmissionState(true)
     try {
-      await window.api.localTasks.createSession({
-        taskId: item.id,
-        projectPath: item.projectPath,
-        sessionId: tabId,
-        workspaceId: item.workspaceId,
-        title: `子任务 · ${title.trim()}`,
-        currentPrompt: request,
-        associationSource: 'task-center'
+      let subtaskId = createdSubtaskId
+      if (!subtaskId) {
+        const taskWithSubtask = await window.api.localTasks.createSubtask({
+          taskId: item.id,
+          projectPath: item.projectPath,
+          title: title.trim(),
+          sessionId: null
+        })
+        const previousIds = new Set(item.subtasks.map((subtask) => subtask.id))
+        const subtask = taskWithSubtask.subtasks.find((candidate) => !previousIds.has(candidate.id))
+        if (!subtask) {
+          throw new Error('子任务已创建，但无法确定新子任务')
+        }
+        subtaskId = subtask.id
+        setCreatedSubtaskId(subtaskId)
+        onTaskChanged(taskWithSubtask)
+      }
+      let targetSessionId = createdSessionId
+      if (!targetSessionId) {
+        if (!agent) {
+          throw new Error('请选择用于执行子任务的 Agent')
+        }
+        const launch = launchAgentInNewTab({
+          agent,
+          worktreeId,
+          ...(activeGroupId ? { groupId: activeGroupId } : {}),
+          prompt: launchPrompt,
+          launchSource: 'task_page',
+          localTaskId: item.id,
+          localTaskRoot: item.projectPath
+        })
+        if (!launch?.tabId) {
+          throw new Error('子任务已创建但 Agent 会话未能在当前窗口启动')
+        }
+        targetSessionId = launch.tabId
+        try {
+          await window.api.localTasks.createSession({
+            taskId: item.id,
+            projectPath: item.projectPath,
+            sessionId: targetSessionId,
+            workspaceId: item.workspaceId,
+            title: `子任务 · ${title.trim()}`,
+            currentPrompt: request,
+            associationSource: 'task-center'
+          })
+        } catch (cause) {
+          useAppStore.getState().closeTab(targetSessionId, {
+            recordInteraction: false,
+            reason: 'cleanup'
+          })
+          throw cause
+        }
+        setCreatedSessionId(targetSessionId)
+      }
+      const task = await window.api.localTasks.transferSubtask({
+        subtaskId,
+        sessionId: targetSessionId
       })
-      await create(tabId)
+      onTaskChanged(task)
+      close()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '关联会话创建失败')
+      setSubmissionState(false)
     }
   }
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? openDialog() : close())}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          openDialog()
+        } else if (!submittingRef.current) {
+          close()
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="ghost" size="xs" className="h-6 gap-1 px-1.5 text-[10px]">
           <Plus className="size-3" />
@@ -110,6 +195,7 @@ export function LocalTaskSubtaskCreateDialog({
         <Input
           autoFocus
           value={title}
+          disabled={submitting || createdSubtaskId !== null}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="例如：制作 Import Settings 校验工具"
         />
@@ -117,6 +203,7 @@ export function LocalTaskSubtaskCreateDialog({
           <span>执行会话</span>
           <select
             value={sessionId}
+            disabled={submitting || createdSubtaskId !== null}
             onChange={(event) => setSessionId(event.target.value)}
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
           >
@@ -131,35 +218,39 @@ export function LocalTaskSubtaskCreateDialog({
         </label>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
         <DialogFooter>
-          <Button variant="outline" onClick={close}>
+          <Button variant="outline" disabled={submitting} onClick={close}>
             取消
           </Button>
           {sessionId === NEW_SESSION ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button disabled={!title.trim() || !worktreeId}>选择 Agent</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-52">
-                <DropdownMenuLabel>选择新会话的 Agent</DropdownMenuLabel>
-                {worktreeId ? (
-                  <QuickLaunchAgentMenuItems
-                    worktreeId={worktreeId}
-                    groupId={activeGroupId}
-                    prompt={launchPrompt}
-                    launchSource="task_page"
-                    localTaskId={item.id}
-                    localTaskRoot={item.projectPath}
-                    onFocusTerminal={(tabId) => void createWithNewSession(tabId)}
-                  />
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            createdSessionId ? (
+              <Button disabled={submitting} onClick={() => void createWithNewSession()}>
+                {submitting ? '绑定中…' : '重试绑定'}
+              </Button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button disabled={!title.trim() || !worktreeId || submitting}>
+                    {submitting ? '创建中…' : '选择 Agent'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-52">
+                  <DropdownMenuLabel>选择新会话的 Agent</DropdownMenuLabel>
+                  {worktreeId ? (
+                    <QuickLaunchAgentMenuItems
+                      worktreeId={worktreeId}
+                      onSelectAgent={(agent) => void createWithNewSession(agent)}
+                      onFocusTerminal={() => {}}
+                    />
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
           ) : (
             <Button
-              disabled={!title.trim()}
+              disabled={!title.trim() || submitting}
               onClick={() => void create(sessionId === UNASSIGNED ? null : sessionId)}
             >
-              创建
+              {submitting ? '创建中…' : '创建'}
             </Button>
           )}
         </DialogFooter>

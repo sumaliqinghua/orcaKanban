@@ -439,6 +439,19 @@
 - **保留的安全机制**：schemaVersion、原子写入、JSON 解析错误、文件监听错误隔离和损坏文件不覆盖。这些不是旧任务兼容。
 - **验证结果**：8 个测试文件、51 项测试，Web TypeScript 和 oxlint 通过。
 
+## [2026-08-27] 修复新增子任务与新会话的创建流程
+
+- **What（做了什么）**：
+  - `local-task-ipc-validation.ts`：`createLocalTaskSubtaskArgsSchema` 增加可选 `projectPath`，与共享参数类型和文件 Store 的任务定位参数一致。
+  - `LocalTaskSubtaskCreateDialog.tsx`：选择 Agent 后先创建未绑定子任务，立即刷新详情，再启动 Agent、写入任务会话并把子任务绑定到新会话；全部成功后关闭弹窗。
+  - 创建期间禁用标题、会话选择和操作按钮，防止连续点击产生重复子任务。若任务会话写入失败，关闭刚启动的标签页；若只有最后的子任务绑定失败，保留已创建会话并显示“重试绑定”，重试不会再次启动 Agent。
+  - `local-task-ipc-validation.test.ts` 与 `LocalTaskSubtaskControls.test.tsx`：覆盖 `projectPath` 校验、操作顺序、成功关闭弹窗，以及绑定失败后的幂等重试。
+- **Why（为什么这么做）**：严格 Zod schema 漏掉 `projectPath` 后会拒绝 UI 的合法参数；旧流程又先启动 Agent、后创建子任务，因此 IPC 失败时出现“会话已运行，弹窗未关闭，子任务不存在”的不一致状态。
+- **How（怎么实现的）**：创建子任务文件 → 刷新详情 → 启动 Agent 标签页 → 创建任务会话记录 → 绑定子任务 → 关闭弹窗。失败重试分别保存已创建的子任务 ID 和会话 ID，只继续尚未完成的阶段。
+- **用户须知**：选择“新建关联会话”后仍会立即发送子任务提示，但发送前子任务已经写入项目任务文件；正常成功时弹窗会自动关闭，新子任务立即显示。
+- **已知限制**：远程 Web Runtime 启动由主机异步分配标签页 ID，当前本地任务绑定仍要求客户端能同步取得标签页 ID；本轮修复覆盖本机、普通 worktree、folder workspace 和 SSH 客户端可同步取得 ID 的路径。
+- **验证结果**：40 项本地任务相关测试、Web TypeScript、oxlint 和 Electron 生产构建通过。
+
 ## [2026-08-25] 规划异步员工模式
 
 - **What（做了什么）**：

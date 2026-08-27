@@ -71,6 +71,7 @@ export const updateLocalTaskSessionOutputArgsSchema = z
 export const createLocalTaskSubtaskArgsSchema = z
   .object({
     taskId: id,
+    projectPath: z.string().trim().min(1).max(4_096).optional(),
     sessionId: id.nullable().optional(),
     title: shortText,
     steps: z.array(shortText).max(100).optional()
