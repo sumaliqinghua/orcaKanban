@@ -22,6 +22,7 @@ const TuiAgent = requiredString('Missing provider').refine(isTuiAgent, {
 })
 
 const AutomationWorkspaceMode = z.enum(['existing', 'new_per_run']).optional()
+const AutomationExecutionMode = z.enum(['prompt', 'open_local_tasks']).optional()
 const SetupDecision = z.enum(['inherit', 'run', 'skip']).optional()
 const ExecutionHostId = requiredString('Missing host id').transform((value, ctx) => {
   const hostId = normalizeExecutionHostId(value)
@@ -144,6 +145,7 @@ export const AutomationCreate = z.object({
   creationKey: OptionalString,
   name: requiredString('Missing automation name'),
   prompt: requiredString('Missing automation prompt'),
+  executionMode: AutomationExecutionMode,
   precheck: AutomationPrecheck,
   agentId: TuiAgent,
   runContext: WorkspaceRunContext,
@@ -165,6 +167,7 @@ export const AutomationCreate = z.object({
 const AutomationUpdateFields = z.object({
   name: OptionalString,
   prompt: OptionalString,
+  executionMode: AutomationExecutionMode,
   precheck: AutomationPrecheck,
   agentId: TuiAgent.optional(),
   runContext: WorkspaceRunContext,

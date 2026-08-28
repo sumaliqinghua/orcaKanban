@@ -4,6 +4,7 @@ import { getAgentCatalog } from '@/lib/agent-catalog'
 import { filterEnabledTuiAgents } from '../../../../shared/tui-agent-selection'
 import type {
   AutomationSchedulePreset,
+  AutomationExecutionMode,
   AutomationWorkspaceMode
 } from '../../../../shared/automations-types'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
@@ -37,6 +38,7 @@ export const AUTOMATION_EDITOR_SEGMENTED_ITEM_CLASS =
 export type AutomationDraft = {
   name: string
   prompt: string
+  executionMode?: AutomationExecutionMode
   agentId: TuiAgent
   projectId: string
   workspaceMode: AutomationWorkspaceMode

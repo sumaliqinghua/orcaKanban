@@ -10,6 +10,7 @@ import type { OrcaHooks } from '../../../../shared/orca-yaml-hook-types'
 import type { ProjectHostSetup } from '../../../../shared/project-types'
 import type { Repo } from '../../../../shared/repo-types'
 import type { Worktree } from '../../../../shared/worktree/types'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { AgentCatalogEntry } from '@/lib/agent-catalog'
 import { AUTOMATION_EDITOR_SECTION_LABEL_CLASS, Field } from './automation-page-parts'
 import { AutomationMissedRunGraceField } from './AutomationMissedRunGraceField'
@@ -72,6 +73,38 @@ export function AutomationEditorSettingsSidebar({
   return (
     <aside className="flex w-[320px] shrink-0 flex-col overflow-auto border-l border-border/50 bg-muted/20 px-5 py-5 scrollbar-sleek">
       <div className="flex flex-col">
+        <Field
+          className="mb-4"
+          labelClassName={AUTOMATION_EDITOR_SECTION_LABEL_CLASS}
+          label="执行内容"
+        >
+          <ToggleGroup
+            type="single"
+            value={draft.executionMode ?? 'prompt'}
+            onValueChange={(value) =>
+              value &&
+              onDraftChange((current) => ({
+                ...current,
+                executionMode: value as AutomationDraft['executionMode'],
+                prompt:
+                  value === 'open_local_tasks' && !current.prompt.trim()
+                    ? '执行当前项目与 workspace 中所有可执行的 Open 本地任务。'
+                    : current.prompt,
+                workspaceMode: value === 'open_local_tasks' ? 'existing' : current.workspaceMode,
+                reuseSession: value === 'open_local_tasks' ? false : current.reuseSession
+              }))
+            }
+            size="sm"
+            className={segmentedGroupClassName}
+          >
+            <ToggleGroupItem value="prompt" className={segmentedItemClassName}>
+              Prompt
+            </ToggleGroupItem>
+            <ToggleGroupItem value="open_local_tasks" className={segmentedItemClassName}>
+              Open 本地任务
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </Field>
         {/* Why: Hermes keeps project/workspace/schedule only. Collapse the
             Orca-only knobs so switching the create target does not jump. */}
         <div

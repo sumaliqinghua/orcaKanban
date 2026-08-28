@@ -363,6 +363,7 @@ export default function AutomationsPage(): React.JSX.Element {
   const [draft, setDraft] = useState<AutomationDraft>({
     name: '',
     prompt: '',
+    executionMode: 'prompt',
     agentId: defaultAgent,
     projectId: '',
     workspaceMode: 'existing',
@@ -1943,6 +1944,7 @@ export default function AutomationsPage(): React.JSX.Element {
       const updates: AutomationUpdateInput = {
         name: draft.name,
         prompt: draft.prompt,
+        executionMode: draft.executionMode ?? 'prompt',
         precheck,
         agentId: draft.agentId,
         runContext,
@@ -1963,6 +1965,7 @@ export default function AutomationsPage(): React.JSX.Element {
       const createInput: AutomationCreateInput = {
         name: draft.name,
         prompt: draft.prompt,
+        executionMode: draft.executionMode ?? 'prompt',
         precheck,
         agentId: draft.agentId,
         runContext,

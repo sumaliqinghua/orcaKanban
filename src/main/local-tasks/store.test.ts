@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { LocalTaskStore } from './store'
-import { isOpenLocalTaskBatchCandidate } from './file-store-batch-mutations'
+import { isOpenLocalTaskBatchCandidate } from '../../shared/local-task-batch-selection'
 
 const directories: string[] = []
 function projectPath(): string {

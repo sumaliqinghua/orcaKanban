@@ -34,6 +34,8 @@ import {
 import { parseWorkspaceKey } from '../../../shared/workspace-scope'
 import type { AgentStateHistoryEntry } from '../../../shared/agent-status-types'
 import { resolveFolderWorkspaceHost } from '../../../shared/folder-workspace-execution-host'
+import { runLocalTaskBatch } from '@/components/work-items/local-task-batch-runner'
+import { isOpenLocalTaskBatchCandidate } from '../../../shared/local-task-batch-selection'
 
 const activeReuseDispatchTabIds = new Set<string>()
 
@@ -333,6 +335,109 @@ export function useAutomationDispatchEvents(): void {
               // best-effort terminal work and must not block the automation agent.
               console.warn('[automations] Failed to launch workspace setup/default tabs:', error)
             })
+          }
+
+          if (automation.executionMode === 'open_local_tasks') {
+            if (automation.workspaceMode !== 'existing') {
+              await markDispatchResult({
+                runId: run.id,
+                status: 'skipped_unavailable',
+                workspaceId: worktree.id,
+                workspaceDisplayName: worktree.displayName,
+                error: 'Open 本地任务自动化必须绑定已有 workspace。'
+              })
+              return
+            }
+            const tasks = await window.api.localTasks.list({
+              projectId: runRepoId,
+              projectPath: repo.path
+            })
+            const candidates = tasks.filter((task) =>
+              isOpenLocalTaskBatchCandidate(task, {
+                projectId: runRepoId,
+                workspaceId: worktree.id
+              })
+            )
+            if (candidates.length === 0) {
+              await markDispatchResult({
+                runId: run.id,
+                status: 'completed',
+                workspaceId: worktree.id,
+                workspaceDisplayName: worktree.displayName,
+                outputSnapshot: {
+                  format: 'plain_text',
+                  content: '本次没有可执行的 Open 本地任务。',
+                  capturedAt: Date.now(),
+                  truncated: false
+                },
+                error: null
+              })
+              return
+            }
+            const batch = await window.api.localTasks.startBatch({
+              tasks: candidates.map((task) => ({ taskId: task.id, projectPath: task.projectPath }))
+            })
+            if (batch.candidates.length === 0) {
+              await markDispatchResult({
+                runId: run.id,
+                status: 'completed',
+                workspaceId: worktree.id,
+                workspaceDisplayName: worktree.displayName,
+                outputSnapshot: {
+                  format: 'plain_text',
+                  content: '扫描结束时没有可执行的 Open 本地任务。',
+                  capturedAt: Date.now(),
+                  truncated: false
+                },
+                error: null
+              })
+              return
+            }
+            await markDispatchResult({
+              runId: run.id,
+              status: 'dispatching',
+              workspaceId: worktree.id,
+              workspaceDisplayName: worktree.displayName,
+              terminalSessionId: null,
+              terminalPaneKey: null,
+              terminalPtyId: null,
+              error: null
+            })
+            await runLocalTaskBatch(batch.candidates, automation.agentId)
+            const refreshed = await Promise.all(
+              batch.candidates.map(async (candidate) => ({
+                candidate,
+                task: await window.api.localTasks.get(candidate.task.id, candidate.task.projectPath)
+              }))
+            )
+            const summary = refreshed.reduce(
+              (counts, { candidate, task }) => {
+                const taskRun = task?.runs.find((entry) => entry.id === candidate.runId)
+                if (taskRun?.status === 'needs_review') {
+                  counts.needsReview += 1
+                } else if (taskRun?.status === 'failed') {
+                  counts.failed += 1
+                } else {
+                  counts.completed += 1
+                }
+                return counts
+              },
+              { completed: 0, needsReview: 0, failed: 0 }
+            )
+            await markDispatchResult({
+              runId: run.id,
+              status: 'completed',
+              workspaceId: worktree.id,
+              workspaceDisplayName: worktree.displayName,
+              outputSnapshot: {
+                format: 'plain_text',
+                content: `Open 本地任务批次完成：${summary.completed} 完成，${summary.needsReview} 待 review，${summary.failed} 失败。`,
+                capturedAt: Date.now(),
+                truncated: false
+              },
+              error: null
+            })
+            return
           }
 
           const outputSnapshotBuffer = createAutomationRunOutputSnapshotBuffer()

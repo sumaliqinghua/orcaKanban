@@ -3,6 +3,7 @@ import type { SetupDecision } from './worktree/create-types'
 import type { TaskSourceContext, WorkspaceRunContext } from './task-source-context'
 
 export type AutomationWorkspaceMode = 'existing' | 'new_per_run'
+export type AutomationExecutionMode = 'prompt' | 'open_local_tasks'
 export type AutomationExecutionTargetType = 'local' | 'ssh'
 export type AutomationSchedulerOwner = 'local_host_service' | 'ssh_bridge' | 'remote_host_service'
 export type AutomationMissedRunPolicy = 'run_once_within_grace'
@@ -94,6 +95,7 @@ export type Automation = {
   creationKey?: string
   name: string
   prompt: string
+  executionMode?: AutomationExecutionMode
   precheck: AutomationPrecheck | null
   agentId: TuiAgent
   /** Why: runContext carries the logical project + host setup identity for
@@ -175,6 +177,7 @@ export type AutomationCreateInput = {
   creationKey?: string
   name: string
   prompt: string
+  executionMode?: AutomationExecutionMode
   precheck?: AutomationPrecheck | null
   agentId: TuiAgent
   runContext?: WorkspaceRunContext | null
@@ -199,6 +202,7 @@ export type AutomationUpdateInput = Partial<
     Automation,
     | 'name'
     | 'prompt'
+    | 'executionMode'
     | 'precheck'
     | 'agentId'
     | 'runContext'

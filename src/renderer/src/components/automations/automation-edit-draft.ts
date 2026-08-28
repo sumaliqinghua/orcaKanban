@@ -23,6 +23,7 @@ export function buildAutomationEditDraft(automation: Automation): AutomationDraf
   return {
     name: automation.name,
     prompt: automation.prompt,
+    executionMode: automation.executionMode ?? 'prompt',
     agentId: automation.agentId,
     projectId: getAutomationRunRepoId(automation),
     workspaceMode: automation.workspaceMode,
@@ -56,6 +57,7 @@ export function buildExternalAutomationEditDraft(
   return {
     name: job.name,
     prompt: job.prompt ?? job.promptPreview,
+    executionMode: 'prompt',
     agentId: 'hermes',
     projectId: placement.projectId,
     workspaceMode: 'existing',

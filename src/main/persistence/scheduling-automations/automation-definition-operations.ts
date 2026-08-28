@@ -83,6 +83,7 @@ export function createAutomation(
     ...(input.creationKey ? { creationKey: input.creationKey } : {}),
     name: input.name.trim() || 'Untitled automation',
     prompt: input.prompt,
+    executionMode: input.executionMode ?? 'prompt',
     precheck: normalizeAutomationPrecheck(input.precheck),
     agentId: input.agentId,
     // Why own contexts win: a wire context speaks the client's perspective —
