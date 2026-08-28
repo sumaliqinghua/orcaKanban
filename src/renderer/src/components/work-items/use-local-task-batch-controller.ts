@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import type { WorkItem } from './mock-data'
 import { runLocalTaskBatch } from './local-task-batch-runner'
+import { isOpenLocalTaskBatchCandidate } from '../../../../shared/local-task-batch-selection'
 
 export function useLocalTaskBatchController({
   items,
@@ -18,16 +19,7 @@ export function useLocalTaskBatchController({
 } {
   const [batchRunning, setBatchRunning] = useState(false)
   const batchCandidates = useMemo(
-    () =>
-      items.filter(
-        (item) =>
-          item.status === 'Open' &&
-          item.intakeState !== 'inbox' &&
-          item.archivedAt === null &&
-          Boolean(item.workspaceId) &&
-          item.executionState !== 'queued' &&
-          item.executionState !== 'running'
-      ),
+    () => items.filter((item) => isOpenLocalTaskBatchCandidate(item) && Boolean(item.workspaceId)),
     [items]
   )
 
