@@ -92,8 +92,10 @@ describe('AutomationService', () => {
     expect(payload.automation.id).toBe(automation.id)
     expect(payload.run.scheduledFor).toBe(new Date('2026-05-13T09:00:00').getTime())
     expect(store.listAutomationRuns(automation.id)[0]?.status).toBe('dispatching')
-    expect(store.listAutomations().find((entry) => entry.id === automation.id)?.nextRunAt).toBe(
-      new Date('2026-05-14T09:00:00').getTime()
+    await vi.waitFor(() =>
+      expect(store.listAutomations().find((entry) => entry.id === automation.id)?.nextRunAt).toBe(
+        new Date('2026-05-14T09:00:00').getTime()
+      )
     )
   })
 
@@ -363,6 +365,32 @@ describe('AutomationService', () => {
         outputSnapshot: expect.objectContaining({ content: 'Done.' })
       })
     )
+  })
+
+  it('skips Open local task batches when only a headless dispatcher is available', async () => {
+    vi.setSystemTime(new Date('2026-05-13T08:00:00Z'))
+    const store = await createStore()
+    store.addRepo(makeRepo())
+    const automation = store.createAutomation({
+      name: 'Local task scan',
+      prompt: 'Execute Open local tasks',
+      executionMode: 'open_local_tasks',
+      agentId: 'claude',
+      projectId: 'r1',
+      workspaceMode: 'existing',
+      workspaceId: 'wt1',
+      timezone: 'UTC',
+      rrule: 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0',
+      dtstart: new Date('2026-05-13T00:00:00Z').getTime()
+    })
+    const headlessDispatcher = vi.fn()
+    const service = new AutomationService(store, { headlessDispatcher })
+
+    const run = await service.runNow(automation.id)
+
+    expect(run.status).toBe('skipped_unavailable')
+    expect(run.error).toContain('Open 本地任务自动化需要桌面 renderer')
+    expect(headlessDispatcher).not.toHaveBeenCalled()
   })
 
   it('dispatches due scheduled automations headlessly', async () => {

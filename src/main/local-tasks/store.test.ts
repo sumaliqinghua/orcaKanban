@@ -211,6 +211,22 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('does not reclaim queued tasks when automation dispatch opts out of recovery', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '自动化互斥' })
+    const first = store.startBatch([{ taskId: task.id, projectPath: root }])
+
+    const second = store.startBatch([{ taskId: task.id, projectPath: root }], {
+      recoverQueued: false
+    })
+
+    expect(first.candidates).toHaveLength(1)
+    expect(second.candidates).toHaveLength(0)
+    expect(store.get(task.id, root)?.executionRunId).toBe(first.candidates[0]?.runId)
+    store.close()
+  })
+
   it('tracks sessions, subtasks and steps, then enters review only when work is done', () => {
     const root = projectPath()
     const store = new LocalTaskStore()

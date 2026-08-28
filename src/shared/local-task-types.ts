@@ -134,6 +134,8 @@ export type LocalTaskBatch = {
 
 export type StartLocalTaskBatchArgs = {
   tasks: LocalTaskBatchTaskRef[]
+  /** Manual retry may recover an interrupted queue; automation dispatch must not. */
+  recoverQueued?: boolean
 }
 
 export type UpdateLocalTaskRunArgs = {

@@ -228,8 +228,10 @@ export class LocalTaskStore {
   updateSessionOutput(args: UpdateLocalTaskSessionOutputArgs): LocalTask {
     return mutations.updateSessionOutput(this.access(), args)
   }
-  startBatch(refs: LocalTaskBatchTaskRef[]): LocalTaskBatch {
-    return batchMutations.startBatch(this.access(), refs)
+  startBatch(refs: LocalTaskBatchTaskRef[], options?: { recoverQueued?: boolean }): LocalTaskBatch {
+    return batchMutations.startBatch(this.access(), refs, {
+      recoverQueued: options?.recoverQueued ?? true
+    })
   }
   updateRun(args: Parameters<typeof batchMutations.updateRun>[1]): LocalTask {
     return batchMutations.updateRun(this.access(), args)

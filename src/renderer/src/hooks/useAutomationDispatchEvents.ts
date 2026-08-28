@@ -375,7 +375,8 @@ export function useAutomationDispatchEvents(): void {
               return
             }
             const batch = await window.api.localTasks.startBatch({
-              tasks: candidates.map((task) => ({ taskId: task.id, projectPath: task.projectPath }))
+              tasks: candidates.map((task) => ({ taskId: task.id, projectPath: task.projectPath })),
+              recoverQueued: false
             })
             if (batch.candidates.length === 0) {
               await markDispatchResult({

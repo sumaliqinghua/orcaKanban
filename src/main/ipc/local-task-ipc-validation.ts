@@ -127,7 +127,8 @@ export const startLocalTaskBatchArgsSchema = z
   .object({
     tasks: z
       .array(z.object({ taskId: id, projectPath: z.string().trim().min(1).max(4_096) }).strict())
-      .max(500)
+      .max(500),
+    recoverQueued: z.boolean().optional()
   })
   .strict()
 

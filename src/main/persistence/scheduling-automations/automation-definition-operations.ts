@@ -39,6 +39,18 @@ export type AutomationDefinitionOperations = {
   recordCreated: () => void
 }
 
+const LOCAL_TASK_AUTOMATION_TARGET_ERROR =
+  'Open 本地任务自动化只支持 local 执行目标；SSH 项目暂不支持任务批次。'
+
+function assertLocalTaskAutomationTarget(
+  executionMode: Automation['executionMode'],
+  executionTargetType: Automation['executionTargetType']
+): void {
+  if (executionMode === 'open_local_tasks' && executionTargetType !== 'local') {
+    throw new Error(LOCAL_TASK_AUTOMATION_TARGET_ERROR)
+  }
+}
+
 export function listAutomations(state: PersistedState): Automation[] {
   return (state.automations ?? [])
     .map((automation) => normalizeAutomationSessionReuse(automation))
@@ -67,6 +79,10 @@ export function createAutomation(
     sshTargetGeneration: sshTargetGenerationForConnection(operations.state, repo?.connectionId),
     workspaceSshPin
   })
+  assertLocalTaskAutomationTarget(
+    input.executionMode ?? 'prompt',
+    executionTarget.executionTargetType
+  )
   if (options?.destination) {
     const context = automationProjectionContext(
       operations.state,
@@ -227,6 +243,7 @@ export function updateAutomation(
     workspaceSshPin,
     workspaceSshPinMoved
   })
+  assertLocalTaskAutomationTarget(merged.executionMode, executionTarget.executionTargetType)
   if (options?.destination) {
     assertExecutionTargetMatchesDestination(executionTarget, options.destination, workspaceSshPin)
   }

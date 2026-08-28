@@ -3,7 +3,6 @@ import type { Store } from '../persistence'
 import {
   isFinalAutomationRunStatus,
   type Automation,
-  type AutomationDispatchRequest,
   type AutomationDispatchResult,
   type AutomationPrecheckResult,
   type AutomationRun
@@ -14,22 +13,18 @@ import { runAutomationPrecheck } from './precheck-runner'
 import { resolveAutomationRunTarget, type AutomationRunTargetResult } from './run-target-resolution'
 import { collectAutomationRunUsage } from './run-usage-collection'
 import type { HeadlessAutomationDispatcher } from './headless-dispatch'
-import { clearAutomationDispatchTokens, createAutomationDispatchToken } from './dispatch-tokens'
-import { runHeadlessAutomationDispatch } from './headless-dispatch-runner'
+import { clearAutomationDispatchTokens } from './dispatch-tokens'
 import {
   AutomationRunCompletionWatcher,
   type AutomationRunTerminalObserver
 } from './run-completion-watcher'
 import { createAutomationRunWriter, type AutomationRunWriter } from './automation-run-writer'
-import {
-  describeScheduledRefusal,
-  recordRefusedAutomationRun,
-  NO_DISPATCH_HOST
-} from './dispatch-refusal'
+import { describeScheduledRefusal, recordRefusedAutomationRun } from './dispatch-refusal'
 import type {
   AutomationsChangedPayload,
   PublishAutomationsChanged
 } from '../../shared/runtime-client-events'
+import { dispatchAutomationRun } from './dispatch-run'
 
 const DEFAULT_TICK_MS = 60 * 1000
 
@@ -266,7 +261,7 @@ export class AutomationService {
     // */5 automation would otherwise write ~288 identical rows a day — past
     // retention, which would evict the automation's real history.
     const target = this.resolveTarget(automation)
-    const refusal = describeScheduledRefusal({ target, canDispatch: this.canDispatch() })
+    const refusal = describeScheduledRefusal({ target, canDispatch: this.canDispatch(automation) })
     if (refusal && this.runs.repeatSkip(automation.id, refusal, scheduledFor)) {
       this.store.advanceAutomationNextRun(automation.id, now)
       return
@@ -288,8 +283,10 @@ export class AutomationService {
   }
 
   /** Headless serve counts: it launches runs with no window at all. */
-  private canDispatch(): boolean {
-    return this.canDispatchToRenderer() || Boolean(this.headlessDispatcher)
+  private canDispatch(automation?: Automation): boolean {
+    return automation?.executionMode === 'open_local_tasks'
+      ? this.canDispatchToRenderer()
+      : this.canDispatchToRenderer() || Boolean(this.headlessDispatcher)
   }
 
   private async requestDispatch(
@@ -305,38 +302,17 @@ export class AutomationService {
         error: target.error
       })
     }
-    if (!this.canDispatchToRenderer()) {
-      if (this.headlessDispatcher) {
-        return await runHeadlessAutomationDispatch({
-          automation,
-          run,
-          target,
-          dispatcher: this.headlessDispatcher,
-          runs: this.runs,
-          runPrecheck: () => this.runPrecheck(automation.id, run.id),
-          markDispatchResult: (result) => this.markDispatchResult(result),
-          watchRun: (dispatched) => this.completionWatcher?.watch(dispatched)
-        })
-      }
-      return this.runs.updateRun({
-        runId: run.id,
-        status: 'skipped_unavailable',
-        workspaceId: automation.workspaceId,
-        error: NO_DISPATCH_HOST
-      })
-    }
-    const updated = this.runs.updateRun({
-      runId: run.id,
-      status: 'dispatching',
-      workspaceId: automation.workspaceId,
-      error: null
-    })
-    const payload: AutomationDispatchRequest = {
+    return dispatchAutomationRun({
       automation,
-      run: updated,
-      dispatchToken: createAutomationDispatchToken(automation.id, updated.id)
-    }
-    this.webContents?.send('automations:dispatchRequested', payload)
-    return updated
+      run,
+      target,
+      runs: this.runs,
+      webContents: this.webContents,
+      rendererReady: this.rendererReady,
+      headlessDispatcher: this.headlessDispatcher,
+      runPrecheck: () => this.runPrecheck(automation.id, run.id),
+      markDispatchResult: (result) => this.markDispatchResult(result),
+      watchRun: (dispatched) => this.completionWatcher?.watch(dispatched)
+    })
   }
 }

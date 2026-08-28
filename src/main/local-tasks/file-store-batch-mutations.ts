@@ -18,67 +18,89 @@ function workspaceKey(task: LocalTask): string {
 
 export function startBatch(
   store: FileStoreMutationAccess,
-  refs: LocalTaskBatchTaskRef[]
+  refs: LocalTaskBatchTaskRef[],
+  options: { recoverQueued?: boolean } = {}
 ): LocalTaskBatch {
   const batchId = `ltb_${randomUUID()}`
   const createdAt = time()
   const candidates: LocalTaskBatch['candidates'] = []
   const seen = new Set<string>()
+  const originals: LocalTask[] = []
 
-  for (const ref of refs) {
-    let task = store.requireTask(ref.taskId, ref.projectPath)
-    const staleQueuedRun =
-      task.executionState === 'queued' && task.executionRunId
-        ? task.runs.find((run) => run.id === task.executionRunId && run.status === 'queued')
-        : undefined
-    if (seen.has(task.id) || (!isOpenLocalTaskBatchCandidate(task) && !staleQueuedRun)) {
-      continue
-    }
-    seen.add(task.id)
-    if (staleQueuedRun) {
-      task = store.writeTask({
+  try {
+    for (const ref of refs) {
+      let task = store.requireTask(ref.taskId, ref.projectPath)
+      const queuedRun =
+        task.executionState === 'queued' && task.executionRunId
+          ? task.runs.find((run) => run.id === task.executionRunId && run.status === 'queued')
+          : undefined
+      const recoverable =
+        options.recoverQueued === true &&
+        (task.archivedAt ?? null) === null &&
+        task.status === 'Open' &&
+        (task.intakeState ?? 'ready') === 'ready' &&
+        Boolean(queuedRun)
+      if (seen.has(task.id) || (!isOpenLocalTaskBatchCandidate(task) && !recoverable)) {
+        continue
+      }
+      if (
+        (task.executionState === 'queued' || task.executionState === 'running') &&
+        !options.recoverQueued
+      ) {
+        continue
+      }
+      seen.add(task.id)
+      originals.push(task)
+      if (queuedRun) {
+        task = store.writeTask({
+          ...task,
+          executionState: 'idle',
+          executionBatchId: null,
+          executionRunId: null,
+          runs: task.runs.map((run) =>
+            run.id === queuedRun.id
+              ? {
+                  ...run,
+                  status: 'failed' as const,
+                  error: '批次在任务启动前中断，可重新执行',
+                  finishedAt: createdAt
+                }
+              : run
+          ),
+          updatedAt: createdAt
+        })
+      }
+      const runId = `ltr_${randomUUID()}`
+      const run = {
+        id: runId,
+        batchId,
+        taskId: task.id,
+        workspaceId: task.workspaceId,
+        status: 'queued' as const,
+        sessionId: null,
+        output: null,
+        error: null,
+        createdAt,
+        startedAt: null,
+        finishedAt: null
+      }
+      const next = store.writeTask({
         ...task,
-        executionState: 'idle',
-        executionBatchId: null,
-        executionRunId: null,
-        runs: task.runs.map((run) =>
-          run.id === staleQueuedRun.id
-            ? {
-                ...run,
-                status: 'failed' as const,
-                error: '批次在任务启动前中断，可重新执行',
-                finishedAt: createdAt
-              }
-            : run
-        ),
+        executionState: 'queued',
+        executionBatchId: batchId,
+        executionRunId: runId,
+        reviewKind: null,
+        reviewQuestion: null,
+        runs: [run, ...task.runs],
         updatedAt: createdAt
       })
+      candidates.push({ task: next, runId, workspaceKey: workspaceKey(next) })
     }
-    const runId = `ltr_${randomUUID()}`
-    const run = {
-      id: runId,
-      batchId,
-      taskId: task.id,
-      workspaceId: task.workspaceId,
-      status: 'queued' as const,
-      sessionId: null,
-      output: null,
-      error: null,
-      createdAt,
-      startedAt: null,
-      finishedAt: null
+  } catch (error) {
+    for (let index = originals.length - 1; index >= 0; index -= 1) {
+      store.writeTask(originals[index]!)
     }
-    const next = store.writeTask({
-      ...task,
-      executionState: 'queued',
-      executionBatchId: batchId,
-      executionRunId: runId,
-      reviewKind: null,
-      reviewQuestion: null,
-      runs: [run, ...task.runs],
-      updatedAt: createdAt
-    })
-    candidates.push({ task: next, runId, workspaceKey: workspaceKey(next) })
+    throw error
   }
 
   candidates.sort((left, right) => left.task.createdAt - right.task.createdAt)

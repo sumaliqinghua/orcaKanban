@@ -108,6 +108,26 @@ describe('Store', () => {
     expect(store.listAutomations()).toHaveLength(1)
   })
 
+  it('rejects Open local task automations on SSH projects', async () => {
+    const store = await createStore()
+    store.addRepo(makeRepo({ connectionId: 'ssh-1' }))
+
+    expect(() =>
+      store.createAutomation({
+        name: 'Remote local tasks',
+        prompt: 'Execute Open tasks',
+        executionMode: 'open_local_tasks',
+        agentId: 'claude',
+        projectId: 'r1',
+        workspaceMode: 'existing',
+        workspaceId: 'wt1',
+        timezone: 'UTC',
+        rrule: 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0',
+        dtstart: new Date('2026-05-13T00:00:00Z').getTime()
+      })
+    ).toThrow('Open 本地任务自动化只支持 local 执行目标')
+  })
+
   it('persists session reuse only for existing-workspace automations', async () => {
     const store = await createStore()
     store.addRepo(makeRepo())
