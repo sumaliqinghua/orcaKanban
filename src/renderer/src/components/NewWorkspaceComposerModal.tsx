@@ -56,7 +56,6 @@ type ComposerModalData = {
   telemetrySource?: WorkspaceCreateTelemetrySource
   contextualTourSource?: string
   setupGuideTourRequestId?: string
-  /** When true, the composer creates a local task after the workspace succeeds. */
   localTaskMode?: boolean
   localTaskWorkspaceMode?: 'existing' | 'new'
   localTaskDraft?: {
@@ -110,7 +109,6 @@ function ComposerModalBody({
         <QuickTabBody
           modalData={modalData}
           onClose={onClose}
-          onDismiss={handleDismiss}
           isSubmissionCancelled={isSubmissionCancelled}
           localTaskMode={modalData.localTaskMode === true}
           active
@@ -123,14 +121,12 @@ function ComposerModalBody({
 function QuickTabBody({
   modalData,
   onClose,
-  onDismiss,
   isSubmissionCancelled,
   localTaskMode,
   active
 }: {
   modalData: ComposerModalData
   onClose: () => void
-  onDismiss: () => void
   isSubmissionCancelled: () => boolean
   localTaskMode: boolean
   active: boolean
@@ -297,43 +293,27 @@ function QuickTabBody({
         ? translate('auto.components.NewWorkspaceComposerModal.createWorktree', 'Create worktree')
         : translate('auto.components.NewWorkspaceComposerModal.createWorkspace', 'Create workspace')
 
-  // Cmd/Ctrl+Enter submits, Esc first blurs the focused input (like the full page).
+  // Cmd/Ctrl+Enter submits. Escape belongs to the dialog's dismissable layer:
+  // the page-style "blur the focused field first" rule assumes the user chose
+  // that field, but this dialog auto-focuses the name input on open, so handling
+  // Escape here swallowed every first press and left the composer stuck open.
+  // Radix also closes only the topmost layer, so nested popovers/selects/dialogs
+  // keep their own Escape without needing a guard here.
   const nestedDialogOpen = agentSettingsOpen || addProjectOpen || setLocationOpen
   useEffect(() => {
     if (!active || nestedDialogOpen) {
-      // Why: while a nested dialog (Add Project / Agents / Set location) is layered on top,
-      // this capture-phase handler must not steal its Escape (which should
-      // close only the nested dialog) or fire composer submit underneath it.
+      // Why: while a nested dialog (Add Project / Agents / Set location) is layered
+      // on top, this capture-phase handler must not fire composer submit underneath it.
       return
     }
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Enter' && event.key !== 'Escape') {
+      // Why: workspace creation is screen-local submit behavior, not a
+      // user-configurable app command.
+      if (!isScreenSubmitShortcut(event)) {
         return
       }
       const target = event.target
       if (!(target instanceof HTMLElement)) {
-        return
-      }
-
-      if (event.key === 'Escape') {
-        if (
-          target instanceof HTMLInputElement ||
-          target instanceof HTMLTextAreaElement ||
-          target instanceof HTMLSelectElement ||
-          target.isContentEditable
-        ) {
-          event.preventDefault()
-          target.blur()
-          return
-        }
-        event.preventDefault()
-        onDismiss()
-        return
-      }
-
-      // Why: workspace creation is screen-local submit behavior, not a
-      // user-configurable app command.
-      if (!isScreenSubmitShortcut(event)) {
         return
       }
       if (!shouldAllowComposerEnterSubmitTarget(target, composerRef.current)) {
@@ -347,7 +327,7 @@ function QuickTabBody({
     }
     window.addEventListener('keydown', onKeyDown, { capture: true })
     return () => window.removeEventListener('keydown', onKeyDown, { capture: true })
-  }, [active, composerRef, effectiveCreateDisabled, handleCreate, nestedDialogOpen, onDismiss])
+  }, [active, composerRef, effectiveCreateDisabled, handleCreate, nestedDialogOpen])
 
   return (
     <>

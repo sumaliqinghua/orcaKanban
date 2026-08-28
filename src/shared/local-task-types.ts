@@ -153,6 +153,8 @@ export type CreateLocalTaskSessionArgs = {
   workspaceId?: string
   title?: string
   currentPrompt?: string
+  /** Backward-compatible alias used by older task-center callers. */
+  initialPrompt?: string
   associationSource?: 'task-center' | 'explicit'
 }
 

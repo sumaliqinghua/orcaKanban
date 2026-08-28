@@ -19,16 +19,31 @@ type HydratedTabState = {
   layoutByWorktree: Record<string, TabGroupLayoutNode>
 }
 
+/** Drops leaves whose group is gone, and repeat leaves for a group already
+ *  placed earlier in the tree — one column per group is the render invariant,
+ *  and a repeated leaf paints the same tab strip in every one of its columns. */
 export function pruneTabGroupLayoutForGroups(
   root: TabGroupLayoutNode,
   validGroupIds: Set<string>
 ): TabGroupLayoutNode | null {
+  return pruneLayoutNodeForGroups(root, validGroupIds, new Set())
+}
+
+function pruneLayoutNodeForGroups(
+  root: TabGroupLayoutNode,
+  validGroupIds: Set<string>,
+  placedGroupIds: Set<string>
+): TabGroupLayoutNode | null {
   if (root.type === 'leaf') {
-    return validGroupIds.has(root.groupId) ? root : null
+    if (!validGroupIds.has(root.groupId) || placedGroupIds.has(root.groupId)) {
+      return null
+    }
+    placedGroupIds.add(root.groupId)
+    return root
   }
 
-  const first = pruneTabGroupLayoutForGroups(root.first, validGroupIds)
-  const second = pruneTabGroupLayoutForGroups(root.second, validGroupIds)
+  const first = pruneLayoutNodeForGroups(root.first, validGroupIds, placedGroupIds)
+  const second = pruneLayoutNodeForGroups(root.second, validGroupIds, placedGroupIds)
 
   if (first === null) {
     return second
@@ -102,6 +117,15 @@ function hydrateUnifiedFormat(
           // Why: old web-client sessions could persist host surface ids
           // containing "::"; those are invalid pane-key tab ids.
           return isValidTerminalTabId(tab.id) && isValidTerminalTabId(tab.entityId)
+        }
+        // Why dropped rather than converted: a preview used to be an editor tab whose id encoded
+        // the document, and its document was never persisted — so this chrome has always come back
+        // naming a file no restore produces, which is the empty pane the surface was reported for.
+        // A preview is a browser tab now, and the worktree id inside that encoded id can itself
+        // contain the separator, so re-deriving the document from it is guesswork. The reader
+        // reopens the preview; nothing is left pointing at a surface that cannot exist.
+        if (tab.contentType === 'editor' && tab.entityId.startsWith('html-preview::')) {
+          return false
         }
         if (!isTransientEditorContentType(tab.contentType)) {
           return true

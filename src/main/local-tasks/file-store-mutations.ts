@@ -37,7 +37,7 @@ export function createSession(
   if (existing) {
     return existing
   }
-  const requestedPrompt = args.currentPrompt?.trim() || null
+  const requestedPrompt = args.currentPrompt?.trim() || args.initialPrompt?.trim() || null
   const duplicate = task.sessions.find(
     (session) =>
       session.status === 'working' &&
