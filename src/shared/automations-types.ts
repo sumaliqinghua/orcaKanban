@@ -170,6 +170,11 @@ export type AutomationRun = {
   occurrenceCount?: number
   /** `scheduledFor` of the most recently folded occurrence; absent until one folds. */
   lastOccurrenceAt?: number
+  localTaskBatchId?: string | null
+  localTaskCount?: number
+  localTaskCompletedCount?: number
+  localTaskNeedsReviewCount?: number
+  localTaskFailedCount?: number
 }
 
 export type AutomationCreateInput = {
@@ -237,6 +242,11 @@ export type AutomationDispatchResult = {
   terminalPtyId?: string | null
   outputSnapshot?: AutomationRunOutputSnapshot | null
   precheckResult?: AutomationPrecheckResult | null
+  localTaskBatchId?: string | null
+  localTaskCount?: number
+  localTaskCompletedCount?: number
+  localTaskNeedsReviewCount?: number
+  localTaskFailedCount?: number
   usage?: AutomationRunUsage | null
   error?: string | null
 }

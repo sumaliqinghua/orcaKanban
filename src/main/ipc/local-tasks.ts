@@ -71,7 +71,11 @@ export function registerLocalTaskHandlers(): void {
   })
   ipcMain.handle('localTasks:startBatch', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(startLocalTaskBatchArgsSchema, args)
-    const batch = store.startBatch(parsed.tasks, { recoverQueued: parsed.recoverQueued ?? true })
+    const batch = store.startBatch(parsed.tasks, {
+      recoverQueued: parsed.recoverQueued ?? true,
+      automationId: parsed.automationId,
+      automationRunId: parsed.automationRunId
+    })
     for (const candidate of batch.candidates) {
       publishLocalTaskChange(candidate.task)
     }

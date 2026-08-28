@@ -173,6 +173,21 @@ export function updateAutomationRun(
     precheckResult: Object.hasOwn(result, 'precheckResult')
       ? normalizeAutomationPrecheckResult(result.precheckResult)
       : normalizeAutomationPrecheckResult(current.precheckResult),
+    localTaskBatchId: Object.hasOwn(result, 'localTaskBatchId')
+      ? (result.localTaskBatchId ?? null)
+      : current.localTaskBatchId,
+    localTaskCount: Object.hasOwn(result, 'localTaskCount')
+      ? result.localTaskCount
+      : current.localTaskCount,
+    localTaskCompletedCount: Object.hasOwn(result, 'localTaskCompletedCount')
+      ? result.localTaskCompletedCount
+      : current.localTaskCompletedCount,
+    localTaskNeedsReviewCount: Object.hasOwn(result, 'localTaskNeedsReviewCount')
+      ? result.localTaskNeedsReviewCount
+      : current.localTaskNeedsReviewCount,
+    localTaskFailedCount: Object.hasOwn(result, 'localTaskFailedCount')
+      ? result.localTaskFailedCount
+      : current.localTaskFailedCount,
     usage: Object.hasOwn(result, 'usage') ? (result.usage ?? null) : (current.usage ?? null),
     error: result.error ?? null,
     startedAt: current.startedAt ?? now,

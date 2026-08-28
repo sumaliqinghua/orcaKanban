@@ -19,7 +19,7 @@ function workspaceKey(task: LocalTask): string {
 export function startBatch(
   store: FileStoreMutationAccess,
   refs: LocalTaskBatchTaskRef[],
-  options: { recoverQueued?: boolean } = {}
+  options: { recoverQueued?: boolean; automationId?: string; automationRunId?: string } = {}
 ): LocalTaskBatch {
   const batchId = `ltb_${randomUUID()}`
   const createdAt = time()
@@ -82,7 +82,9 @@ export function startBatch(
         error: null,
         createdAt,
         startedAt: null,
-        finishedAt: null
+        finishedAt: null,
+        ...(options.automationId ? { automationId: options.automationId } : {}),
+        ...(options.automationRunId ? { automationRunId: options.automationRunId } : {})
       }
       const next = store.writeTask({
         ...task,

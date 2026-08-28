@@ -61,6 +61,8 @@ export type LocalTaskRun = {
   createdAt: number
   startedAt: number | null
   finishedAt: number | null
+  automationId?: string | null
+  automationRunId?: string | null
 }
 
 export type LocalTask = {
@@ -136,6 +138,8 @@ export type StartLocalTaskBatchArgs = {
   tasks: LocalTaskBatchTaskRef[]
   /** Manual retry may recover an interrupted queue; automation dispatch must not. */
   recoverQueued?: boolean
+  automationId?: string
+  automationRunId?: string
 }
 
 export type UpdateLocalTaskRunArgs = {

@@ -105,6 +105,21 @@ export function useAutomationDispatchEvents(): void {
           activeTabId: state.activeTabId,
           activeTabType: state.activeTabType
         }
+        const restoreDispatchFocus = (worktreeId: string): void => {
+          const currentState = useAppStore.getState()
+          if (
+            focusBeforeDispatch.activeWorktreeId === worktreeId ||
+            currentState.activeWorktreeId !== worktreeId
+          ) {
+            return
+          }
+          currentState.setActiveView(focusBeforeDispatch.activeView)
+          currentState.setActiveWorktree(focusBeforeDispatch.activeWorktreeId)
+          if (focusBeforeDispatch.activeTabId) {
+            currentState.setActiveTab(focusBeforeDispatch.activeTabId)
+          }
+          currentState.setActiveTabType(focusBeforeDispatch.activeTabType)
+        }
         const runRepoId = getAutomationRunRepoId(automation)
         const repo = state.repos.find((entry) => entry.id === runRepoId)
         const automationWorkspaceScope = parseWorkspaceKey(automation.workspaceId ?? '')
@@ -376,7 +391,9 @@ export function useAutomationDispatchEvents(): void {
             }
             const batch = await window.api.localTasks.startBatch({
               tasks: candidates.map((task) => ({ taskId: task.id, projectPath: task.projectPath })),
-              recoverQueued: false
+              recoverQueued: false,
+              automationId: automation.id,
+              automationRunId: run.id
             })
             if (batch.candidates.length === 0) {
               await markDispatchResult({
@@ -399,12 +416,18 @@ export function useAutomationDispatchEvents(): void {
               status: 'dispatching',
               workspaceId: worktree.id,
               workspaceDisplayName: worktree.displayName,
+              localTaskBatchId: batch.id,
+              localTaskCount: batch.candidates.length,
               terminalSessionId: null,
               terminalPaneKey: null,
               terminalPtyId: null,
               error: null
             })
-            await runLocalTaskBatch(batch.candidates, automation.agentId)
+            try {
+              await runLocalTaskBatch(batch.candidates, automation.agentId)
+            } finally {
+              restoreDispatchFocus(worktree.id)
+            }
             const refreshed = await Promise.all(
               batch.candidates.map(async (candidate) => ({
                 candidate,
@@ -419,24 +442,29 @@ export function useAutomationDispatchEvents(): void {
                 } else if (taskRun?.status === 'failed') {
                   counts.failed += 1
                 } else {
-                  counts.completed += 1
+                  counts.unfinished += 1
                 }
                 return counts
               },
-              { completed: 0, needsReview: 0, failed: 0 }
+              { completed: 0, needsReview: 0, failed: 0, unfinished: 0 }
             )
+            const completed =
+              batch.candidates.length - summary.needsReview - summary.failed - summary.unfinished
             await markDispatchResult({
               runId: run.id,
-              status: 'completed',
+              status: summary.unfinished > 0 ? 'dispatch_failed' : 'completed',
               workspaceId: worktree.id,
               workspaceDisplayName: worktree.displayName,
+              localTaskCompletedCount: completed,
+              localTaskNeedsReviewCount: summary.needsReview,
+              localTaskFailedCount: summary.failed + summary.unfinished,
               outputSnapshot: {
                 format: 'plain_text',
-                content: `Open 本地任务批次完成：${summary.completed} 完成，${summary.needsReview} 待 review，${summary.failed} 失败。`,
+                content: `Open 本地任务批次${summary.unfinished > 0 ? '未完整结束' : '完成'}：${completed} 完成，${summary.needsReview} 待 review，${summary.failed + summary.unfinished} 失败。`,
                 capturedAt: Date.now(),
                 truncated: false
               },
-              error: null
+              error: summary.unfinished > 0 ? '部分本地任务未进入明确终态。' : null
             })
             return
           }
@@ -763,20 +791,9 @@ export function useAutomationDispatchEvents(): void {
             cleanupRunObservers()
             throw error
           }
-          const currentState = useAppStore.getState()
           // Why: Run Now and scheduled dispatches should create workspaces/tabs in
           // the background; only an explicit row click should navigate there.
-          if (
-            focusBeforeDispatch.activeWorktreeId !== worktree.id &&
-            currentState.activeWorktreeId === worktree.id
-          ) {
-            currentState.setActiveView(focusBeforeDispatch.activeView)
-            currentState.setActiveWorktree(focusBeforeDispatch.activeWorktreeId)
-            if (focusBeforeDispatch.activeTabId) {
-              currentState.setActiveTab(focusBeforeDispatch.activeTabId)
-            }
-            currentState.setActiveTabType(focusBeforeDispatch.activeTabType)
-          }
+          restoreDispatchFocus(worktree.id)
         } catch (error) {
           releaseTerminalOwnership()
           await markDispatchResult({
