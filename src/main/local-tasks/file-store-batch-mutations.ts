@@ -15,6 +15,23 @@ function workspaceKey(task: LocalTask): string {
   return `${resolve(task.projectPath)}::${task.workspaceId}`
 }
 
+export function isOpenLocalTaskBatchCandidate(
+  task: LocalTask,
+  scope: { projectId?: string; workspaceId?: string | null } = {}
+): boolean {
+  return (
+    task.archivedAt === null &&
+    task.status === 'Open' &&
+    task.intakeState === 'ready' &&
+    task.executionState !== 'queued' &&
+    task.executionState !== 'running' &&
+    (scope.projectId === undefined || task.projectId === scope.projectId) &&
+    (scope.workspaceId === undefined ||
+      scope.workspaceId === null ||
+      task.workspaceId === scope.workspaceId)
+  )
+}
+
 export function startBatch(
   store: FileStoreMutationAccess,
   refs: LocalTaskBatchTaskRef[]
@@ -30,13 +47,7 @@ export function startBatch(
       task.executionState === 'queued' && task.executionRunId
         ? task.runs.find((run) => run.id === task.executionRunId && run.status === 'queued')
         : undefined
-    if (
-      seen.has(task.id) ||
-      task.archivedAt !== null ||
-      task.status !== 'Open' ||
-      task.intakeState !== 'ready' ||
-      task.executionState === 'running'
-    ) {
+    if (seen.has(task.id) || (!isOpenLocalTaskBatchCandidate(task) && !staleQueuedRun)) {
       continue
     }
     seen.add(task.id)

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { LocalTaskStore } from './store'
+import { isOpenLocalTaskBatchCandidate } from './file-store-batch-mutations'
 
 const directories: string[] = []
 function projectPath(): string {
@@ -18,6 +19,48 @@ afterEach(() => {
 })
 
 describe('LocalTaskStore file-first persistence', () => {
+  it('selects only ready Open tasks in the requested workspace', () => {
+    const base = {
+      schemaVersion: 1 as const,
+      id: 'task-1',
+      projectId: 'orca',
+      projectPath: '/tmp/orca',
+      title: 'task',
+      description: 'task',
+      status: 'Open' as const,
+      workspaceId: 'wt-1',
+      workspaceLabel: 'wt-1',
+      createdAt: 1,
+      updatedAt: 1,
+      archivedAt: null,
+      titleSource: 'user' as const,
+      titleSuggestion: null,
+      labels: [],
+      intakeState: 'ready' as const,
+      agentId: null,
+      executionState: 'idle' as const,
+      executionBatchId: null,
+      executionRunId: null,
+      reviewKind: null,
+      reviewQuestion: null,
+      runs: [],
+      subtasks: [],
+      sessions: [],
+      latestOutput: null,
+      latestOutputSource: 'report' as const
+    }
+    expect(isOpenLocalTaskBatchCandidate(base, { projectId: 'orca', workspaceId: 'wt-1' })).toBe(
+      true
+    )
+    expect(isOpenLocalTaskBatchCandidate({ ...base, status: 'Needs review' })).toBe(false)
+    expect(isOpenLocalTaskBatchCandidate({ ...base, status: 'In progress' })).toBe(false)
+    expect(isOpenLocalTaskBatchCandidate({ ...base, intakeState: 'inbox' })).toBe(false)
+    expect(
+      isOpenLocalTaskBatchCandidate({ ...base, workspaceId: 'wt-2' }, { workspaceId: 'wt-1' })
+    ).toBe(false)
+    expect(isOpenLocalTaskBatchCandidate({ ...base, executionState: 'queued' })).toBe(false)
+  })
+
   it('creates task context files under the project directory', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
