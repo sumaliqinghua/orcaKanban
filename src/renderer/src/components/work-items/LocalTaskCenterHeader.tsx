@@ -1,9 +1,10 @@
-import { ListChecks, Plus, Sparkles, TerminalSquare } from 'lucide-react'
+import { ChevronDown, ListChecks, Plus, Sparkles, TerminalSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { QuickLaunchAgentMenuItems } from '@/components/tab-bar/QuickLaunchButton'
@@ -15,7 +16,10 @@ export function LocalTaskCenterHeader({
   onRunAll,
   runAllDisabled,
   candidateCount,
-  agentWorktreeId
+  agentWorktreeId,
+  projectFilter,
+  projectOptions,
+  onProjectChange
 }: {
   onCreate: () => void
   onOpenWorkspaceBoard: () => void
@@ -23,7 +27,13 @@ export function LocalTaskCenterHeader({
   runAllDisabled: boolean
   candidateCount: number
   agentWorktreeId: string | null
+  projectFilter: string
+  projectOptions: readonly { id: string; label: string }[]
+  onProjectChange: (projectId: string) => void
 }): React.JSX.Element {
+  const selectedProject =
+    projectOptions.find((option) => option.id === projectFilter)?.label ?? '全部项目'
+
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border px-6">
       <div className="flex min-w-0 items-center gap-3">
@@ -68,6 +78,26 @@ export function LocalTaskCenterHeader({
             ) : (
               <div className="px-2 py-2 text-xs text-muted-foreground">当前没有可用 workspace</div>
             )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              {selectedProject}
+              <ChevronDown className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuLabel>按项目筛选任务</DropdownMenuLabel>
+            {projectOptions.map((option) => (
+              <DropdownMenuItem
+                key={option.id}
+                onSelect={() => onProjectChange(option.id)}
+                className={option.id === projectFilter ? 'bg-accent' : undefined}
+              >
+                {option.label}
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
         <Button

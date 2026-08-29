@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Plus, Search, Sparkles, SquareArrowOutUpRight } from 'lucide-react'
+import { Search, Sparkles, SquareArrowOutUpRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -7,25 +7,27 @@ import { useAppStore } from '@/store'
 import { TOGGLE_WORKSPACE_BOARD_EVENT } from '@/components/sidebar/useWorkspaceBoardPanel'
 import type { LocalTask } from '../../../../shared/local-task-types'
 import type { WorkItem } from './mock-data'
-import { LocalTaskDetailAside } from './LocalTaskDetailAside'
 import { LocalTaskCenterHeader } from './LocalTaskCenterHeader'
+import { LocalTaskCenterEmptyState } from './LocalTaskCenterEmptyState'
+import { LocalTaskCenterDetail } from './LocalTaskCenterDetail'
 import { createLocalTaskCenterActions } from './local-task-center-actions'
 import { BoardView, ListView, SubtaskBoardView, SubtaskListView } from './work-item-views'
 import { localTaskToViewModel, reconcileWorkItemSessionLiveness } from './local-task-view-model'
 import { useLocalTaskBatchController } from './use-local-task-batch-controller'
 import { LocalTaskQueueTabs } from './LocalTaskQueueTabs'
 import { useLiveDashboardSnapshot } from '@/components/dashboard/useLiveDashboardSnapshot'
-
+import {
+  isLocalTaskInProjectScope,
+  loadLocalTasksForProjectScope
+} from './local-task-project-scope'
+import { useLocalTaskProjectScope } from './use-local-task-project-scope'
 type ViewMode = 'board' | 'list'
 type BoardPerspective = 'subtasks' | 'tasks'
 type QueueView = 'all' | 'inbox' | 'review'
 
 export default function WorkItemsPrototypePage(): React.JSX.Element {
-  const activeRepoId = useAppStore((state) => state.activeRepoId)
-  const activeRepoPath = useAppStore(
-    (state) => state.repos.find((repo) => repo.id === state.activeRepoId)?.path ?? null
-  )
-  const createProjectId = activeRepoId ?? 'local'
+  const { projectFilter, setProjectFilter, projectOptions, projectRoots, createProjectId } =
+    useLocalTaskProjectScope()
   const [items, setItems] = useState<WorkItem[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -63,10 +65,11 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const loadTasks = useCallback(async (): Promise<void> => {
     setLoading(true)
     try {
-      const tasks = (await window.api.localTasks.list({
-        ...(createProjectId !== 'local' ? { projectId: createProjectId } : {}),
-        ...(activeRepoPath ? { projectPath: activeRepoPath } : {})
-      })) as LocalTask[]
+      const tasks = await loadLocalTasksForProjectScope(
+        projectRoots,
+        projectFilter,
+        window.api.localTasks.list
+      )
       const viewItems = tasks.map(localTaskToViewModel)
       setItems(viewItems)
       setSelectedId((current) => current ?? viewItems[0]?.id ?? null)
@@ -76,7 +79,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
     } finally {
       setLoading(false)
     }
-  }, [activeRepoPath, createProjectId])
+  }, [projectFilter, projectRoots])
   const { batchCandidates, batchRunning, runAllTasks } = useLocalTaskBatchController({
     items: effectiveItems,
     loadTasks,
@@ -85,6 +88,13 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   useEffect(() => {
     void loadTasks()
     return window.api.localTasks.onChanged((task) => {
+      const inScope =
+        projectRoots.length === 0
+          ? projectFilter === 'all' || task.projectId === projectFilter
+          : isLocalTaskInProjectScope(task, projectRoots)
+      if (!inScope) {
+        return
+      }
       if (task.archivedAt !== null) {
         setItems((current) => current.filter((item) => item.id !== task.id))
         setSelectedId((current) => (current === task.id ? null : current))
@@ -98,7 +108,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
           : [viewItem, ...current]
       })
     })
-  }, [loadTasks])
+  }, [loadTasks, projectFilter, projectRoots])
   const filtered = useMemo(
     () =>
       effectiveItems.filter(
@@ -157,7 +167,6 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
       return next
     })
   }
-
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
@@ -177,28 +186,15 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   }
   if (!selected) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col bg-background">
-        <header className="flex h-14 shrink-0 items-center border-b border-border px-6">
-          <div>
-            <h1 className="text-[15px] font-semibold tracking-tight">任务中心</h1>
-            <p className="text-[11px] text-muted-foreground">本地任务</p>
-          </div>
-          <Button className="ml-auto gap-1.5 text-xs" onClick={openTaskComposer}>
-            <Plus className="size-3.5" />
-            新建本地任务
-          </Button>
-        </header>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-xs text-muted-foreground">
-          <p>还没有本地任务</p>
-          <Button variant="outline" size="sm" onClick={openTaskComposer}>
-            <Plus className="size-3.5" />
-            新建本地任务
-          </Button>
-        </div>
-      </div>
+      <LocalTaskCenterEmptyState
+        onCreate={openTaskComposer}
+        onOpenWorkspaceBoard={openWorkspaceBoard}
+        projectFilter={projectFilter}
+        projectOptions={projectOptions}
+        onProjectChange={setProjectFilter}
+      />
     )
   }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
       <LocalTaskCenterHeader
@@ -212,6 +208,9 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
           useAppStore.getState().activeWorktreeId ??
           null
         }
+        projectFilter={projectFilter}
+        projectOptions={projectOptions}
+        onProjectChange={setProjectFilter}
       />
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-5 border-b border-border px-6 pt-3">
@@ -281,10 +280,6 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
               <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
                 <Sparkles className="size-3.5" />
                 我的事项
-              </Button>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                <ChevronDown className="size-3.5" />
-                全部项目
               </Button>
               <select
                 value={labelFilter}
@@ -380,20 +375,13 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
           </>
         )}
       </div>
-      <LocalTaskDetailAside
+      <LocalTaskCenterDetail
         item={selected}
         open={detailOpen}
         onOpenChange={setDetailOpen}
         onCompleteSubtask={completeSubtask}
-        onEditTitle={taskActions.editTitle}
-        onEditLabels={taskActions.editLabels}
+        taskActions={taskActions}
         labelSuggestions={availableLabels}
-        onEditStep={taskActions.editStep}
-        onOpenWorkspace={taskActions.openWorkspace}
-        onSessionStarted={taskActions.sessionStarted}
-        onAccept={taskActions.acceptSelected}
-        onArchive={taskActions.archiveSelected}
-        onPromote={taskActions.promoteSelected}
         onTaskChanged={applyTaskUpdate}
       />
     </div>
