@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowUpRight, Bot, ChevronDown, GitBranch, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ export function DetailPanel({
   item,
   onCompleteSubtask,
   onEditTitle,
+  onEditDescription,
   onEditLabels,
   labelSuggestions,
   onEditStep,
@@ -34,6 +36,7 @@ export function DetailPanel({
   item: WorkItem
   onCompleteSubtask: (subtaskId: string) => void
   onEditTitle: (title: string) => void
+  onEditDescription: (description: string) => void
   onEditLabels: (labels: string[]) => void
   labelSuggestions: string[]
   onEditStep: (subtaskId: string, stepId: string) => void
@@ -43,13 +46,19 @@ export function DetailPanel({
   onTaskChanged: (task: LocalTask) => void
 }): React.JSX.Element {
   const [titleDialogOpen, setTitleDialogOpen] = useState(false)
+  const [descriptionDialogOpen, setDescriptionDialogOpen] = useState(false)
   const [labelsDialogOpen, setLabelsDialogOpen] = useState(false)
   const [expandedSessionHistoryId, setExpandedSessionHistoryId] = useState<string | null>(null)
   const [titleDraft, setTitleDraft] = useState(item.title)
+  const [descriptionDraft, setDescriptionDraft] = useState(item.description)
   const [labelsDraft, setLabelsDraft] = useState((item.labels ?? []).join(', '))
   const openTitleDialog = (): void => {
     setTitleDraft(item.title)
     setTitleDialogOpen(true)
+  }
+  const openDescriptionDialog = (): void => {
+    setDescriptionDraft(item.description)
+    setDescriptionDialogOpen(true)
   }
   const openLabelsDialog = (): void => {
     setLabelsDraft((item.labels ?? []).join(', '))
@@ -105,7 +114,18 @@ export function DetailPanel({
             标题由 AI 在首次执行后生成，后续由你编辑
           </p>
         ) : null}
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
+        <div className="mt-2 flex items-start gap-2">
+          <p className="flex-1 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="-mr-2 -mt-1 text-muted-foreground"
+            onClick={openDescriptionDialog}
+            aria-label="编辑任务描述"
+          >
+            <Pencil className="size-3.5" />
+          </Button>
+        </div>
         <div className="mt-3 flex items-center gap-1.5">
           {(item.labels ?? []).map((label) => (
             <span
@@ -184,6 +204,13 @@ export function DetailPanel({
                     >
                       <Bot className="size-3.5 text-muted-foreground" />
                       <span className="min-w-0 flex-1 truncate text-[11px]">{session.title}</span>
+                      <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">
+                        {session.associationSource === 'automation'
+                          ? '自动化'
+                          : session.associationSource === 'clarification'
+                            ? '任务澄清'
+                            : '手动'}
+                      </span>
                       <span
                         className={cn(
                           'size-1.5 rounded-full',
@@ -284,6 +311,34 @@ export function DetailPanel({
                 setTitleDialogOpen(false)
               }}
               disabled={!titleDraft.trim()}
+            >
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={descriptionDialogOpen} onOpenChange={setDescriptionDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>编辑任务描述</DialogTitle>
+            <DialogDescription>修改后会写入当前任务的 task.json。</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={descriptionDraft}
+            onChange={(event) => setDescriptionDraft(event.target.value)}
+            aria-label="任务描述"
+            rows={6}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDescriptionDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={() => {
+                onEditDescription(descriptionDraft.trim())
+                setDescriptionDialogOpen(false)
+              }}
             >
               保存
             </Button>

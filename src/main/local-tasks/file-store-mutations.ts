@@ -36,15 +36,13 @@ export function updateTask(
     throw new Error('This status is controlled by the review lifecycle')
   }
   const nextStatus = updates.status ?? current.status
-  const organizingInboxTask =
-    current.intakeState === 'inbox' &&
-    updates.intakeState === 'ready' &&
-    current.status === 'Needs review'
+  const organizingInboxTask = current.intakeState === 'inbox' && updates.intakeState === 'ready'
+  const reopenAfterClarification = organizingInboxTask && current.status === 'Needs review'
   return store.writeTask({
     ...current,
     title: updates.title?.trim() || current.title,
     description: updates.description?.trim() || current.description,
-    status: organizingInboxTask ? 'Open' : nextStatus,
+    status: reopenAfterClarification ? 'Open' : nextStatus,
     archivedAt:
       updates.archived === true ? time() : updates.archived === false ? null : current.archivedAt,
     titleSource: updates.title?.trim() ? 'user' : current.titleSource,
@@ -52,8 +50,8 @@ export function updateTask(
     labels: updates.labels === undefined ? current.labels : normalizeLabels(updates.labels),
     intakeState: updates.intakeState ?? current.intakeState,
     clarificationRequested: organizingInboxTask ? false : current.clarificationRequested,
-    reviewKind: organizingInboxTask ? null : current.reviewKind,
-    reviewQuestion: organizingInboxTask ? null : current.reviewQuestion,
+    reviewKind: reopenAfterClarification ? null : current.reviewKind,
+    reviewQuestion: reopenAfterClarification ? null : current.reviewQuestion,
     agentId: updates.agentId === undefined ? current.agentId : updates.agentId,
     updatedAt: time()
   })
@@ -221,11 +219,16 @@ export function reportCompleted(
   if (!task.sessions.some((session) => session.id === args.sessionId)) {
     throw new Error('Session is not associated with this local task')
   }
-  const unfinished = task.subtasks.some(
-    (subtask) =>
+  const unfinished = task.subtasks.some((subtask) => {
+    // A session must not block completion on work explicitly owned by another session.
+    if (subtask.sessionId !== null && subtask.sessionId !== args.sessionId) {
+      return false
+    }
+    return (
       subtask.status !== 'done' ||
       subtask.steps.some((step) => step.status !== 'done' && step.status !== 'canceled')
-  )
+    )
+  })
   const updatedAt = time()
   const sessions = task.sessions.map((session) =>
     session.id === args.sessionId

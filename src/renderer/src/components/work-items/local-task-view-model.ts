@@ -49,6 +49,8 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
       currentPrompt: session.currentPrompt,
       turns: session.turns,
       latestOutput: session.latestOutput,
+      associationSource: session.associationSource,
+      workspaceId: session.workspaceId,
       status: session.status,
       time: new Date(session.updatedAt).toLocaleString(),
       updatedAt: session.updatedAt

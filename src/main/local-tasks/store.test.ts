@@ -357,6 +357,38 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('does not block a session on subtasks assigned to another session', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '会话归属' })
+    const first = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'session-one'
+    })
+    const second = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'session-two'
+    })
+    store.createSubtask({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: second.id,
+      title: '另一个会话负责的未完成工作'
+    })
+
+    const reported = store.reportCompleted({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: first.id,
+      latestOutput: '当前会话负责的内容已完成'
+    })
+
+    expect(reported.sessions.find((session) => session.id === first.id)?.status).toBe('done')
+    store.close()
+  })
+
   it('claims unassigned subtasks and requires confirmation to transfer from a working session', () => {
     const root = projectPath()
     const store = new LocalTaskStore()

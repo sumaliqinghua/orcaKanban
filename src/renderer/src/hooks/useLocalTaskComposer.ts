@@ -85,7 +85,11 @@ export function useLocalTaskComposer({
 
   const startClarification = useCallback(
     async (task: Awaited<ReturnType<typeof window.api.localTasks.create>>): Promise<void> => {
-      if (!task.clarificationRequested || task.clarificationSessionId) {
+      if (
+        !task.clarificationRequested ||
+        task.clarificationSessionId ||
+        task.sessions.some((session) => session.associationSource === 'clarification')
+      ) {
         return
       }
       const state = useAppStore.getState()
