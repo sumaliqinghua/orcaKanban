@@ -30,6 +30,7 @@ export function startBatch(
   try {
     for (const ref of refs) {
       let task = store.requireTask(ref.taskId, ref.projectPath)
+      const taskKey = `${resolve(ref.projectPath)}::${task.id}`
       const queuedRun =
         task.executionState === 'queued' && task.executionRunId
           ? task.runs.find((run) => run.id === task.executionRunId && run.status === 'queued')
@@ -40,7 +41,27 @@ export function startBatch(
         task.status === 'Open' &&
         (task.intakeState ?? 'ready') === 'ready' &&
         Boolean(queuedRun)
-      if (seen.has(task.id) || (!isOpenLocalTaskBatchCandidate(task) && !recoverable)) {
+      if (seen.has(taskKey)) {
+        continue
+      }
+      const existingAutomationRun = options.automationRunId
+        ? task.runs.find(
+            (run) =>
+              run.source === 'automation' &&
+              run.automationRunId === options.automationRunId &&
+              run.automationId === (options.automationId ?? null)
+          )
+        : undefined
+      if (existingAutomationRun) {
+        seen.add(taskKey)
+        candidates.push({
+          task,
+          runId: existingAutomationRun.id,
+          workspaceKey: workspaceKey(task)
+        })
+        continue
+      }
+      if (!isOpenLocalTaskBatchCandidate(task) && !recoverable) {
         continue
       }
       if (
@@ -49,7 +70,7 @@ export function startBatch(
       ) {
         continue
       }
-      seen.add(task.id)
+      seen.add(taskKey)
       originals.push(task)
       if (queuedRun) {
         task = store.writeTask({
@@ -83,6 +104,8 @@ export function startBatch(
         createdAt,
         startedAt: null,
         finishedAt: null,
+        source: options.automationRunId ? ('automation' as const) : ('manual' as const),
+        launchRequestId: randomUUID(),
         ...(options.automationId ? { automationId: options.automationId } : {}),
         ...(options.automationRunId ? { automationRunId: options.automationRunId } : {})
       }

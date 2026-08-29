@@ -212,8 +212,31 @@ describe('LocalTaskStore file-first persistence', () => {
 
     expect(batch.candidates[0]?.task.runs[0]).toMatchObject({
       automationId: 'automation-1',
+      automationRunId: 'run-1',
+      source: 'automation',
+      launchRequestId: expect.any(String)
+    })
+    store.close()
+  })
+
+  it('is idempotent for the same automation run and task', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '幂等任务' })
+    const first = store.startBatch([{ taskId: task.id, projectPath: root }], {
+      recoverQueued: false,
+      automationId: 'automation-1',
       automationRunId: 'run-1'
     })
+    const second = store.startBatch([{ taskId: task.id, projectPath: root }], {
+      recoverQueued: false,
+      automationId: 'automation-1',
+      automationRunId: 'run-1'
+    })
+
+    expect(second.candidates).toHaveLength(1)
+    expect(second.candidates[0]?.runId).toBe(first.candidates[0]?.runId)
+    expect(store.get(task.id, root)?.runs).toHaveLength(1)
     store.close()
   })
 

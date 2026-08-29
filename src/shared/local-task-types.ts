@@ -38,7 +38,7 @@ export type LocalTaskSession = {
   latestOutput: string | null
   createdAt: number
   updatedAt: number
-  associationSource: 'task-center' | 'explicit'
+  associationSource: 'task-center' | 'explicit' | 'automation' | 'clarification'
 }
 
 export type LocalTaskSessionTurn = {
@@ -61,6 +61,8 @@ export type LocalTaskRun = {
   createdAt: number
   startedAt: number | null
   finishedAt: number | null
+  source: 'manual' | 'automation'
+  launchRequestId: string | null
   automationId?: string | null
   automationRunId?: string | null
 }
@@ -161,7 +163,7 @@ export type CreateLocalTaskSessionArgs = {
   currentPrompt?: string
   /** Backward-compatible alias used by older task-center callers. */
   initialPrompt?: string
-  associationSource?: 'task-center' | 'explicit'
+  associationSource?: 'task-center' | 'explicit' | 'automation' | 'clarification'
 }
 
 export type UpdateLocalTaskSessionOutputArgs = {

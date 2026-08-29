@@ -61,7 +61,7 @@ const sessionSchema = z.strictObject({
   latestOutput: text.nullable(),
   createdAt: timestamp,
   updatedAt: timestamp,
-  associationSource: z.enum(['task-center', 'explicit'])
+  associationSource: z.enum(['task-center', 'explicit', 'automation', 'clarification'])
 })
 
 const runSchema = z.strictObject({
@@ -75,7 +75,11 @@ const runSchema = z.strictObject({
   error: z.string().nullable(),
   createdAt: timestamp,
   startedAt: nullableTimestamp,
-  finishedAt: nullableTimestamp
+  finishedAt: nullableTimestamp,
+  source: z.enum(['manual', 'automation']).default('manual'),
+  launchRequestId: text.nullable().default(null),
+  automationId: text.nullable().optional(),
+  automationRunId: text.nullable().optional()
 })
 
 const outputSchema = z.strictObject({
