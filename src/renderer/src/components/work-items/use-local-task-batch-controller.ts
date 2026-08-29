@@ -30,6 +30,7 @@ export function useLocalTaskBatchController({
     setBatchRunning(true)
     try {
       const batch = await window.api.localTasks.startBatch({
+        recoverQueued: true,
         tasks: batchCandidates.flatMap((item) =>
           item.projectPath ? [{ taskId: item.id, projectPath: item.projectPath }] : []
         )
