@@ -237,7 +237,9 @@ export class LocalTaskStore {
     }
   ): LocalTaskBatch {
     return batchMutations.startBatch(this.access(), refs, {
-      recoverQueued: options?.recoverQueued ?? true
+      recoverQueued: options?.recoverQueued ?? true,
+      automationId: options?.automationId,
+      automationRunId: options?.automationRunId
     })
   }
   updateRun(args: Parameters<typeof batchMutations.updateRun>[1]): LocalTask {

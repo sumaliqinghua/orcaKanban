@@ -20,6 +20,7 @@ import { AutomationSchedulePicker } from './AutomationSchedulePicker'
 import { AutomationSessionField } from './AutomationSessionField'
 import { AutomationSetupDecisionField } from './AutomationSetupDecisionField'
 import { AutomationWorkspaceField } from './AutomationWorkspaceField'
+import { AutomationLocalTaskScopeField } from './AutomationLocalTaskScopeField'
 import { AutomationDestinationField } from './AutomationDestinationField'
 import type { AutomationCreateDestinationControl } from './use-automation-create-destination'
 import type { AutomationDraft } from './AutomationEditorDialog'
@@ -105,6 +106,14 @@ export function AutomationEditorSettingsSidebar({
             </ToggleGroupItem>
           </ToggleGroup>
         </Field>
+        {draft.executionMode === 'open_local_tasks' ? (
+          <AutomationLocalTaskScopeField
+            draft={draft}
+            segmentedGroupClassName={segmentedGroupClassName}
+            segmentedItemClassName={segmentedItemClassName}
+            onDraftChange={onDraftChange}
+          />
+        ) : null}
         {/* Why: Hermes keeps project/workspace/schedule only. Collapse the
             Orca-only knobs so switching the create target does not jump. */}
         <div

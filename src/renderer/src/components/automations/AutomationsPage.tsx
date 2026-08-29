@@ -364,6 +364,7 @@ export default function AutomationsPage(): React.JSX.Element {
     name: '',
     prompt: '',
     executionMode: 'prompt',
+    localTaskScope: 'workspace',
     agentId: defaultAgent,
     projectId: '',
     workspaceMode: 'existing',
@@ -1458,6 +1459,7 @@ export default function AutomationsPage(): React.JSX.Element {
     const baseDraft: AutomationDraft = {
       name: '',
       prompt: '',
+      localTaskScope: 'workspace',
       agentId: defaultAgent,
       projectId: target.projectId,
       workspaceMode: 'existing',
@@ -1652,7 +1654,9 @@ export default function AutomationsPage(): React.JSX.Element {
       editingAutomationId === null && (createTarget === 'hermes' || editingExternalTarget !== null)
     if (
       !draft.projectId ||
-      ((draft.workspaceMode === 'existing' || isHermesSave) && !draft.workspaceId) ||
+      ((draft.workspaceMode === 'existing' || isHermesSave) &&
+        (draft.localTaskScope ?? 'workspace') !== 'all_local_projects' &&
+        !draft.workspaceId) ||
       !draft.prompt.trim()
     ) {
       toast.error(
@@ -1700,6 +1704,7 @@ export default function AutomationsPage(): React.JSX.Element {
     setIsSaving(true)
     try {
       const selectedWorkspaceExists =
+        (draft.localTaskScope ?? 'workspace') === 'all_local_projects' ||
         draft.workspaceMode !== 'existing' ||
         dialogWorktrees.some((worktree) => worktree.id === draft.workspaceId)
       if (!selectedWorkspaceExists) {
@@ -1945,6 +1950,7 @@ export default function AutomationsPage(): React.JSX.Element {
         name: draft.name,
         prompt: draft.prompt,
         executionMode: draft.executionMode ?? 'prompt',
+        localTaskScope: draft.localTaskScope,
         precheck,
         agentId: draft.agentId,
         runContext,
@@ -1966,6 +1972,7 @@ export default function AutomationsPage(): React.JSX.Element {
         name: draft.name,
         prompt: draft.prompt,
         executionMode: draft.executionMode ?? 'prompt',
+        localTaskScope: draft.localTaskScope,
         precheck,
         agentId: draft.agentId,
         runContext,

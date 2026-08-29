@@ -36,6 +36,7 @@ import type { AgentStateHistoryEntry } from '../../../shared/agent-status-types'
 import { resolveFolderWorkspaceHost } from '../../../shared/folder-workspace-execution-host'
 import { runLocalTaskBatch } from '@/components/work-items/local-task-batch-runner'
 import { isOpenLocalTaskBatchCandidate } from '../../../shared/local-task-batch-selection'
+import { selectAllLocalProjectOpenTasks } from '../../../shared/local-task-automation-scope'
 
 const activeReuseDispatchTabIds = new Set<string>()
 
@@ -363,16 +364,48 @@ export function useAutomationDispatchEvents(): void {
               })
               return
             }
-            const tasks = await window.api.localTasks.list({
-              projectId: runRepoId,
-              projectPath: repo.path
-            })
-            const candidates = tasks.filter((task) =>
-              isOpenLocalTaskBatchCandidate(task, {
-                projectId: runRepoId,
-                workspaceId: worktree.id
-              })
+            const allLocalProjects = automation.localTaskScope === 'all_local_projects'
+            const localRepos = allLocalProjects
+              ? state.repos.filter((candidate) => getRepoExecutionHostId(candidate) === 'local')
+              : [repo]
+            const localProjectIds = new Set(localRepos.map((candidate) => candidate.id))
+            const localWorktrees = state
+              .allWorktrees()
+              .filter(
+                (candidate) =>
+                  localProjectIds.has(candidate.repoId) &&
+                  !candidate.isArchived &&
+                  (candidate.hostId === undefined || candidate.hostId === 'local')
+              )
+            const workspaceIds = new Set(localWorktrees.map((candidate) => candidate.id))
+            const roots = localRepos.flatMap((candidate) => [
+              { projectId: candidate.id, projectPath: candidate.path },
+              ...localWorktrees
+                .filter((worktreeCandidate) => worktreeCandidate.repoId === candidate.id)
+                .map((worktreeCandidate) => ({
+                  projectId: candidate.id,
+                  projectPath: worktreeCandidate.path
+                }))
+            ])
+            const scanResults = await Promise.allSettled(
+              roots.map((root) =>
+                window.api.localTasks.list({
+                  projectId: root.projectId,
+                  projectPath: root.projectPath
+                })
+              )
             )
+            const scannedTasks = scanResults.flatMap((result) =>
+              result.status === 'fulfilled' ? result.value : []
+            )
+            const candidates = allLocalProjects
+              ? selectAllLocalProjectOpenTasks(scannedTasks, localProjectIds, workspaceIds)
+              : scannedTasks.filter((task) =>
+                  isOpenLocalTaskBatchCandidate(task, {
+                    projectId: runRepoId,
+                    workspaceId: worktree.id
+                  })
+                )
             if (candidates.length === 0) {
               await markDispatchResult({
                 runId: run.id,
@@ -426,7 +459,9 @@ export function useAutomationDispatchEvents(): void {
             try {
               await runLocalTaskBatch(batch.candidates, automation.agentId)
             } finally {
-              restoreDispatchFocus(worktree.id)
+              if (!allLocalProjects) {
+                restoreDispatchFocus(worktree.id)
+              }
             }
             const refreshed = await Promise.all(
               batch.candidates.map(async (candidate) => ({

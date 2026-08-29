@@ -4,6 +4,7 @@ import type { TaskSourceContext, WorkspaceRunContext } from './task-source-conte
 
 export type AutomationWorkspaceMode = 'existing' | 'new_per_run'
 export type AutomationExecutionMode = 'prompt' | 'open_local_tasks'
+export type AutomationLocalTaskScope = 'workspace' | 'all_local_projects'
 export type AutomationExecutionTargetType = 'local' | 'ssh'
 export type AutomationSchedulerOwner = 'local_host_service' | 'ssh_bridge' | 'remote_host_service'
 export type AutomationMissedRunPolicy = 'run_once_within_grace'
@@ -96,6 +97,8 @@ export type Automation = {
   name: string
   prompt: string
   executionMode?: AutomationExecutionMode
+  /** Scope used by Open local task automations. Missing means the selected workspace. */
+  localTaskScope?: AutomationLocalTaskScope
   precheck: AutomationPrecheck | null
   agentId: TuiAgent
   /** Why: runContext carries the logical project + host setup identity for
@@ -183,6 +186,7 @@ export type AutomationCreateInput = {
   name: string
   prompt: string
   executionMode?: AutomationExecutionMode
+  localTaskScope?: AutomationLocalTaskScope
   precheck?: AutomationPrecheck | null
   agentId: TuiAgent
   runContext?: WorkspaceRunContext | null
@@ -203,27 +207,7 @@ export type AutomationCreateInput = {
 }
 
 export type AutomationUpdateInput = Partial<
-  Pick<
-    Automation,
-    | 'name'
-    | 'prompt'
-    | 'executionMode'
-    | 'precheck'
-    | 'agentId'
-    | 'runContext'
-    | 'sourceContext'
-    | 'projectId'
-    | 'workspaceMode'
-    | 'workspaceId'
-    | 'baseBranch'
-    | 'setupDecision'
-    | 'reuseSession'
-    | 'timezone'
-    | 'rrule'
-    | 'dtstart'
-    | 'enabled'
-    | 'missedRunGraceMinutes'
-  >
+  Pick<Automation, Exclude<keyof AutomationCreateInput, 'creationKey'>>
 >
 
 export type AutomationDispatchRequest = {

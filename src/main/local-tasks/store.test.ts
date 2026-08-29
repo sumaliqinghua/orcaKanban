@@ -195,6 +195,28 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('keeps automation provenance on each task run', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: root,
+      description: '自动化来源',
+      workspaceId: 'wt-a'
+    })
+
+    const batch = store.startBatch([{ taskId: task.id, projectPath: root }], {
+      automationId: 'automation-1',
+      automationRunId: 'run-1'
+    })
+
+    expect(batch.candidates[0]?.task.runs[0]).toMatchObject({
+      automationId: 'automation-1',
+      automationRunId: 'run-1'
+    })
+    store.close()
+  })
+
   it('requeues tasks left queued by an interrupted previous batch', () => {
     const root = projectPath()
     const store = new LocalTaskStore()

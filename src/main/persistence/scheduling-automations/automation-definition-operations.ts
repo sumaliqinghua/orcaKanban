@@ -42,6 +42,15 @@ export type AutomationDefinitionOperations = {
 const LOCAL_TASK_AUTOMATION_TARGET_ERROR =
   'Open 本地任务自动化只支持 local 执行目标；SSH 项目暂不支持任务批次。'
 
+function normalizeLocalTaskScope(
+  executionMode: Automation['executionMode'],
+  scope: Automation['localTaskScope']
+): NonNullable<Automation['localTaskScope']> {
+  return executionMode === 'open_local_tasks' && scope === 'all_local_projects'
+    ? 'all_local_projects'
+    : 'workspace'
+}
+
 function assertLocalTaskAutomationTarget(
   executionMode: Automation['executionMode'],
   executionTargetType: Automation['executionTargetType']
@@ -72,6 +81,10 @@ export function createAutomation(
   }
   const repo = operations.state.repos.find((entry) => entry.id === input.projectId)
   const now = Date.now()
+  const localTaskScope = normalizeLocalTaskScope(
+    input.executionMode ?? 'prompt',
+    input.localTaskScope
+  )
   const workspaceId = input.workspaceMode === 'existing' ? (input.workspaceId ?? null) : null
   const workspaceSshPin = automationWorkspaceSshPin(operations.state, workspaceId)
   const executionTarget = deriveAutomationExecutionTargetForCreate({
@@ -100,6 +113,7 @@ export function createAutomation(
     name: input.name.trim() || 'Untitled automation',
     prompt: input.prompt,
     executionMode: input.executionMode ?? 'prompt',
+    localTaskScope,
     precheck: normalizeAutomationPrecheck(input.precheck),
     agentId: input.agentId,
     // Why own contexts win: a wire context speaks the client's perspective —
@@ -175,9 +189,16 @@ export function updateAutomation(
   const dtstart = updates.dtstart ?? current.dtstart
   const scheduleChanged = updates.rrule !== undefined || updates.dtstart !== undefined
   const workspaceMode = updates.workspaceMode ?? current.workspaceMode
+  const executionMode = updates.executionMode ?? current.executionMode ?? 'prompt'
+  const localTaskScope = normalizeLocalTaskScope(
+    executionMode,
+    updates.localTaskScope ?? current.localTaskScope
+  )
   const merged: Automation = {
     ...current,
     ...definedUpdates,
+    executionMode,
+    localTaskScope,
     name: updates.name !== undefined ? updates.name.trim() || 'Untitled automation' : current.name,
     precheck: Object.hasOwn(definedUpdates, 'precheck')
       ? normalizeAutomationPrecheck(definedUpdates.precheck)

@@ -5,6 +5,7 @@ import { filterEnabledTuiAgents } from '../../../../shared/tui-agent-selection'
 import type {
   AutomationSchedulePreset,
   AutomationExecutionMode,
+  AutomationLocalTaskScope,
   AutomationWorkspaceMode
 } from '../../../../shared/automations-types'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
@@ -39,6 +40,7 @@ export type AutomationDraft = {
   name: string
   prompt: string
   executionMode?: AutomationExecutionMode
+  localTaskScope?: AutomationLocalTaskScope
   agentId: TuiAgent
   projectId: string
   workspaceMode: AutomationWorkspaceMode
