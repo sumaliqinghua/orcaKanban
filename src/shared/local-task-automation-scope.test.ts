@@ -35,7 +35,7 @@ const task = (overrides: Partial<LocalTask> = {}): LocalTask =>
   }) as LocalTask
 
 describe('all-local-project automation scope', () => {
-  it('keeps only local ready Open tasks with explicit workspaces and deduplicates IDs', () => {
+  it('keeps local ready Open tasks, including project HEAD tasks', () => {
     expect(
       selectAllLocalProjectOpenTasks(
         [
@@ -50,6 +50,6 @@ describe('all-local-project automation scope', () => {
         new Set(['repo-local']),
         new Set(['repo-local::/repos/local'])
       )
-    ).toEqual([task({ updatedAt: 2 })])
+    ).toEqual([task({ updatedAt: 2 }), task({ id: 'lt-no-workspace', workspaceId: 'local' })])
   })
 })

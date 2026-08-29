@@ -11,8 +11,7 @@ export function selectAllLocalProjectOpenTasks(
     if (
       !localProjectIds.has(task.projectId) ||
       !task.workspaceId ||
-      task.workspaceId === 'local' ||
-      !workspaceIds.has(task.workspaceId) ||
+      (task.workspaceId !== 'local' && !workspaceIds.has(task.workspaceId)) ||
       !isOpenLocalTaskBatchCandidate(task)
     ) {
       continue
