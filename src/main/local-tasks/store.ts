@@ -109,6 +109,8 @@ export class LocalTaskStore {
       executionRunId: null,
       reviewKind: null,
       reviewQuestion: null,
+      clarificationRequested: args.clarificationRequested === true,
+      clarificationSessionId: null,
       runs: [],
       subtasks: [],
       sessions: [],
@@ -133,29 +135,7 @@ export class LocalTaskStore {
   }
 
   update(id: string, updates: UpdateLocalTaskArgs): LocalTask {
-    const current = this.require(id)
-    if (updates.status === 'Done' || updates.status === 'Needs review') {
-      throw new Error('This status is controlled by the review lifecycle')
-    }
-    const nextStatus = updates.status ?? current.status
-    return this.writeTask({
-      ...current,
-      title: updates.title?.trim() || current.title,
-      description: updates.description?.trim() || current.description,
-      status: nextStatus,
-      archivedAt:
-        updates.archived === true
-          ? timestamp()
-          : updates.archived === false
-            ? null
-            : current.archivedAt,
-      titleSource: updates.title?.trim() ? 'user' : current.titleSource,
-      titleSuggestion: updates.title?.trim() ? null : current.titleSuggestion,
-      labels: updates.labels === undefined ? current.labels : normalizeLabels(updates.labels),
-      intakeState: updates.intakeState ?? current.intakeState,
-      agentId: updates.agentId === undefined ? current.agentId : updates.agentId,
-      updatedAt: timestamp()
-    })
+    return mutations.updateTask(this.access(), id, updates)
   }
 
   updateDescription(id: string, description: string): LocalTask {
@@ -237,7 +217,7 @@ export class LocalTaskStore {
     }
   ): LocalTaskBatch {
     return batchMutations.startBatch(this.access(), refs, {
-      recoverQueued: options?.recoverQueued ?? true,
+      recoverQueued: options?.recoverQueued ?? false,
       automationId: options?.automationId,
       automationRunId: options?.automationRunId
     })

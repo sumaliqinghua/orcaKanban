@@ -111,6 +111,8 @@ const taskSchema = z.strictObject({
   executionRunId: text.nullable(),
   reviewKind: z.enum(['delivery', 'needs_input', 'execution_failed']).nullable(),
   reviewQuestion: text.nullable(),
+  clarificationRequested: z.boolean().default(false),
+  clarificationSessionId: text.nullable().default(null),
   runs: z.array(runSchema),
   subtasks: z.array(subtaskSchema),
   sessions: z.array(sessionSchema),

@@ -463,43 +463,14 @@ export function useAutomationDispatchEvents(): void {
                 restoreDispatchFocus(worktree.id)
               }
             }
-            const refreshed = await Promise.all(
-              batch.candidates.map(async (candidate) => ({
-                candidate,
-                task: await window.api.localTasks.get(candidate.task.id, candidate.task.projectPath)
-              }))
-            )
-            const summary = refreshed.reduce(
-              (counts, { candidate, task }) => {
-                const taskRun = task?.runs.find((entry) => entry.id === candidate.runId)
-                if (taskRun?.status === 'needs_review') {
-                  counts.needsReview += 1
-                } else if (taskRun?.status === 'failed') {
-                  counts.failed += 1
-                } else {
-                  counts.unfinished += 1
-                }
-                return counts
-              },
-              { completed: 0, needsReview: 0, failed: 0, unfinished: 0 }
-            )
-            const completed =
-              batch.candidates.length - summary.needsReview - summary.failed - summary.unfinished
             await markDispatchResult({
               runId: run.id,
-              status: summary.unfinished > 0 ? 'dispatch_failed' : 'completed',
+              status: 'dispatched',
               workspaceId: worktree.id,
               workspaceDisplayName: worktree.displayName,
-              localTaskCompletedCount: completed,
-              localTaskNeedsReviewCount: summary.needsReview,
-              localTaskFailedCount: summary.failed + summary.unfinished,
-              outputSnapshot: {
-                format: 'plain_text',
-                content: `Open 本地任务批次${summary.unfinished > 0 ? '未完整结束' : '完成'}：${completed} 完成，${summary.needsReview} 待 review，${summary.failed + summary.unfinished} 失败。`,
-                capturedAt: Date.now(),
-                truncated: false
-              },
-              error: summary.unfinished > 0 ? '部分本地任务未进入明确终态。' : null
+              localTaskBatchId: batch.id,
+              localTaskCount: batch.candidates.length,
+              error: null
             })
             return
           }

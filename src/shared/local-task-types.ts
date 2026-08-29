@@ -90,6 +90,8 @@ export type LocalTask = {
   executionRunId: string | null
   reviewKind: LocalTaskReviewKind | null
   reviewQuestion: string | null
+  clarificationRequested: boolean
+  clarificationSessionId: string | null
   runs: LocalTaskRun[]
   subtasks: LocalTaskSubtask[]
   sessions: LocalTaskSession[]
@@ -107,6 +109,7 @@ export type CreateLocalTaskArgs = {
   agentId?: TuiAgent | null
   workspaceId?: string
   workspaceLabel?: string
+  clarificationRequested?: boolean
 }
 
 export type UpdateLocalTaskArgs = {

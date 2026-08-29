@@ -160,11 +160,14 @@ describe('LocalTaskStore file-first persistence', () => {
       workspaceId: 'wt-b'
     })
 
-    const batch = store.startBatch([
-      { taskId: first.id, projectPath: root },
-      { taskId: second.id, projectPath: root },
-      { taskId: inbox.id, projectPath: root }
-    ])
+    const batch = store.startBatch(
+      [
+        { taskId: first.id, projectPath: root },
+        { taskId: second.id, projectPath: root },
+        { taskId: inbox.id, projectPath: root }
+      ],
+      { recoverQueued: true }
+    )
 
     expect(batch.candidates).toHaveLength(2)
     expect(new Set(batch.candidates.map((candidate) => candidate.workspaceKey)).size).toBe(1)
@@ -244,9 +247,13 @@ describe('LocalTaskStore file-first persistence', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
     const task = store.create({ projectId: 'orca', projectPath: root, description: '可重试任务' })
-    const first = store.startBatch([{ taskId: task.id, projectPath: root }])
+    const first = store.startBatch([{ taskId: task.id, projectPath: root }], {
+      recoverQueued: true
+    })
     expect(first.candidates).toHaveLength(1)
-    const second = store.startBatch([{ taskId: task.id, projectPath: root }])
+    const second = store.startBatch([{ taskId: task.id, projectPath: root }], {
+      recoverQueued: true
+    })
     const reloaded = store.get(task.id, root)!
 
     expect(second.candidates).toHaveLength(1)
@@ -260,7 +267,9 @@ describe('LocalTaskStore file-first persistence', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
     const task = store.create({ projectId: 'orca', projectPath: root, description: '自动化互斥' })
-    const first = store.startBatch([{ taskId: task.id, projectPath: root }])
+    const first = store.startBatch([{ taskId: task.id, projectPath: root }], {
+      recoverQueued: true
+    })
 
     const second = store.startBatch([{ taskId: task.id, projectPath: root }], {
       recoverQueued: false
@@ -269,6 +278,34 @@ describe('LocalTaskStore file-first persistence', () => {
     expect(first.candidates).toHaveLength(1)
     expect(second.candidates).toHaveLength(0)
     expect(store.get(task.id, root)?.executionRunId).toBe(first.candidates[0]?.runId)
+    store.close()
+  })
+
+  it('does not reclaim running tasks when recovery is disabled', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '运行中任务' })
+    const first = store.startBatch([{ taskId: task.id, projectPath: root }], {
+      recoverQueued: true
+    })
+    const runId = first.candidates[0]?.runId
+    if (!runId) {
+      throw new Error('expected a queued run')
+    }
+    store.updateRun({
+      taskId: task.id,
+      projectPath: root,
+      runId,
+      status: 'running',
+      sessionId: 'tab-running'
+    })
+
+    const second = store.startBatch([{ taskId: task.id, projectPath: root }], {
+      recoverQueued: false
+    })
+
+    expect(second.candidates).toHaveLength(0)
+    expect(store.get(task.id, root)?.executionState).toBe('running')
     store.close()
   })
 

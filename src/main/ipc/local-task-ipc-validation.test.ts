@@ -112,9 +112,10 @@ describe('local task IPC validation', () => {
   it('validates batch references and run transitions', () => {
     expect(
       startLocalTaskBatchArgsSchema.parse({
-        tasks: [{ taskId: 'lt_1', projectPath: '/tmp/project' }]
+        tasks: [{ taskId: 'lt_1', projectPath: '/tmp/project' }],
+        recoverQueued: true
       })
-    ).toEqual({ tasks: [{ taskId: 'lt_1', projectPath: '/tmp/project' }] })
+    ).toEqual({ tasks: [{ taskId: 'lt_1', projectPath: '/tmp/project' }], recoverQueued: true })
     expect(
       updateLocalTaskRunArgsSchema.parse({
         taskId: 'lt_1',

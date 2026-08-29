@@ -1,14 +1,10 @@
-import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
+import { launchAgentBackgroundSession } from '@/lib/launch-agent-background-session'
 import { useAppStore } from '@/store'
-import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import type {
   LocalTaskBatchCandidate,
   LocalTaskRunStatus
 } from '../../../../shared/local-task-types'
 import type { TuiAgent } from '../../../../shared/tui-agent'
-
-const TASK_SETTLEMENT_POLL_MS = 1_000
-const TASK_SETTLEMENT_TIMEOUT_MS = 12 * 60 * 60 * 1_000
 
 function buildBatchPrompt(candidate: LocalTaskBatchCandidate): string {
   const task = candidate.task
@@ -28,12 +24,12 @@ function taskWorktreeId(task: LocalTaskBatchCandidate['task']): string | null {
   if (task.workspaceId !== 'local') {
     return task.workspaceId
   }
-  return useAppStore.getState().activeWorktreeId ?? null
-}
-
-function taskGroupId(worktreeId: string): string | undefined {
-  const state = useAppStore.getState()
-  return state.activeGroupIdByWorktree[worktreeId] ?? state.groupsByWorktree[worktreeId]?.[0]?.id
+  return (
+    useAppStore
+      .getState()
+      .allWorktrees?.()
+      .find((workspace) => workspace.path === task.projectPath)?.id ?? null
+  )
 }
 
 async function updateRun(
@@ -52,38 +48,18 @@ async function updateRun(
   })
 }
 
-async function waitForRunToSettle(candidate: LocalTaskBatchCandidate): Promise<void> {
-  const deadline = Date.now() + TASK_SETTLEMENT_TIMEOUT_MS
-  while (Date.now() < deadline) {
-    const task = await window.api.localTasks.get(candidate.task.id, candidate.task.projectPath)
-    const run = task?.runs.find((entry) => entry.id === candidate.runId)
-    if (!run || run.status === 'needs_review' || run.status === 'failed') {
-      return
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, TASK_SETTLEMENT_POLL_MS))
-  }
-  await updateRun(candidate, 'failed', undefined, 'Agent 会话在 12 小时内没有结束')
-}
-
 async function runCandidate(candidate: LocalTaskBatchCandidate, agent: TuiAgent): Promise<void> {
   const worktreeId = taskWorktreeId(candidate.task)
   if (!worktreeId) {
     await updateRun(candidate, 'failed', undefined, '任务没有可用的 workspace')
     return
   }
-  if (!activateAndRevealWorktree(worktreeId)) {
-    await updateRun(candidate, 'failed', undefined, '任务 workspace 不存在或无法激活')
-    return
-  }
-  const result = launchAgentInNewTab({
+  const result = await launchAgentBackgroundSession({
     agent,
     worktreeId,
-    ...(taskGroupId(worktreeId) ? { groupId: taskGroupId(worktreeId) } : {}),
     prompt: buildBatchPrompt(candidate),
-    promptDelivery: 'submit-after-ready',
     launchSource: 'task_page',
-    localTaskId: candidate.task.id,
-    localTaskRoot: candidate.task.projectPath
+    title: `自动化执行 · ${candidate.task.title}`
   })
   if (!result?.tabId) {
     await updateRun(candidate, 'failed', null, '无法创建真实 Agent 会话')
@@ -97,17 +73,9 @@ async function runCandidate(candidate: LocalTaskBatchCandidate, agent: TuiAgent)
       workspaceId: candidate.task.workspaceId,
       title: `批量执行 · ${candidate.task.title}`,
       currentPrompt: buildBatchPrompt(candidate),
-      associationSource: 'task-center'
+      associationSource: 'automation'
     })
     await updateRun(candidate, 'running', result.tabId)
-    if (result.promptDeliveryResult) {
-      const delivery = await result.promptDeliveryResult
-      if (!delivery.delivered) {
-        await updateRun(candidate, 'failed', result.tabId, 'Agent 会话已创建，但任务提示未成功提交')
-        return
-      }
-    }
-    await waitForRunToSettle(candidate)
   } catch (error) {
     await updateRun(
       candidate,
@@ -122,17 +90,5 @@ export async function runLocalTaskBatch(
   candidates: readonly LocalTaskBatchCandidate[],
   agent: TuiAgent
 ): Promise<void> {
-  const groups = new Map<string, LocalTaskBatchCandidate[]>()
-  for (const candidate of candidates) {
-    const group = groups.get(candidate.workspaceKey) ?? []
-    group.push(candidate)
-    groups.set(candidate.workspaceKey, group)
-  }
-  await Promise.all(
-    [...groups.values()].map(async (group) => {
-      for (const candidate of group) {
-        await runCandidate(candidate, agent)
-      }
-    })
-  )
+  await Promise.all(candidates.map((candidate) => runCandidate(candidate, agent)))
 }

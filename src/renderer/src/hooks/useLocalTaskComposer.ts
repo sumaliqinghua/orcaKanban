@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
+import { launchAgentBackgroundSession } from '@/lib/launch-agent-background-session'
+import { buildLocalTaskClarificationPrompt } from '@/components/work-items/local-task-clarification-prompt'
+import type { TuiAgent } from '../../../shared/tui-agent'
 import type { ComposerCardProps } from './useComposerState'
 import type { WorktreeCreationCompletion } from '@/lib/worktree-creation-completion'
 import type { Worktree } from '../../../shared/worktree/types'
@@ -13,6 +16,7 @@ type LocalTaskComposerModalData = {
     description: string
     labels?: string[]
     intakeState?: 'inbox' | 'ready'
+    clarificationRequested?: boolean
   }
 }
 
@@ -31,6 +35,7 @@ export function useLocalTaskComposer({
   taskDescription: string
   taskLabels: string
   taskIntakeState: 'inbox' | 'ready'
+  clarificationRequested: boolean
   taskError: string | null
   taskWorkspaces: Worktree[]
   selectedWorkspaceId: string
@@ -38,6 +43,7 @@ export function useLocalTaskComposer({
   setTaskDescription: (value: string) => void
   setTaskLabels: (value: string) => void
   setTaskIntakeState: (value: 'inbox' | 'ready') => void
+  setClarificationRequested: (value: boolean) => void
   setSelectedWorkspaceId: (value: string) => void
   createTaskDirectly: () => void
   createTaskAfterNewWorkspace: (completion: WorktreeCreationCompletion) => void
@@ -51,6 +57,9 @@ export function useLocalTaskComposer({
   const [taskLabels, setTaskLabels] = useState((modalData.localTaskDraft?.labels ?? []).join(', '))
   const [taskIntakeState, setTaskIntakeState] = useState<'inbox' | 'ready'>(
     modalData.localTaskDraft?.intakeState ?? 'ready'
+  )
+  const [clarificationRequested, setClarificationRequested] = useState(
+    modalData.localTaskDraft?.clarificationRequested ?? false
   )
   const normalizedLabels = useMemo(
     () =>
@@ -72,6 +81,45 @@ export function useLocalTaskComposer({
         (workspace) => workspace.repoId === cardProps.repoId && !workspace.isArchived
       ),
     [cardProps.repoId]
+  )
+
+  const startClarification = useCallback(
+    async (task: Awaited<ReturnType<typeof window.api.localTasks.create>>): Promise<void> => {
+      if (!task.clarificationRequested || task.clarificationSessionId) {
+        return
+      }
+      const state = useAppStore.getState()
+      const worktree =
+        state.getKnownWorktreeById(task.workspaceId) ??
+        state.allWorktrees?.().find((candidate) => candidate.path === task.projectPath)
+      if (!worktree) {
+        return
+      }
+      const configuredAgent = state.settings?.defaultTuiAgent
+      const agent: TuiAgent =
+        task.agentId ?? (configuredAgent && configuredAgent !== 'blank' ? configuredAgent : 'codex')
+      const prompt = buildLocalTaskClarificationPrompt(task)
+      const launch = await launchAgentBackgroundSession({
+        agent,
+        worktreeId: worktree.id,
+        prompt,
+        launchSource: 'task_page',
+        title: `任务澄清 · ${task.title}`
+      })
+      if (!launch) {
+        return
+      }
+      await window.api.localTasks.createSession({
+        taskId: task.id,
+        projectPath: task.projectPath,
+        sessionId: launch.tabId,
+        workspaceId: worktree.id,
+        title: `任务澄清 · ${task.title}`,
+        currentPrompt: prompt,
+        associationSource: 'clarification'
+      })
+    },
+    []
   )
 
   useEffect(() => {
@@ -108,12 +156,13 @@ export function useLocalTaskComposer({
         description,
         labels: normalizedLabels,
         intakeState: taskIntakeState,
+        clarificationRequested: taskIntakeState === 'inbox' && clarificationRequested,
         workspaceId,
         workspaceLabel: workspace
           ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
           : 'local · 当前 HEAD'
       })
-      .then(onClose)
+      .then((task) => startClarification(task).finally(onClose))
       .catch((error: unknown) =>
         setTaskError(error instanceof Error ? error.message : '本地任务创建失败')
       )
@@ -126,7 +175,9 @@ export function useLocalTaskComposer({
     taskDescription,
     taskTitle,
     normalizedLabels,
-    taskIntakeState
+    taskIntakeState,
+    clarificationRequested,
+    startClarification
   ])
 
   const createTaskAfterNewWorkspace = useCallback(
@@ -155,12 +206,16 @@ export function useLocalTaskComposer({
           description,
           labels: normalizedLabels,
           intakeState: taskIntakeState,
+          clarificationRequested: taskIntakeState === 'inbox' && clarificationRequested,
           workspaceId: completion.worktreeId,
           workspaceLabel: workspace
             ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
             : '新建 workspace'
         })
         .then((task) => {
+          if (task.clarificationRequested) {
+            return startClarification(task).finally(onClose)
+          }
           if (!sessionTab?.launchAgent || !sessionId) {
             onClose()
             return
@@ -185,7 +240,9 @@ export function useLocalTaskComposer({
       taskDescription,
       normalizedLabels,
       taskTitle,
-      taskIntakeState
+      taskIntakeState,
+      clarificationRequested,
+      startClarification
     ]
   )
 
@@ -198,7 +255,8 @@ export function useLocalTaskComposer({
           title: taskTitle,
           description: taskDescription,
           labels: normalizedLabels,
-          intakeState: taskIntakeState
+          intakeState: taskIntakeState,
+          clarificationRequested
         },
         ...(cardProps.repoId ? { initialRepoId: cardProps.repoId } : {}),
         telemetrySource: modalData.telemetrySource ?? 'sidebar'
@@ -210,6 +268,7 @@ export function useLocalTaskComposer({
       normalizedLabels,
       taskDescription,
       taskIntakeState,
+      clarificationRequested,
       taskTitle
     ]
   )
@@ -219,6 +278,7 @@ export function useLocalTaskComposer({
     taskDescription,
     taskLabels,
     taskIntakeState,
+    clarificationRequested,
     taskError,
     taskWorkspaces,
     selectedWorkspaceId,
@@ -226,6 +286,7 @@ export function useLocalTaskComposer({
     setTaskDescription,
     setTaskLabels,
     setTaskIntakeState,
+    setClarificationRequested,
     setSelectedWorkspaceId,
     createTaskDirectly,
     createTaskAfterNewWorkspace,

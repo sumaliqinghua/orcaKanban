@@ -6,6 +6,7 @@ import type {
   LocalTask,
   LocalTaskSession,
   ReportLocalTaskCompletedArgs,
+  UpdateLocalTaskArgs,
   UpdateLocalTaskSessionOutputArgs
 } from '../../shared/local-task-types'
 import { findTaskWithSession } from './file-store-index'
@@ -22,6 +23,41 @@ export type FileStoreMutationAccess = {
 const time = (): number => Date.now()
 const text = (value: string | null | undefined, fallback: string): string =>
   value?.trim() || fallback
+const normalizeLabels = (value: string[] | undefined): string[] =>
+  [...new Set((value ?? []).map((label) => label.trim()).filter(Boolean))].slice(0, 20)
+
+export function updateTask(
+  store: FileStoreMutationAccess,
+  id: string,
+  updates: UpdateLocalTaskArgs
+): LocalTask {
+  const current = store.requireTask(id)
+  if (updates.status === 'Done' || updates.status === 'Needs review') {
+    throw new Error('This status is controlled by the review lifecycle')
+  }
+  const nextStatus = updates.status ?? current.status
+  const organizingInboxTask =
+    current.intakeState === 'inbox' &&
+    updates.intakeState === 'ready' &&
+    current.status === 'Needs review'
+  return store.writeTask({
+    ...current,
+    title: updates.title?.trim() || current.title,
+    description: updates.description?.trim() || current.description,
+    status: organizingInboxTask ? 'Open' : nextStatus,
+    archivedAt:
+      updates.archived === true ? time() : updates.archived === false ? null : current.archivedAt,
+    titleSource: updates.title?.trim() ? 'user' : current.titleSource,
+    titleSuggestion: updates.title?.trim() ? null : current.titleSuggestion,
+    labels: updates.labels === undefined ? current.labels : normalizeLabels(updates.labels),
+    intakeState: updates.intakeState ?? current.intakeState,
+    clarificationRequested: organizingInboxTask ? false : current.clarificationRequested,
+    reviewKind: organizingInboxTask ? null : current.reviewKind,
+    reviewQuestion: organizingInboxTask ? null : current.reviewQuestion,
+    agentId: updates.agentId === undefined ? current.agentId : updates.agentId,
+    updatedAt: time()
+  })
+}
 
 export function createSession(
   store: FileStoreMutationAccess,
@@ -73,6 +109,8 @@ export function createSession(
     ...task,
     subtasks,
     sessions: [session, ...task.sessions],
+    clarificationSessionId:
+      session.associationSource === 'clarification' ? session.id : task.clarificationSessionId,
     status,
     updatedAt: createdAt
   })

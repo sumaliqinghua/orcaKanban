@@ -63,6 +63,7 @@ type ComposerModalData = {
     description: string
     labels?: string[]
     intakeState?: 'inbox' | 'ready'
+    clarificationRequested?: boolean
   }
 }
 
@@ -358,11 +359,13 @@ function QuickTabBody({
           description={localTask.taskDescription}
           labels={localTask.taskLabels}
           intakeState={localTask.taskIntakeState}
+          clarificationRequested={localTask.clarificationRequested}
           error={localTask.taskError}
           onTitleChange={localTask.setTaskTitle}
           onDescriptionChange={localTask.setTaskDescription}
           onLabelsChange={localTask.setTaskLabels}
           onIntakeStateChange={localTask.setTaskIntakeState}
+          onClarificationRequestedChange={localTask.setClarificationRequested}
         />
       ) : null}
       <NewWorkspaceComposerCard

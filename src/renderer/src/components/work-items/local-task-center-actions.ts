@@ -18,10 +18,12 @@ function replaceTask(setItems: ActionContext['setItems'], task: LocalTask): void
 
 export function createLocalTaskCenterActions(context: ActionContext): {
   editTitle: (title: string) => void
+  editDescription: (description: string) => void
   editLabels: (labels: string[]) => void
   acceptSelected: () => void
   archiveSelected: () => void
   promoteSelected: () => void
+  moveSelectedToInbox: () => void
   openWorkspace: () => void
   sessionStarted: (tabId: string, request: string) => void
   editStep: (subtaskId: string, stepId: string) => void
@@ -40,6 +42,21 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务标题更新失败')
+      )
+  }
+  const editDescription = (description: string): void => {
+    if (!selected) {
+      return
+    }
+    const nextDescription = description.trim()
+    if (nextDescription === selected.description) {
+      return
+    }
+    void window.api.localTasks
+      .update({ taskId: selected.id, updates: { description: nextDescription } })
+      .then((task) => replaceTask(setItems, task))
+      .catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : '任务描述更新失败')
       )
   }
   const editLabels = (labels: string[]): void => {
@@ -94,10 +111,21 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       return
     }
     void window.api.localTasks
-      .update({ taskId: selected.id, updates: { intakeState: 'ready' } })
+      .update({ taskId: selected.id, updates: { intakeState: 'ready', status: 'Open' } })
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务整理状态更新失败')
+      )
+  }
+  const moveSelectedToInbox = (): void => {
+    if (!selected || selected.intakeState === 'inbox') {
+      return
+    }
+    void window.api.localTasks
+      .update({ taskId: selected.id, updates: { intakeState: 'inbox' } })
+      .then((task) => replaceTask(setItems, task))
+      .catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : '任务移至收件箱失败')
       )
   }
   const openWorkspace = (): void => {
@@ -155,10 +183,12 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   }
   return {
     editTitle,
+    editDescription,
     editLabels,
     acceptSelected,
     archiveSelected,
     promoteSelected,
+    moveSelectedToInbox,
     openWorkspace,
     sessionStarted,
     editStep

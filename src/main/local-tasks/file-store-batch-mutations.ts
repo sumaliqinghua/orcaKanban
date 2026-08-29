@@ -26,6 +26,7 @@ export function startBatch(
   const candidates: LocalTaskBatch['candidates'] = []
   const seen = new Set<string>()
   const originals: LocalTask[] = []
+  const recoverQueued = options.recoverQueued === true
 
   try {
     for (const ref of refs) {
@@ -35,11 +36,12 @@ export function startBatch(
         task.executionState === 'queued' && task.executionRunId
           ? task.runs.find((run) => run.id === task.executionRunId && run.status === 'queued')
           : undefined
-      const recoverable =
-        options.recoverQueued === true &&
+      const recoverableQueued =
+        recoverQueued &&
         (task.archivedAt ?? null) === null &&
         task.status === 'Open' &&
         (task.intakeState ?? 'ready') === 'ready' &&
+        task.executionState === 'queued' &&
         Boolean(queuedRun)
       if (seen.has(taskKey)) {
         continue
@@ -61,13 +63,7 @@ export function startBatch(
         })
         continue
       }
-      if (!isOpenLocalTaskBatchCandidate(task) && !recoverable) {
-        continue
-      }
-      if (
-        (task.executionState === 'queued' || task.executionState === 'running') &&
-        !options.recoverQueued
-      ) {
+      if (!isOpenLocalTaskBatchCandidate(task) && !recoverableQueued) {
         continue
       }
       seen.add(taskKey)

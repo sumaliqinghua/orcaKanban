@@ -6,22 +6,26 @@ export function LocalTaskWorkspaceFields({
   description,
   labels,
   intakeState,
+  clarificationRequested,
   error,
   onTitleChange,
   onDescriptionChange,
   onLabelsChange,
-  onIntakeStateChange
+  onIntakeStateChange,
+  onClarificationRequestedChange
 }: {
   creatingWorkspace: boolean
   title: string
   description: string
   labels: string
   intakeState: 'inbox' | 'ready'
+  clarificationRequested: boolean
   error: string | null
   onTitleChange: (value: string) => void
   onDescriptionChange: (value: string) => void
   onLabelsChange: (value: string) => void
   onIntakeStateChange: (value: 'inbox' | 'ready') => void
+  onClarificationRequestedChange: (value: boolean) => void
 }): React.JSX.Element {
   return (
     <div className="shrink-0 space-y-2 border-b border-border/70 px-2 pb-3">
@@ -60,6 +64,22 @@ export function LocalTaskWorkspaceFields({
           <option value="inbox">收件箱，稍后整理</option>
         </select>
       </label>
+      {intakeState === 'inbox' ? (
+        <label className="flex items-start gap-2 text-[11px] text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={clarificationRequested}
+            onChange={(event) => onClarificationRequestedChange(event.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            创建后主动问询补充描述
+            <span className="block text-[10px] opacity-80">
+              Agent 只会澄清歧义，不会直接执行任务
+            </span>
+          </span>
+        </label>
+      ) : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   )
