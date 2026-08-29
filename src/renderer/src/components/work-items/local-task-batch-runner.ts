@@ -54,13 +54,24 @@ async function runCandidate(candidate: LocalTaskBatchCandidate, agent: TuiAgent)
     await updateRun(candidate, 'failed', undefined, '任务没有可用的 workspace')
     return
   }
-  const result = await launchAgentBackgroundSession({
-    agent,
-    worktreeId,
-    prompt: buildBatchPrompt(candidate),
-    launchSource: 'task_page',
-    title: `自动化执行 · ${candidate.task.title}`
-  })
+  let result: Awaited<ReturnType<typeof launchAgentBackgroundSession>>
+  try {
+    result = await launchAgentBackgroundSession({
+      agent,
+      worktreeId,
+      prompt: buildBatchPrompt(candidate),
+      launchSource: 'task_page',
+      title: `自动化执行 · ${candidate.task.title}`
+    })
+  } catch (error) {
+    await updateRun(
+      candidate,
+      'failed',
+      undefined,
+      error instanceof Error ? error.message : String(error)
+    )
+    return
+  }
   if (!result?.tabId) {
     await updateRun(candidate, 'failed', null, '无法创建真实 Agent 会话')
     return
