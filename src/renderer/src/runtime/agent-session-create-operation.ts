@@ -7,6 +7,7 @@ import { createAgentSessionOperationId } from './agent-session-operation-id'
 import { RuntimeRpcCallError } from './runtime-rpc-client'
 
 const MAX_AMBIGUOUS_CREATE_ATTEMPTS = 2
+const TRANSIENT_CREATE_RETRY_DELAYS_MS = [500, 1_000, 2_000] as const
 
 export type AgentSessionCreateOperation = {
   readonly clientOperationId: string
@@ -22,23 +23,70 @@ function isAmbiguousCreateFailure(error: unknown): boolean {
   )
 }
 
-export function createAgentSessionCreateOperation(): AgentSessionCreateOperation {
+function errorStatusCode(error: RuntimeRpcCallError): number | null {
+  const data = error.response.error.data
+  if (typeof data !== 'object' || data === null) {
+    return null
+  }
+  const value =
+    (data as { statusCode?: unknown; httpStatus?: unknown }).statusCode ??
+    (data as { httpStatus?: unknown }).httpStatus
+  return typeof value === 'number' ? value : null
+}
+
+export function isTransientAgentSessionCreateFailure(error: unknown): boolean {
+  if (!(error instanceof RuntimeRpcCallError)) {
+    return false
+  }
+  const statusCode = errorStatusCode(error)
+  return (
+    statusCode === 429 ||
+    statusCode === 503 ||
+    /(?:^|[^0-9])(429|503)(?:[^0-9]|$)/.test(`${error.code} ${error.message}`)
+  )
+}
+
+export function createAgentSessionCreateOperation(
+  options: {
+    sleep?: (delayMs: number) => Promise<void>
+    retryDelaysMs?: readonly number[]
+  } = {}
+): AgentSessionCreateOperation {
   const clientOperationId = createAgentSessionOperationId()
+  const sleep =
+    options.sleep ??
+    ((delayMs: number) => new Promise<void>((resolve) => setTimeout(resolve, delayMs)))
+  const retryDelaysMs = options.retryDelaysMs ?? TRANSIENT_CREATE_RETRY_DELAYS_MS
   return {
     clientOperationId,
     async run(invoke) {
       let lastError: unknown
-      for (let attempt = 0; attempt < MAX_AMBIGUOUS_CREATE_ATTEMPTS; attempt += 1) {
+      let ambiguousAttempts = 0
+      let transientAttempts = 0
+      while (true) {
         try {
           return await invoke(clientOperationId)
         } catch (error) {
           lastError = error
-          if (!isAmbiguousCreateFailure(error)) {
-            throw error
+          if (isTransientAgentSessionCreateFailure(error)) {
+            const delay = retryDelaysMs[transientAttempts]
+            if (delay === undefined) {
+              throw lastError
+            }
+            transientAttempts += 1
+            await sleep(delay)
+            continue
           }
+          if (
+            isAmbiguousCreateFailure(error) &&
+            ambiguousAttempts < MAX_AMBIGUOUS_CREATE_ATTEMPTS - 1
+          ) {
+            ambiguousAttempts += 1
+            continue
+          }
+          throw error
         }
       }
-      throw lastError
     }
   }
 }
