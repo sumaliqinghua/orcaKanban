@@ -56,7 +56,10 @@ export const createLocalTaskSessionArgsSchema = z
     workspaceId: id.optional(),
     title: shortText.optional(),
     currentPrompt: z.string().trim().max(100_000).optional(),
-    associationSource: z.enum(['task-center', 'explicit', 'automation', 'clarification']).optional()
+    agentId: z.string().refine(isTuiAgent, 'Unsupported Agent').nullable().optional(),
+    associationSource: z
+      .enum(['task-center', 'explicit', 'automation', 'clarification', 'task-report'])
+      .optional()
   })
   .strict()
 

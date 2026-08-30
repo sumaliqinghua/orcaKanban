@@ -38,7 +38,8 @@ export type LocalTaskSession = {
   latestOutput: string | null
   createdAt: number
   updatedAt: number
-  associationSource: 'task-center' | 'explicit' | 'automation' | 'clarification'
+  agentId: TuiAgent | null
+  associationSource: 'task-center' | 'explicit' | 'automation' | 'clarification' | 'task-report'
 }
 
 export type LocalTaskSessionTurn = {
@@ -164,9 +165,10 @@ export type CreateLocalTaskSessionArgs = {
   workspaceId?: string
   title?: string
   currentPrompt?: string
+  agentId?: TuiAgent | null
   /** Backward-compatible alias used by older task-center callers. */
   initialPrompt?: string
-  associationSource?: 'task-center' | 'explicit' | 'automation' | 'clarification'
+  associationSource?: 'task-center' | 'explicit' | 'automation' | 'clarification' | 'task-report'
 }
 
 export type UpdateLocalTaskSessionOutputArgs = {

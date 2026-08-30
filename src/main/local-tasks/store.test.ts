@@ -389,6 +389,23 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('persists task report sessions as a separate association source', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '任务报告' })
+    const session = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'task-report-session',
+      title: '任务报告',
+      associationSource: 'task-report'
+    })
+
+    expect(session.associationSource).toBe('task-report')
+    expect(store.get(task.id, root)?.sessions[0]?.associationSource).toBe('task-report')
+    store.close()
+  })
+
   it('claims unassigned subtasks and requires confirmation to transfer from a working session', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
@@ -488,6 +505,44 @@ describe('LocalTaskStore file-first persistence', () => {
       latestOutput: '摘要'
     })
     expect(reported.latestOutput?.text).toContain('## 验证')
+    store.close()
+  })
+
+  it('keeps task state and task output unchanged for a report session', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '报告测试' })
+    const report = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'task-report-session',
+      associationSource: 'task-report',
+      agentId: 'codex'
+    })
+
+    const updated = store.updateSessionOutput({
+      sessionId: report.id,
+      sessionStatus: 'done',
+      latestOutput: '改前：暂无执行记录\n现在：已生成任务报告'
+    })
+
+    expect(updated.status).toBe('Open')
+    expect(updated.latestOutput).toBeNull()
+    expect(updated.sessions[0]).toMatchObject({
+      associationSource: 'task-report',
+      agentId: 'codex',
+      status: 'done',
+      latestOutput: expect.stringContaining('已生成任务报告')
+    })
+    const completed = store.reportCompleted({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: report.id,
+      latestOutput: '报告会话误调用完成接口'
+    })
+    expect(completed.status).toBe('Open')
+    expect(completed.latestOutput).toBeNull()
+    expect(completed.sessions[0]?.latestOutput).toContain('误调用完成接口')
     store.close()
   })
 

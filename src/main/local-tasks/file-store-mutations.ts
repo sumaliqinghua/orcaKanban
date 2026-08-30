@@ -12,20 +12,20 @@ import type {
 import { findTaskWithSession } from './file-store-index'
 import { appendRecord, localTaskDirectory, LOCAL_TASK_RECORDS_FILE_NAME } from './file-store-format'
 import { appendSessionTurn } from './session-turn-mutations'
-
+import { completeTaskReportSession } from './task-report-session-mutation'
 export type FileStoreMutationAccess = {
   requireTask: (id: string, projectPath?: string) => LocalTask
   readTask: (path: string) => LocalTask
   taskPaths: () => Iterable<string>
   writeTask: (task: LocalTask) => LocalTask
 }
-
 const time = (): number => Date.now()
 const text = (value: string | null | undefined, fallback: string): string =>
   value?.trim() || fallback
 const normalizeLabels = (value: string[] | undefined): string[] =>
   [...new Set((value ?? []).map((label) => label.trim()).filter(Boolean))].slice(0, 20)
-
+const isNonExecutionSession = (session: LocalTaskSession): boolean =>
+  session.associationSource === 'task-report' || session.associationSource === 'clarification'
 export function updateTask(
   store: FileStoreMutationAccess,
   id: string,
@@ -56,7 +56,6 @@ export function updateTask(
     updatedAt: time()
   })
 }
-
 export function createSession(
   store: FileStoreMutationAccess,
   args: CreateLocalTaskSessionArgs & { projectPath?: string }
@@ -82,6 +81,7 @@ export function createSession(
     return duplicate
   }
   const createdAt = time()
+  const associationSource = args.associationSource ?? 'task-center'
   const session: LocalTaskSession = {
     id: sessionId,
     taskId: task.id,
@@ -93,12 +93,17 @@ export function createSession(
     latestOutput: null,
     createdAt,
     updatedAt: createdAt,
-    associationSource: args.associationSource ?? 'task-center'
+    agentId: args.agentId ?? null,
+    associationSource
   }
-  const status =
-    task.status === 'Done' || task.status === 'Needs review' ? 'In progress' : task.status
+  const nonExecutionSession = isNonExecutionSession(session)
+  const status = nonExecutionSession
+    ? task.status
+    : task.status === 'Done' || task.status === 'Needs review'
+      ? 'In progress'
+      : task.status
   const subtasks =
-    task.sessions.length === 0
+    !nonExecutionSession && task.sessions.length === 0
       ? task.subtasks.map((subtask) =>
           subtask.sessionId === null ? { ...subtask, sessionId, updatedAt: createdAt } : subtask
         )
@@ -114,7 +119,6 @@ export function createSession(
   })
   return session
 }
-
 export function updateSessionOutput(
   store: FileStoreMutationAccess,
   args: UpdateLocalTaskSessionOutputArgs
@@ -145,11 +149,14 @@ export function updateSessionOutput(
         }
       : session
   )
-  const hasEndedSession = sessions.some((session) => session.status !== 'working')
-  const hasWorkingSession = sessions.some((session) => session.status === 'working')
-  const activeRun = task.executionRunId
-    ? task.runs.find((run) => run.id === task.executionRunId)
-    : undefined
+  const nonExecutionSession = isNonExecutionSession(session)
+  const executionSessions = sessions.filter((candidate) => !isNonExecutionSession(candidate))
+  const hasEndedSession = executionSessions.some((candidate) => candidate.status !== 'working')
+  const hasWorkingSession = executionSessions.some((candidate) => candidate.status === 'working')
+  const activeRun =
+    !nonExecutionSession && task.executionRunId
+      ? task.runs.find((run) => run.id === task.executionRunId)
+      : undefined
   const runs = activeRun
     ? task.runs.map((run) =>
         run.id === activeRun.id
@@ -169,22 +176,23 @@ export function updateSessionOutput(
     runs,
     executionState: activeRun ? 'needs_review' : task.executionState,
     reviewKind: activeRun ? 'delivery' : task.reviewKind,
-    status:
-      task.status === 'Done'
+    status: nonExecutionSession
+      ? task.status
+      : task.status === 'Done'
         ? 'Done'
         : hasEndedSession
           ? 'Needs review'
           : hasWorkingSession
             ? 'In progress'
             : 'Needs review',
-    latestOutput: textValue
-      ? { sessionId: args.sessionId, text: textValue, updatedAt }
-      : task.latestOutput,
-    latestOutputSource: 'agent-status',
+    latestOutput:
+      !nonExecutionSession && textValue
+        ? { sessionId: args.sessionId, text: textValue, updatedAt }
+        : task.latestOutput,
+    latestOutputSource: nonExecutionSession ? task.latestOutputSource : 'agent-status',
     updatedAt
   })
 }
-
 export function createSubtask(
   store: FileStoreMutationAccess,
   args: CreateLocalTaskSubtaskArgs & { projectPath?: string }
@@ -210,14 +218,17 @@ export function createSubtask(
   }
   return store.writeTask({ ...task, subtasks: [...task.subtasks, subtask], updatedAt: createdAt })
 }
-
 export function reportCompleted(
   store: FileStoreMutationAccess,
   args: ReportLocalTaskCompletedArgs & { projectPath?: string }
 ): LocalTask {
   const task = store.requireTask(args.taskId, args.projectPath)
-  if (!task.sessions.some((session) => session.id === args.sessionId)) {
+  const currentSession = task.sessions.find((session) => session.id === args.sessionId)
+  if (!currentSession) {
     throw new Error('Session is not associated with this local task')
+  }
+  if (currentSession.associationSource === 'task-report') {
+    return completeTaskReportSession(store, task, args, currentSession)
   }
   const unfinished = task.subtasks.some((subtask) => {
     // A session must not block completion on work explicitly owned by another session.

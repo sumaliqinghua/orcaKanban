@@ -24,19 +24,23 @@ export function LocalTaskCenterDetail({
 }): React.JSX.Element {
   return (
     <LocalTaskDetailAside
+      key={item.id}
       item={item}
       open={open}
       onOpenChange={onOpenChange}
       onCompleteSubtask={onCompleteSubtask}
       onEditTitle={taskActions.editTitle}
+      onEditDescription={taskActions.editDescription}
       onEditLabels={taskActions.editLabels}
       labelSuggestions={labelSuggestions}
       onEditStep={taskActions.editStep}
       onOpenWorkspace={taskActions.openWorkspace}
       onSessionStarted={taskActions.sessionStarted}
+      onReportSessionStarted={taskActions.reportSessionStarted}
       onAccept={taskActions.acceptSelected}
       onArchive={taskActions.archiveSelected}
       onPromote={taskActions.promoteSelected}
+      onMoveToInbox={taskActions.moveSelectedToInbox}
       onTaskChanged={onTaskChanged}
     />
   )

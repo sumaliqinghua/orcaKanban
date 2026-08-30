@@ -47,4 +47,24 @@ describe('local task live session reconciliation', () => {
     expect(result.activeSessions).toBe(0)
     expect(result.sessionsList[0]?.status).toBe('done')
   })
+
+  it('does not count report sessions as execution activity', () => {
+    const source = item(NOW - 60_000)
+    source.sessions = 1
+    source.activeSessions = 1
+    source.sessionsList.push({
+      id: 'report-1',
+      title: '任务报告',
+      associationSource: 'task-report',
+      status: 'working',
+      time: 'now',
+      updatedAt: NOW - 60_000
+    })
+
+    const result = reconcileWorkItemSessionLiveness(source, new Set(['session-1', 'report-1']), NOW)
+
+    expect(result.sessions).toBe(1)
+    expect(result.activeSessions).toBe(1)
+    expect(result.status).toBe('In progress')
+  })
 })

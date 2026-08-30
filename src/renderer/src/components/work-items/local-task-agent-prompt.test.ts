@@ -25,5 +25,7 @@ describe('local task Agent prompt', () => {
     expect(prompt).toContain('不要修改其他会话负责的子任务')
     expect(prompt).toContain('subtask-transfer')
     expect(prompt).toContain('用户明确确认强制移交后才加 `--force`')
+    expect(prompt).toContain('本会话执行摘要')
+    expect(prompt).toContain('只写本会话实际负责的内容')
   })
 })

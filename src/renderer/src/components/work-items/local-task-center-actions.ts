@@ -1,6 +1,7 @@
 import { activateWorktreeFromSidebar } from '@/lib/sidebar-worktree-activation'
 import { useAppStore } from '@/store'
 import type { LocalTask } from '../../../../shared/local-task-types'
+import type { TuiAgent } from '../../../../shared/tui-agent'
 import { localTaskToViewModel } from './local-task-view-model'
 import type { WorkItem } from './mock-data'
 
@@ -26,6 +27,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   moveSelectedToInbox: () => void
   openWorkspace: () => void
   sessionStarted: (tabId: string, request: string) => void
+  reportSessionStarted: (tabId: string, request: string, agent: TuiAgent) => Promise<void>
   editStep: (subtaskId: string, stepId: string) => void
 } {
   const { selected, setItems, setSelectedId, setLoadError } = context
@@ -169,6 +171,37 @@ export function createLocalTaskCenterActions(context: ActionContext): {
         setLoadError(error instanceof Error ? error.message : '关联会话创建失败')
       )
   }
+  const reportSessionStarted = async (
+    tabId: string,
+    request: string,
+    agent: TuiAgent
+  ): Promise<void> => {
+    if (!selected) {
+      return
+    }
+    try {
+      const workspaceId =
+        selected.workspaceId === 'local'
+          ? (useAppStore.getState().activeWorktreeId ?? 'local')
+          : selected.workspaceId
+      await window.api.localTasks.createSession({
+        taskId: selected.id,
+        projectPath: selected.projectPath,
+        sessionId: tabId,
+        title: `任务报告 · ${agent}`,
+        workspaceId,
+        agentId: agent,
+        currentPrompt: request,
+        associationSource: 'task-report'
+      })
+      const refreshed = await window.api.localTasks.get(selected.id, selected.projectPath)
+      if (refreshed) {
+        replaceTask(setItems, refreshed)
+      }
+    } catch (error: unknown) {
+      setLoadError(error instanceof Error ? error.message : '任务报告会话创建失败')
+    }
+  }
   const editStep = (subtaskId: string, stepId: string): void => {
     const title = window.prompt('编辑未开始步骤')?.trim()
     if (!title) {
@@ -191,6 +224,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     moveSelectedToInbox,
     openWorkspace,
     sessionStarted,
+    reportSessionStarted,
     editStep
   }
 }

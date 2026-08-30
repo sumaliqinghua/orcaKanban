@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store'
 import type { WorkItem } from './mock-data'
 import type { LocalTask } from '../../../../shared/local-task-types'
+import type { TuiAgent } from '../../../../shared/tui-agent'
 import { DetailPanel } from './LocalTaskDetailPanel'
 import { LocalTaskActions, StatusBadge } from './work-item-pieces'
 import { AgentTerminalPanel } from '../dashboard-popout/AgentTerminalDialog'
@@ -26,6 +27,7 @@ function LocalTaskSessionPreview({
   session: {
     title: string
     status: 'working' | 'idle' | 'done'
+    latestOutput?: string | null
     currentPrompt?: string | null
     turns?: {
       id: string
@@ -152,6 +154,7 @@ function SessionHistory({
 }: {
   session: {
     currentPrompt?: string | null
+    latestOutput?: string | null
     turns?: {
       id: string
       prompt: string
@@ -161,7 +164,21 @@ function SessionHistory({
     }[]
   }
 }): React.JSX.Element {
-  return <LocalTaskSessionTurnHistory currentPrompt={session.currentPrompt} turns={session.turns} />
+  return (
+    <div className="space-y-3">
+      {session.latestOutput ? (
+        <div className="rounded-md border border-sky-500/25 bg-sky-500/10 p-2.5 text-xs">
+          <div className="mb-1 text-[10px] font-medium text-sky-700 dark:text-sky-300">
+            本会话执行摘要
+          </div>
+          <div className="whitespace-pre-wrap leading-relaxed text-foreground">
+            {session.latestOutput}
+          </div>
+        </div>
+      ) : null}
+      <LocalTaskSessionTurnHistory currentPrompt={session.currentPrompt} turns={session.turns} />
+    </div>
+  )
 }
 
 export function LocalTaskDetailAside({
@@ -170,13 +187,16 @@ export function LocalTaskDetailAside({
   onOpenChange,
   onCompleteSubtask,
   onEditTitle,
+  onEditDescription,
   onEditLabels,
   onEditStep,
   onOpenWorkspace,
   onSessionStarted,
+  onReportSessionStarted,
   onAccept,
   onArchive,
   onPromote,
+  onMoveToInbox,
   labelSuggestions,
   onTaskChanged
 }: {
@@ -185,22 +205,22 @@ export function LocalTaskDetailAside({
   onOpenChange: (open: boolean) => void
   onCompleteSubtask: (subtaskId: string) => void
   onEditTitle: (title: string) => void
+  onEditDescription: (description: string) => void
   onEditLabels: (labels: string[]) => void
   onEditStep: (subtaskId: string, stepId: string) => void
   onOpenWorkspace: () => void
   onSessionStarted: (tabId: string, request: string) => void
+  onReportSessionStarted: (tabId: string, request: string, agent: TuiAgent) => Promise<void>
   onAccept: () => void
   onArchive: () => void
   onPromote: () => void
+  onMoveToInbox: () => void
   labelSuggestions: string[]
   onTaskChanged: (task: LocalTask) => void
 }): React.JSX.Element {
   const [embeddedSessionId, setEmbeddedSessionId] = useState<string | null>(null)
   const [detailWidth, setDetailWidth] = useState(420)
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null)
-  useEffect(() => {
-    setEmbeddedSessionId(null)
-  }, [item.id])
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent): void => {
       const start = resizeStartRef.current
@@ -271,6 +291,7 @@ export function LocalTaskDetailAside({
             item={item}
             onCompleteSubtask={onCompleteSubtask}
             onEditTitle={onEditTitle}
+            onEditDescription={onEditDescription}
             onEditLabels={onEditLabels}
             labelSuggestions={labelSuggestions}
             onEditStep={onEditStep}
@@ -279,6 +300,10 @@ export function LocalTaskDetailAside({
             }}
             onOpenWorkspace={onOpenWorkspace}
             onSessionStarted={onSessionStarted}
+            onReportSessionStarted={async (tabId, request, agent) => {
+              await onReportSessionStarted(tabId, request, agent)
+              setEmbeddedSessionId(tabId)
+            }}
             onTaskChanged={onTaskChanged}
           />
           <LocalTaskActions
@@ -286,6 +311,7 @@ export function LocalTaskDetailAside({
             onAccept={onAccept}
             onArchive={onArchive}
             onPromote={onPromote}
+            onMoveToInbox={onMoveToInbox}
           />
         </div>
         {embeddedSessionId ? (

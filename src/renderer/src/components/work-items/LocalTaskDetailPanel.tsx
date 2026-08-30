@@ -19,6 +19,8 @@ import { LocalTaskLabelSuggestions } from './LocalTaskLabelSuggestions'
 import { LocalTaskSessionTurnHistory } from './LocalTaskSessionTurnHistory'
 import { LocalTaskSubtaskCreateDialog } from './LocalTaskSubtaskCreateDialog'
 import { LocalTaskSubtaskBlock } from './LocalTaskSubtaskBlock'
+import { LocalTaskReportButton } from './LocalTaskReportButton'
+import type { TuiAgent } from '../../../../shared/tui-agent'
 
 export function DetailPanel({
   item,
@@ -31,6 +33,7 @@ export function DetailPanel({
   onOpenSession,
   onOpenWorkspace,
   onSessionStarted,
+  onReportSessionStarted,
   onTaskChanged
 }: {
   item: WorkItem
@@ -43,6 +46,7 @@ export function DetailPanel({
   onOpenSession: (sessionId: string) => void
   onOpenWorkspace: () => void
   onSessionStarted: (tabId: string, request: string) => void
+  onReportSessionStarted: (tabId: string, request: string, agent: TuiAgent) => Promise<void>
   onTaskChanged: (task: LocalTask) => void
 }): React.JSX.Element {
   const [titleDialogOpen, setTitleDialogOpen] = useState(false)
@@ -125,6 +129,13 @@ export function DetailPanel({
           >
             <Pencil className="size-3.5" />
           </Button>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <LocalTaskReportButton
+            item={item}
+            onOpenSession={onOpenSession}
+            onStarted={onReportSessionStarted}
+          />
         </div>
         <div className="mt-3 flex items-center gap-1.5">
           {(item.labels ?? []).map((label) => (
@@ -209,7 +220,9 @@ export function DetailPanel({
                           ? '自动化'
                           : session.associationSource === 'clarification'
                             ? '任务澄清'
-                            : '手动'}
+                            : session.associationSource === 'task-report'
+                              ? '任务报告'
+                              : '手动'}
                       </span>
                       <span
                         className={cn(
@@ -278,15 +291,6 @@ export function DetailPanel({
               <ArrowUpRight className="size-3" />
               打开 workspace 查看对话
             </Button>
-          </div>
-        </section>
-        <section className="mt-6">
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-xs font-semibold">最近一次输出</h3>
-            <span className="text-[10px] text-muted-foreground">{item.latestOutput.session}</span>
-          </div>
-          <div className="rounded-md bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
-            {item.latestOutput.text}
           </div>
         </section>
       </div>

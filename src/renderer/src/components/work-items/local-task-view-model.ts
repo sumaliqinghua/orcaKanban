@@ -2,6 +2,8 @@ import type { LocalTask, LocalTaskSubtask } from '../../../../shared/local-task-
 import type { WorkItem, Subtask } from './mock-data'
 
 const SESSION_START_GRACE_MS = 15_000
+const isExecutionSession = (session: LocalTask['sessions'][number]): boolean =>
+  session.associationSource !== 'task-report' && session.associationSource !== 'clarification'
 
 function mapSubtask(subtask: LocalTaskSubtask): Subtask {
   return {
@@ -15,8 +17,9 @@ function mapSubtask(subtask: LocalTaskSubtask): Subtask {
 }
 
 export function localTaskToViewModel(task: LocalTask): WorkItem {
-  const activeSessions = task.sessions.filter((session) => session.status === 'working').length
-  const hasEndedSession = task.sessions.some((session) => session.status !== 'working')
+  const executionSessions = task.sessions.filter(isExecutionSession)
+  const activeSessions = executionSessions.filter((session) => session.status === 'working').length
+  const hasEndedSession = executionSessions.some((session) => session.status !== 'working')
   const isExecutionActive = task.executionState === 'queued' || task.executionState === 'running'
   return {
     id: task.id,
@@ -32,7 +35,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     projectPath: task.projectPath,
     project: task.projectId,
     updated: new Date(task.updatedAt).toLocaleString(),
-    sessions: task.sessions.length,
+    sessions: executionSessions.length,
     activeSessions,
     subtasks: task.subtasks.map(mapSubtask),
     latestOutput: task.latestOutput
@@ -49,6 +52,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
       currentPrompt: session.currentPrompt,
       turns: session.turns,
       latestOutput: session.latestOutput,
+      agentId: session.agentId,
       associationSource: session.associationSource,
       workspaceId: session.workspaceId,
       status: session.status,
@@ -82,8 +86,12 @@ export function reconcileWorkItemSessionLiveness(
       ? session
       : { ...session, status: 'done' as const }
   })
-  const activeSessions = sessionsList.filter((session) => session.status === 'working').length
-  const hasEndedSession = sessionsList.some((session) => session.status !== 'working')
+  const executionSessions = sessionsList.filter(
+    (session) =>
+      session.associationSource !== 'task-report' && session.associationSource !== 'clarification'
+  )
+  const activeSessions = executionSessions.filter((session) => session.status === 'working').length
+  const hasEndedSession = executionSessions.some((session) => session.status !== 'working')
   const executionActive = item.executionState === 'queued' || item.executionState === 'running'
   const status =
     item.status === 'Done'

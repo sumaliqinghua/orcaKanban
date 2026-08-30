@@ -1,6 +1,6 @@
 import type { LocalTask } from '../../../../shared/local-task-types'
 
-export type LocalTaskProjectFilter = 'all' | string
+export type LocalTaskProjectFilter = string
 
 export type LocalTaskProjectOption = {
   id: string

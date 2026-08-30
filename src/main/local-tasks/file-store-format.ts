@@ -61,7 +61,14 @@ const sessionSchema = z.strictObject({
   latestOutput: text.nullable(),
   createdAt: timestamp,
   updatedAt: timestamp,
-  associationSource: z.enum(['task-center', 'explicit', 'automation', 'clarification'])
+  agentId: agent.nullable().default(null),
+  associationSource: z.enum([
+    'task-center',
+    'explicit',
+    'automation',
+    'clarification',
+    'task-report'
+  ])
 })
 
 const runSchema = z.strictObject({
