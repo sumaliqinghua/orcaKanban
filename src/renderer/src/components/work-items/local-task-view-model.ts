@@ -55,6 +55,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
       currentPrompt: session.currentPrompt,
       turns: session.turns,
       latestOutput: session.latestOutput,
+      manualNotes: session.manualNotes,
       agentId: session.agentId,
       associationSource: session.associationSource,
       workspaceId: session.workspaceId,

@@ -30,6 +30,8 @@ import { prepareAiVaultSessionContinuation } from './ai-vault-session-continuati
 import type { AgentSessionContinuationRequest } from '@/lib/agent-session-continuation'
 import { findWorktreeById } from '@/store/slices/worktree-helpers'
 
+type ResumeOptions = { tabId?: string }
+
 export function useAiVaultSessionLaunchActions({
   activeWorktree,
   activeWorktreeId,
@@ -43,7 +45,7 @@ export function useAiVaultSessionLaunchActions({
 }): {
   buildResumeStartup: (session: AiVaultSession, worktreeId?: string | null) => AiVaultResumeStartup
   copyResumeCommand: (session: AiVaultSession, worktreeId?: string | null) => Promise<void>
-  handleResume: (session: AiVaultSession, targetWorktreeId?: string) => void
+  handleResume: (session: AiVaultSession, targetWorktreeId?: string, options?: ResumeOptions) => void
   handleContinueInNewSession: (session: AiVaultSession, targetWorktreeId: string) => void
   continuationRequest: AgentSessionContinuationRequest | null
   handleContinuationDialogOpenChange: (open: boolean) => void
@@ -92,7 +94,7 @@ export function useAiVaultSessionLaunchActions({
   )
 
   const handleResume = useCallback(
-    (session: AiVaultSession, targetWorktreeId?: string): void => {
+    (session: AiVaultSession, targetWorktreeId?: string, options?: ResumeOptions): void => {
       const targetId = resolveAiVaultSessionLaunchTargetOrNotify({
         sessionFilePath: session.filePath,
         sessionExecutionHostId: session.executionHostId,
@@ -118,6 +120,7 @@ export function useAiVaultSessionLaunchActions({
           const launchResult = launchAiVaultSessionInNewTab({
             agent: session.agent,
             worktreeId: targetId.worktreeId,
+            ...(options?.tabId ? { tabId: options.tabId } : {}),
             ...buildResumeStartup(preparedSession, targetId.worktreeId)
           })
           if (launchResult.tabId === null) {

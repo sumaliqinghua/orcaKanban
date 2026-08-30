@@ -37,6 +37,7 @@ export type WorkItem = {
       updatedAt: number
     }[]
     latestOutput?: string | null
+    manualNotes?: string | null
     agentId?: string | null
     associationSource?: 'task-center' | 'explicit' | 'automation' | 'clarification' | 'task-report'
     workspaceId?: string

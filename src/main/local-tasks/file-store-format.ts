@@ -59,6 +59,7 @@ const sessionSchema = z.strictObject({
   turns: z.array(turnSchema).max(30),
   status: z.enum(['working', 'idle', 'done']),
   latestOutput: text.nullable(),
+  manualNotes: z.string().trim().max(100_000).nullable().default(null),
   createdAt: timestamp,
   updatedAt: timestamp,
   agentId: agent.nullable().default(null),

@@ -131,6 +131,19 @@ describe('launchAiVaultSessionInNewTab', () => {
     })
   })
 
+  it('passes a task-linked tab id when restoring a closed session', () => {
+    launchAiVaultSessionInNewTab({
+      agent: 'codex',
+      worktreeId: 'wt-1',
+      tabId: 'session-tab-1',
+      command: 'codex resume session-1'
+    })
+
+    expect(mockCreateTab).toHaveBeenCalledWith('wt-1', undefined, undefined, {
+      id: 'session-tab-1'
+    })
+  })
+
   it('creates a split group before launching when a split direction is provided', () => {
     launchAiVaultSessionInNewTab({
       agent: 'codex',

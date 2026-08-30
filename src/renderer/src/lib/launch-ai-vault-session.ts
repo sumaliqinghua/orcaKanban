@@ -21,6 +21,8 @@ export type LaunchAiVaultSessionInNewTabResult =
 export function launchAiVaultSessionInNewTab(args: {
   agent: AiVaultAgent
   worktreeId: string
+  /** Reuse a task-linked tab id when restoring a session whose pane was closed. */
+  tabId?: string
   command: string
   cwd?: string
   env?: Record<string, string>
@@ -68,9 +70,14 @@ export function launchAiVaultSessionInNewTab(args: {
       targetGroupId
   }
 
-  const tab = args.cwd
-    ? store.createTab(args.worktreeId, targetGroupId, undefined, { startupCwd: args.cwd })
-    : store.createTab(args.worktreeId, targetGroupId)
+  const tabOptions = {
+    ...(args.cwd ? { startupCwd: args.cwd } : {}),
+    ...(args.tabId ? { id: args.tabId } : {})
+  }
+  const tab =
+    Object.keys(tabOptions).length > 0
+      ? store.createTab(args.worktreeId, targetGroupId, undefined, tabOptions)
+      : store.createTab(args.worktreeId, targetGroupId)
   store.queueTabStartupCommand(tab.id, {
     command: args.command,
     ...(args.env ? { env: args.env } : {}),

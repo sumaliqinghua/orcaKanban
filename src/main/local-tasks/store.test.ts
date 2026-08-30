@@ -222,6 +222,22 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('persists manual session notes without changing the session status', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '会话备注' })
+    const session = store.createSession({ taskId: task.id, projectPath: root })
+
+    const updated = store.updateSessionOutput({
+      sessionId: session.id,
+      manualNotes: '记录一个待确认的边界场景'
+    })
+
+    expect(updated.sessions[0]?.manualNotes).toBe('记录一个待确认的边界场景')
+    expect(updated.sessions[0]?.status).toBe('working')
+    store.close()
+  })
+
   it('is idempotent for the same automation run and task', () => {
     const root = projectPath()
     const store = new LocalTaskStore()

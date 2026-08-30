@@ -13,7 +13,7 @@ import { useLiveDashboardSnapshot } from '../dashboard/useLiveDashboardSnapshot'
 import { useAiVaultSessionLaunchActions } from '../right-sidebar/ai-vault-session-launch-actions'
 import { findWorktreeById } from '@/store/slices/worktree-helpers'
 import type { AiVaultSessionResumeTargetState } from '../right-sidebar/ai-vault-session-resume'
-import { LocalTaskSessionTurnHistory } from './LocalTaskSessionTurnHistory'
+import { LocalTaskSessionHistory } from './LocalTaskSessionHistory'
 
 function LocalTaskSessionPreview({
   sessionId,
@@ -21,13 +21,15 @@ function LocalTaskSessionPreview({
   projectPath,
   workspaceId,
   onClose,
-  onOpenWorkspace
+  onOpenWorkspace,
+  onTaskChanged
 }: {
   sessionId: string
   session: {
     title: string
     status: 'working' | 'idle' | 'done'
     latestOutput?: string | null
+    manualNotes?: string | null
     currentPrompt?: string | null
     turns?: {
       id: string
@@ -41,6 +43,7 @@ function LocalTaskSessionPreview({
   workspaceId: string
   onClose: () => void
   onOpenWorkspace: () => void
+  onTaskChanged: (task: LocalTask) => void
 }): React.JSX.Element {
   const snapshot = useLiveDashboardSnapshot()
   const card = snapshot.cards.find((candidate) => candidate.tabId === sessionId) ?? null
@@ -87,7 +90,8 @@ function LocalTaskSessionPreview({
       if (matching) {
         handleResume(
           matching,
-          workspaceId === 'local' ? (activeWorktreeId ?? undefined) : workspaceId
+          workspaceId === 'local' ? (activeWorktreeId ?? undefined) : workspaceId,
+          { tabId: sessionId }
         )
         onOpenWorkspace()
       } else {
@@ -109,7 +113,16 @@ function LocalTaskSessionPreview({
           </Button>
         </div>
         <div className="scrollbar-sleek flex flex-1 flex-col gap-3 overflow-y-auto p-4 text-xs text-muted-foreground">
-          <SessionHistory session={session} />
+          <LocalTaskSessionHistory
+            session={session}
+            onManualNotesChange={async (manualNotes) => {
+              const task = await window.api.localTasks.updateSessionOutput({
+                sessionId,
+                manualNotes
+              })
+              onTaskChanged(task)
+            }}
+          />
           <Button
             variant="outline"
             size="sm"
@@ -130,7 +143,16 @@ function LocalTaskSessionPreview({
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-border">
       <div className="scrollbar-sleek max-h-56 shrink-0 overflow-y-auto p-3">
-        <SessionHistory session={session} />
+        <LocalTaskSessionHistory
+          session={session}
+          onManualNotesChange={async (manualNotes) => {
+            const task = await window.api.localTasks.updateSessionOutput({
+              sessionId,
+              manualNotes
+            })
+            onTaskChanged(task)
+          }}
+        />
       </div>
       <AgentTerminalPanel
         card={card}
@@ -146,38 +168,6 @@ function LocalTaskSessionPreview({
         }}
       />
     </section>
-  )
-}
-
-function SessionHistory({
-  session
-}: {
-  session: {
-    currentPrompt?: string | null
-    latestOutput?: string | null
-    turns?: {
-      id: string
-      prompt: string
-      summary: string | null
-      createdAt: number
-      updatedAt: number
-    }[]
-  }
-}): React.JSX.Element {
-  return (
-    <div className="space-y-3">
-      {session.latestOutput ? (
-        <div className="rounded-md border border-sky-500/25 bg-sky-500/10 p-2.5 text-xs">
-          <div className="mb-1 text-[10px] font-medium text-sky-700 dark:text-sky-300">
-            本会话执行摘要
-          </div>
-          <div className="whitespace-pre-wrap leading-relaxed text-foreground">
-            {session.latestOutput}
-          </div>
-        </div>
-      ) : null}
-      <LocalTaskSessionTurnHistory currentPrompt={session.currentPrompt} turns={session.turns} />
-    </div>
   )
 }
 
@@ -220,17 +210,24 @@ export function LocalTaskDetailAside({
 }): React.JSX.Element {
   const [embeddedSessionId, setEmbeddedSessionId] = useState<string | null>(null)
   const [detailWidth, setDetailWidth] = useState(420)
+  const [previewWidth, setPreviewWidth] = useState(540)
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null)
+  const previewResizeStartRef = useRef<{ x: number; width: number } | null>(null)
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent): void => {
       const start = resizeStartRef.current
-      if (!start) {
+      if (start) {
+        setDetailWidth(Math.min(720, Math.max(360, start.width + start.x - event.clientX)))
         return
       }
-      setDetailWidth(Math.min(720, Math.max(360, start.width + start.x - event.clientX)))
+      const previewStart = previewResizeStartRef.current
+      if (previewStart) {
+        setPreviewWidth(Math.min(900, Math.max(360, previewStart.width + previewStart.x - event.clientX)))
+      }
     }
     const handlePointerUp = (): void => {
       resizeStartRef.current = null
+      previewResizeStartRef.current = null
     }
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
@@ -258,7 +255,7 @@ export function LocalTaskDetailAside({
       className="fixed inset-y-0 right-0 z-20 flex max-w-[calc(100vw-24px)] flex-col border-l border-border bg-background shadow-xl"
       style={{
         width: embeddedSessionId
-          ? `min(${detailWidth + 540}px, calc(100vw - 24px))`
+          ? `min(${detailWidth + previewWidth + 4}px, calc(100vw - 24px))`
           : `${detailWidth}px`
       }}
     >
@@ -315,21 +312,35 @@ export function LocalTaskDetailAside({
           />
         </div>
         {embeddedSessionId ? (
-          <LocalTaskSessionPreview
-            sessionId={embeddedSessionId}
-            projectPath={item.projectPath ?? ''}
-            workspaceId={item.workspaceId ?? 'local'}
-            session={
-              item.sessionsList.find((candidate) => candidate.id === embeddedSessionId) ?? {
-                title: '关联会话',
-                status: 'done',
-                currentPrompt: null,
-                turns: []
-              }
-            }
-            onClose={() => setEmbeddedSessionId(null)}
-            onOpenWorkspace={onOpenWorkspace}
-          />
+          <>
+            <div
+              role="separator"
+              aria-label="调整 Agent 会话预览宽度"
+              className="z-30 w-1 shrink-0 cursor-ew-resize bg-transparent transition-colors hover:bg-border"
+              onPointerDown={(event) => {
+                event.preventDefault()
+                previewResizeStartRef.current = { x: event.clientX, width: previewWidth }
+              }}
+            />
+            <div className="flex min-h-0 min-w-0 shrink-0" style={{ width: `${previewWidth}px` }}>
+              <LocalTaskSessionPreview
+                sessionId={embeddedSessionId}
+                projectPath={item.projectPath ?? ''}
+                workspaceId={item.workspaceId ?? 'local'}
+                session={
+                  item.sessionsList.find((candidate) => candidate.id === embeddedSessionId) ?? {
+                    title: '关联会话',
+                    status: 'done',
+                    currentPrompt: null,
+                    turns: []
+                  }
+                }
+                onClose={() => setEmbeddedSessionId(null)}
+                onOpenWorkspace={onOpenWorkspace}
+                onTaskChanged={onTaskChanged}
+              />
+            </div>
+          </>
         ) : null}
       </div>
     </aside>

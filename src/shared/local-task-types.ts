@@ -36,6 +36,8 @@ export type LocalTaskSession = {
   turns: LocalTaskSessionTurn[]
   status: 'working' | 'idle' | 'done'
   latestOutput: string | null
+  /** User-authored notes kept separate from the agent-generated output. */
+  manualNotes?: string | null
   createdAt: number
   updatedAt: number
   agentId: TuiAgent | null
@@ -176,6 +178,7 @@ export type UpdateLocalTaskSessionOutputArgs = {
   prompt?: string
   sessionStatus?: 'working' | 'done'
   latestOutput?: string
+  manualNotes?: string | null
 }
 
 export type AcceptLocalTaskArgs = { taskId: string }

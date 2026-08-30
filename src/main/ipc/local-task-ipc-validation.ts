@@ -68,7 +68,8 @@ export const updateLocalTaskSessionOutputArgsSchema = z
     sessionId: id,
     prompt: z.string().trim().max(100_000).optional(),
     sessionStatus: z.enum(['working', 'done']).optional(),
-    latestOutput: z.string().trim().max(100_000).optional()
+    latestOutput: z.string().trim().max(100_000).optional(),
+    manualNotes: z.string().trim().max(100_000).nullable().optional()
   })
   .strict()
 
