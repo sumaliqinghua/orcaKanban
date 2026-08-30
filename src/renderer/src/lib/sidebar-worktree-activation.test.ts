@@ -71,4 +71,10 @@ describe('sidebar worktree activation', () => {
     expect(mocks.activateAndRevealFolderWorkspace).toHaveBeenCalledWith('folder-workspace-1')
     expect(mocks.activateAndRevealWorktree).not.toHaveBeenCalled()
   })
+
+  it('reports when a worktree cannot be activated', async () => {
+    mocks.activateAndRevealWorktree.mockReturnValue(false)
+
+    await expect(activateWorktreeFromSidebar('missing-worktree')).resolves.toBe(false)
+  })
 })

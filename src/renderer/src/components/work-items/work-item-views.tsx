@@ -22,8 +22,8 @@ export function ListView({
 }): React.JSX.Element {
   return (
     <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-      <div className="overflow-hidden rounded-lg border border-border">
-        <div className="grid grid-cols-[28px_minmax(260px,1fr)_140px_220px_100px] border-b border-border bg-muted/30 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="min-w-[860px] grid grid-cols-[28px_minmax(220px,1fr)_140px_140px_220px_100px] border-b border-border bg-muted/30 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           <span />
           <span className="flex items-center gap-1">
             本地任务{' '}
@@ -38,6 +38,7 @@ export function ListView({
             </Button>
           </span>
           <span>状态</span>
+          <span>所属项目</span>
           <span>Workspace</span>
           <span>最近活动</span>
         </div>
@@ -56,7 +57,7 @@ export function ListView({
                   }
                 }}
                 className={cn(
-                  'grid min-h-12 w-full grid-cols-[28px_minmax(232px,1fr)_140px_220px_100px] items-center px-4 py-3 hover:bg-accent',
+                  'min-w-[860px] grid min-h-12 w-full grid-cols-[28px_minmax(220px,1fr)_140px_140px_220px_100px] items-center px-4 py-3 hover:bg-accent',
                   item.id === selected.id && 'bg-accent/60'
                 )}
               >
@@ -78,6 +79,7 @@ export function ListView({
                 <span>
                   <StatusBadge status={getTaskPerspectiveStatus(item)} />
                 </span>
+                <span className="truncate text-[11px] text-muted-foreground">{item.project}</span>
                 <span className="truncate text-[11px] text-muted-foreground">{item.workspace}</span>
                 <span className="text-[11px] text-muted-foreground">{item.updated}</span>
               </div>
@@ -152,8 +154,8 @@ export function SubtaskListView({
   const rows = items.flatMap((item) => item.subtasks.map((subtask) => ({ item, subtask })))
   return (
     <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-      <div className="overflow-hidden rounded-lg border border-border">
-        <div className="grid grid-cols-[minmax(260px,1fr)_140px_220px_100px] border-b border-border bg-muted/30 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="min-w-[860px] grid grid-cols-[minmax(240px,1fr)_140px_140px_220px_100px] border-b border-border bg-muted/30 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           <span className="flex items-center gap-1">
             最新子任务{' '}
             <Button
@@ -167,6 +169,7 @@ export function SubtaskListView({
             </Button>
           </span>
           <span>状态</span>
+          <span>所属项目</span>
           <span>所属本地任务</span>
           <span>来源会话</span>
         </div>
@@ -179,7 +182,7 @@ export function SubtaskListView({
               key={`${item.id}:${subtask.id}`}
               onClick={() => onSelect(item.id)}
               className={cn(
-                'grid w-full grid-cols-[minmax(260px,1fr)_140px_220px_100px] items-center border-b border-border/70 px-4 py-3 text-left last:border-0 hover:bg-accent',
+                'min-w-[860px] grid w-full grid-cols-[minmax(240px,1fr)_140px_140px_220px_100px] items-center border-b border-border/70 px-4 py-3 text-left last:border-0 hover:bg-accent',
                 item.id === selected.id && 'bg-accent/60'
               )}
             >
@@ -213,6 +216,7 @@ export function SubtaskListView({
               <span>
                 <StatusBadge status={status} />
               </span>
+              <span className="truncate text-[11px] text-muted-foreground">{item.project}</span>
               <span className="truncate text-[11px] text-muted-foreground">{item.title}</span>
               <span className="truncate text-[11px] text-muted-foreground">{subtask.session}</span>
             </button>

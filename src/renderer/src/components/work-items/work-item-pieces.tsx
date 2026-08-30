@@ -3,7 +3,9 @@ import {
   Bot,
   CheckCircle2,
   Circle,
+  FolderKanban,
   GitBranch,
+  Inbox,
   MessageSquare,
   MoreHorizontal,
   Play,
@@ -30,12 +32,14 @@ export function LocalTaskActions({
   item,
   onAccept,
   onArchive,
-  onPromote
+  onPromote,
+  onMoveToInbox
 }: {
   item: WorkItem
   onAccept: () => void
   onArchive: () => void
   onPromote: () => void
+  onMoveToInbox: () => void
 }): React.JSX.Element {
   return (
     <div className="flex shrink-0 gap-2 border-t border-border bg-background px-5 py-3">
@@ -46,6 +50,11 @@ export function LocalTaskActions({
       ) : item.status === 'Needs review' ? (
         <Button className="flex-1 gap-1.5 text-xs" onClick={onAccept}>
           验收通过
+        </Button>
+      ) : null}
+      {item.intakeState !== 'inbox' ? (
+        <Button variant="ghost" size="icon" aria-label="移至收件箱" onClick={onMoveToInbox}>
+          <Inbox className="size-4" />
         </Button>
       ) : null}
       <Button variant="ghost" size="icon" aria-label="归档本地任务" onClick={onArchive}>
@@ -86,7 +95,6 @@ export function WorkItemCard({
   selected: boolean
   onSelect: () => void
 }): React.JSX.Element {
-  const latest = item.subtasks.find((subtask) => subtask.status === 'doing') ?? item.subtasks[0]
   const taskStatus = getTaskPerspectiveStatus(item)
   const completed = item.subtasks.filter((subtask) => subtask.status === 'done').length
   return (
@@ -121,14 +129,41 @@ export function WorkItemCard({
           {taskStatus}
         </Badge>
         <div className="flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground">
+          <FolderKanban className="size-3" />
+          <span className="truncate">{item.project}</span>
+        </div>
+        <div className="flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground">
           <GitBranch className="size-3" />
           <span className="truncate">{item.workspace}</span>
         </div>
       </div>
-      {latest ? (
+      {item.subtasks.length ? (
         <div className="rounded-md bg-muted/45 px-2 py-1.5">
-          <div className="text-[10px] text-muted-foreground">最新子任务</div>
-          <div className="mt-0.5 truncate text-[11px] font-medium">{latest.title}</div>
+          <div className="text-[10px] text-muted-foreground">子任务</div>
+          <div className="scrollbar-sleek mt-1 max-h-20 space-y-1 overflow-y-auto">
+            {item.subtasks.map((subtask) => (
+              <div key={subtask.id} className="flex items-center gap-1.5 text-[11px]">
+                <span
+                  className={cn(
+                    'size-1.5 shrink-0 rounded-full',
+                    subtask.status === 'done'
+                      ? 'bg-emerald-500'
+                      : subtask.status === 'doing'
+                        ? 'bg-sky-500'
+                        : 'bg-muted-foreground/30'
+                  )}
+                />
+                <span className="min-w-0 flex-1 truncate font-medium">{subtask.title}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">
+                  {subtask.status === 'doing'
+                    ? '处理中'
+                    : subtask.status === 'done'
+                      ? '已完成'
+                      : '待处理'}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
       <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
@@ -196,6 +231,10 @@ export function SubtaskCard({
         >
           {statusLabel}
         </Badge>
+        <span className="flex min-w-0 items-center gap-1 truncate text-[10px] text-muted-foreground">
+          <FolderKanban className="size-3 shrink-0" />
+          {item.project}
+        </span>
         <span className="truncate text-[10px] text-muted-foreground">任务：{taskStatus}</span>
         <span className="truncate text-[10px] text-muted-foreground">来自：{item.title}</span>
       </div>

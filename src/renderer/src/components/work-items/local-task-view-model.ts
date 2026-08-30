@@ -25,11 +25,14 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     id: task.id,
     title: task.title,
     description: task.description,
-    status: hasEndedSession
-      ? 'Needs review'
-      : activeSessions > 0 || isExecutionActive
-        ? 'In progress'
-        : task.status,
+    status:
+      task.status === 'Done'
+        ? 'Done'
+        : hasEndedSession
+          ? 'Needs review'
+          : activeSessions > 0 || isExecutionActive
+            ? 'In progress'
+            : task.status,
     workspace: task.workspaceLabel,
     workspaceId: task.workspaceId,
     projectPath: task.projectPath,

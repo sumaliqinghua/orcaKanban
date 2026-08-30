@@ -10,23 +10,24 @@ import type { ExecutionHostId } from '../../../shared/execution-host'
 export async function activateWorktreeFromSidebar(
   worktreeId: string,
   executionHostId?: ExecutionHostId
-): Promise<void> {
+): Promise<boolean> {
   const workspaceScope = parseWorkspaceKey(worktreeId)
   if (workspaceScope?.type === 'folder') {
-    if (executionHostId) {
-      activateAndRevealFolderWorkspace(workspaceScope.folderWorkspaceId, {
-        executionHostId
-      })
-    } else {
-      activateAndRevealFolderWorkspace(workspaceScope.folderWorkspaceId)
-    }
-    return
+    const activated = executionHostId
+      ? activateAndRevealFolderWorkspace(workspaceScope.folderWorkspaceId, {
+          executionHostId
+        })
+      : activateAndRevealFolderWorkspace(workspaceScope.folderWorkspaceId)
+    return activated !== false
   }
   // Keep navigation independent from an optional runtime wake IPC.
-  activateAndRevealWorktree(worktreeId, {
+  const activated = activateAndRevealWorktree(worktreeId, {
     revealInSidebar: false,
     ...(executionHostId ? { executionHostId } : {})
   })
+  if (activated === false) {
+    return false
+  }
 
   if (typeof window !== 'undefined' && window.api?.ephemeralVm?.resumeWorkspace) {
     try {
@@ -48,4 +49,5 @@ export async function activateWorktreeFromSidebar(
       )
     }
   }
+  return true
 }

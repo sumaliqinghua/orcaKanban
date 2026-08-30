@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { reconcileWorkItemSessionLiveness } from './local-task-view-model'
+import type { LocalTask } from '../../../../shared/local-task-types'
+import { localTaskToViewModel, reconcileWorkItemSessionLiveness } from './local-task-view-model'
 import type { WorkItem } from './mock-data'
 
 const NOW = 100_000
@@ -66,5 +67,58 @@ describe('local task live session reconciliation', () => {
     expect(result.sessions).toBe(1)
     expect(result.activeSessions).toBe(1)
     expect(result.status).toBe('In progress')
+  })
+})
+
+describe('local task view model status', () => {
+  it('preserves Done after an execution session has ended', () => {
+    const task = {
+      schemaVersion: 1,
+      id: 'task-1',
+      projectId: 'project',
+      projectPath: '/tmp/project',
+      title: '任务',
+      description: '描述',
+      status: 'Done',
+      workspaceId: 'workspace',
+      workspaceLabel: 'workspace',
+      createdAt: NOW - 120_000,
+      updatedAt: NOW,
+      archivedAt: null,
+      titleSource: 'user',
+      titleSuggestion: null,
+      labels: [],
+      intakeState: 'ready',
+      agentId: null,
+      executionState: 'idle',
+      executionBatchId: null,
+      executionRunId: null,
+      reviewKind: null,
+      reviewQuestion: null,
+      clarificationRequested: false,
+      clarificationSessionId: null,
+      runs: [],
+      subtasks: [],
+      sessions: [
+        {
+          id: 'session-1',
+          taskId: 'task-1',
+          workspaceId: 'workspace',
+          title: '会话',
+          currentPrompt: null,
+          turns: [],
+          status: 'done',
+          latestOutput: '已完成',
+          createdAt: NOW - 60_000,
+          updatedAt: NOW,
+          agentId: null,
+          associationSource: 'task-center'
+        }
+      ],
+      latestOutput: { sessionId: 'session-1', text: '已完成', updatedAt: NOW },
+      latestOutputSource: 'report'
+    } satisfies LocalTask
+
+    expect(localTaskToViewModel(task).status).toBe('Done')
   })
 })

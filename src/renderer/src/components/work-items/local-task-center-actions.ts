@@ -2,6 +2,7 @@ import { activateWorktreeFromSidebar } from '@/lib/sidebar-worktree-activation'
 import { useAppStore } from '@/store'
 import type { LocalTask } from '../../../../shared/local-task-types'
 import type { TuiAgent } from '../../../../shared/tui-agent'
+import { parseWorkspaceKey } from '../../../../shared/workspace-scope'
 import { localTaskToViewModel } from './local-task-view-model'
 import type { WorkItem } from './mock-data'
 
@@ -134,13 +135,34 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     if (!selected) {
       return
     }
-    const activeWorktreeId = useAppStore.getState().activeWorktreeId
-    const target = selected.workspaceId === 'local' ? activeWorktreeId : selected.workspaceId
+    const state = useAppStore.getState()
+    const activeWorktreeId = state.activeWorktreeId
+    const requestedId = selected.workspaceId
+    const knownWorkspace = requestedId ? state.getKnownWorktreeById(requestedId) : undefined
+    const workspaceByPath = selected.projectPath
+      ? state.allWorktrees().find((worktree) => worktree.path === selected.projectPath)
+      : undefined
+    const target =
+      requestedId === 'local'
+        ? activeWorktreeId
+        : (knownWorkspace?.id ??
+          workspaceByPath?.id ??
+          (requestedId && parseWorkspaceKey(requestedId) ? requestedId : null))
     if (!target) {
       setLoadError('当前任务没有可激活的 workspace')
       return
     }
-    void activateWorktreeFromSidebar(target).then(() => useAppStore.getState().closeWorkItemsPage())
+    void activateWorktreeFromSidebar(target)
+      .then((activated) => {
+        if (activated === false) {
+          setLoadError('当前任务的 workspace 不可用')
+          return
+        }
+        useAppStore.getState().closeWorkItemsPage()
+      })
+      .catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : 'workspace 打开失败')
+      )
   }
   const sessionStarted = (tabId: string, request: string): void => {
     if (!selected) {
