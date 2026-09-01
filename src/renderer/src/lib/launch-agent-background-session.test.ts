@@ -98,6 +98,8 @@ describe('launchAgentBackgroundSession', () => {
       agent: 'claude',
       worktreeId: 'wt-1',
       prompt: 'run the automation',
+      localTaskId: 'lt_task-1',
+      localTaskRoot: '/repo/worktree',
       title: 'Nightly audit'
     })
 
@@ -127,7 +129,9 @@ describe('launchAgentBackgroundSession', () => {
         command: "claude '--dangerously-skip-permissions' 'run the automation'",
         env: expect.objectContaining({
           ORCA_TAB_ID: tabId,
-          ORCA_WORKTREE_ID: 'wt-1'
+          ORCA_WORKTREE_ID: 'wt-1',
+          ORCA_LOCAL_TASK_ID: 'lt_task-1',
+          ORCA_LOCAL_TASK_ROOT: '/repo/worktree'
         }),
         connectionId: null,
         worktreeId: 'wt-1',

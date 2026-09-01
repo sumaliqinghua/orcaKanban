@@ -1,8 +1,8 @@
-# 项目现状（最后更新：2026-08-27）
+# 项目现状（最后更新：2026-09-01）
 
 ## 项目概述
 
-Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心功能：以本地任务管理并行 AI 工作，以会话子任务汇报进度，并通过用户验收结束任务。
+Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心功能和全局提示词库：用户可以管理并行 AI 工作，也可以在不离开当前页面的情况下查找、分类和复制常用提示词。
 
 ## 技术架构
 
@@ -11,6 +11,8 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - 本地任务持久化链路：
   `WorkItemsPrototypePage` → `window.api.localTasks` → preload IPC → 主进程 IPC 校验 → 项目目录 `orca/<task-id>/task.json`。
 - 领域类型位于 `src/shared/local-task-types.ts`；文件格式和 Store 位于 `src/main/local-tasks/`；IPC 校验位于 `src/main/ipc/local-task-ipc-validation.ts`。
+- 提示词库持久化链路：
+  `PromptLibraryPanel` → Zustand `updateSettingsOrThrow` → 现有 `settings:set` IPC → 主进程 `normalizePromptLibrary` → 当前 Orca 用户资料的 `GlobalSettings.promptLibrary`。该数据不进入项目文件，也不投影到 SSH 或配对 runtime。
 
 ## 已完成功能
 
@@ -24,22 +26,32 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - 详情交互：标题编辑、会话最后输出、workspace/session 跳转入口、详情抽屉收起和空状态创建。
 - 持久化与验证：任务目录初始化、原子 JSON 写入、文件监听、zod IPC 参数校验、任务变更广播。
 - Agent 任务桥接：从任务中心启动的 Agent shell 带有任务 ID；内置 `orca local-task` CLI 通过 runtime RPC 读取和更新当前任务、子任务、AI 执行步骤，并报告本轮最后输出。
+- 后台 Agent 上下文：澄清启动、批次启动与普通任务启动共用后台启动器；前两者会注入 `ORCA_LOCAL_TASK_ID` 和 `ORCA_LOCAL_TASK_ROOT`，因此 CLI 能定位项目内 `orca/<task-id>/task.json`。
+- 新建任务默认：任务中心每次打开新建任务弹窗都会显式使用 `ready`（可执行任务）；只有用户选择 `inbox` 才会进入收件箱。
+- 会话实时性：任务会话的 tab 若仍有活动 PTY，即使智能体仪表盘暂时没有对应卡片，也视为实时会话；详情恢复动作不会对其调用 AI Vault resume。
 - 关联会话：已有任务会话时，用户先输入本轮独立请求，再选择 Agent；该请求作为新会话内容和会话标题，不再重复发送原任务提示。
 - 文件格式：任务读取只接受完整的 `schemaVersion=1` 当前格式；旧状态别名、字符串输出、plan-only 子任务和缺字段文件会明确报错，不再迁移。
 - UI 行为：任务视角按最新子任务显示状态；归档事件立即移除卡片；任务中心默认关闭详情；执行步骤使用较大字号并保留勾选图标、不划线。
 - 输出记录：Agent 状态进入 `done` 时自动把 `lastAssistantMessage` 写入任务会话和 `latestOutput`，不再完全依赖 Agent 主动调用 `report-completed`。
 - 标签与会话状态：任务支持创建/编辑标签和看板/列表共用筛选；详情页使用可见 Dialog 编辑标题和标签；Agent done 事件会结束关联 session，即使没有文本输出。
 - 关联会话预览：点击任务详情中的已有会话会扩展详情抽屉，在右侧显示智能体仪表盘复用的实时终端；多个入口可同时预览同一 PTY，关闭一个入口不会中断其他入口的实时更新。
+- 提示词库：左侧“提示词库”入口打开非模态覆盖抽屉，不改变当前页面、workspace 或 tab；支持标题、正文和单一分类的新增、编辑、删除，支持全部/未分类/自定义分类筛选、标题/正文/分类全文搜索和一键复制正文。
+- 提示词库数据安全：共享归一化层限制最多 100 个分类、500 条提示词、标题 120 字和正文 20,000 字；重复分类、重复 ID、非法时间、空内容和失效分类引用有确定性处理，损坏配置不会阻止应用启动。
+- 提示词库抽屉协调：与 Workspace 看板和智能体仪表盘抽屉互斥；支持入口切换、关闭按钮、外部点击和 `Esc`；内层菜单与对话框优先处理 `Esc`；桌面显示双栏，窄窗口显示紧凑上下布局。
 
 ## 当前进度
 
 - 已完成：plan.md 阶段 1-6 的本地任务核心链路、session-bound CLI/RPC task bridge 和定向测试；阶段 7 的任务字段、Inbox、批次快照、运行记录、workspace 串行/并行队列和 Agent request-review 桥接。
 - 进行中：阶段 7 的 AI 批次排序、完整批次进度 UI、重启恢复、集中待审阅细节和端到端验证。
+- 已完成：阶段 8 AI 记录流。结果写入项目内 `assistant/results/YYYY-MM-DD/`，通过严格 schema、`seriesKey` 历史分组、`inputFingerprint` 无变化门禁和 `readAt` 已读状态复用现有任务中心；任务中心新增 AI 记录队列、Markdown 预览和 `projectId + taskId` 任务详情跳转。分析规则与写入脚本位于普通文档目录 `assistant/kanban-advisor/`，不会被普通任务会话作为 Skill 自动加载。
+- 已完成：阶段 9 Kanban Advisor 自动化模板。自动化页面“从模板开始”新增收件箱需求澄清、每周候选任务规划、每日滞留任务简化和每日任务状态汇报四个模板；模板只预填现有 Automation 草稿，并通过 Prompt 显式读取 `assistant/kanban-advisor/` 规则，不新增调度器或默认自动化。
+- 已完成：阶段 10 提示词库。领域归一化、当前用户资料持久化、搜索与分类、非模态抽屉、增删改复制、中英文文案、定向测试和真实 Electron Playwright 验收均已完成。
 - 后置：provider hook 自动汇报、workspace/Agent Dashboard 反向打开任务、文件锁、远程同步、跨项目任务索引和外部工单双向同步。任务创建先从项目 workspace 下拉选择已有 workspace；选择新建时才进入第二步工作树创建。
 
 ## 已知问题与技术债
 
-- Agent CLI 依赖从任务中心启动的终端环境变量；直接从 workspace 启动的会话不会自动归属本地任务，需从任务中心显式关联。
+- Agent CLI 依赖从任务中心启动的终端环境变量；直接从 workspace 启动的会话不会自动归属本地任务，需从任务中心显式关联。后台澄清和批次启动已由启动器统一注入任务 ID 与项目根目录。
+- 任务恢复保护：活动 PTY 是避免重复恢复的最终事实；对仍有活动写入者的 Codex 会话不能再次执行 `codex resume`，否则会触发 `thread already has an active writer`。
 - 事项中心详情抽屉左边缘可拖拽调整宽度；顶部“执行当前任务”是批量执行入口，会对可执行 Open 任务按 workspace 串行启动所选 Agent；自动/定时执行尚未完成。
 - 状态规则：任务只使用 Open/In progress/Needs review/Done；任意 session 已结束就显示 Needs review，没有结束会话但存在 working 或 queued/running 批次才显示 In progress，用户验收后进入 Done。
 - 启动规则：详情不再提供只改状态的“开始执行”；Agent 必须通过启动任务/关联会话或顶部批量入口创建真实会话；同一首条提示的重复 working 会话会复用。
@@ -49,7 +61,10 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - workspace/Agent Dashboard 尚未增加反向“打开本地任务”入口。
 - 文件锁和同 workspace 并行写入租约按用户决定后置。
 - v1.6 尚未实现 AI 批次排序、跨重启批次恢复和完整批次进度/待审阅 UI；批次启动仍要求任务中心窗口保持可用。
-- 全仓库 Node TypeScript 检查仍有既有 `ui-state-schema-parity-checks.ts` 类型错误；本地任务相关定向检查通过。
+- 当前应用代码的完整 `pnpm tc` 通过；测试目录使用独立的 `typecheck:e2e`，仍存在多处既有测试夹具类型错误。
+- AI 记录首版只扫描本地项目根目录；SSH/配对 runtime 聚合、结果保留/清理策略和手动切换已读状态尚未实现。
+- 全套 `typecheck:e2e` 当前包含仓库既有的多处类型错误；本次新增的 `kanban-ai-records.spec.ts` 和 `prompt-library-drawer.spec.ts` 均已通过实际 Playwright 运行。
+- 提示词库首版仅属于当前 Orca 用户资料，不支持项目级隔离、远程主机独立库、云同步、导入导出、变量参数或直接发送给 Agent；多窗口同时编辑沿用全局设置的最后一次完整写入生效语义。
 - 任务中心默认使用任务视角；会话可展开查看首次提示/最近输出；实时终端关闭后可扫描 Agent Session History 并在工作树中恢复；任务 Store 会同步 `plan.json` 的子任务和步骤。
 
 ## 关键配置与环境信息
@@ -58,7 +73,8 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - 子任务归属：子任务保持勾选/步骤模型；用户可新增并绑定已有或新建会话，AI 创建子任务自动绑定当前会话；AI 只能更新自己负责或未绑定子任务，跨会话修改需确认后移交。
 - 会话运行状态：任务中心以智能体仪表盘的实时 tab 为运行事实；task.json 中残留的 working 会话会投影为已结束并允许归档，新会话有 15 秒启动宽限。
 
-- 任务文件：项目目录下的 `orca/<task-id>/task.json`、`plan.json`、`prd.md`、`records.md`。
+- 任务文件：项目目录下的 `orca/<task-id>/task.json`、`plan.json`、`prd.md`、`records.md`；AI 分析记录位于 `assistant/results/<YYYY-MM-DD>/air_<id>.json`；只有四个 Kanban Advisor 自动化模板会显式读取 `assistant/kanban-advisor/` 下的规则和写入脚本。
 - 开发命令：`pnpm run dev`。
 - Electron 构建：`pnpm run build:electron-vite`。
+- 提示词库定向测试：`pnpm test src/shared/prompt-library.test.ts src/renderer/src/lib/prompt-library-filter.test.ts src/renderer/src/components/prompt-library`；真实窗口验收：`npx playwright test tests/e2e/prompt-library-drawer.spec.ts --config tests/playwright.config.ts --project=electron-headless --workers=1`。
 - 定向测试：`pnpm exec vitest run --config config/vitest.config.ts src/main/local-tasks/store.test.ts src/main/ipc/local-task-ipc-validation.test.ts src/main/runtime/rpc/methods/local-tasks.test.ts`。

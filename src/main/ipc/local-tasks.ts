@@ -13,6 +13,8 @@ import {
   editLocalTaskStepTitleArgsSchema,
   localTaskIdSchema,
   localTaskListArgsSchema,
+  kanbanAiRecordListArgsSchema,
+  markKanbanAiRecordReadArgsSchema,
   parseLocalTaskIpcArgs,
   reportLocalTaskCompletedArgsSchema,
   startLocalTaskBatchArgsSchema,
@@ -24,6 +26,7 @@ import {
   updateLocalTaskSubtaskArgsSchema
 } from './local-task-ipc-validation'
 import { publishLocalTaskChange } from '../local-tasks/change-notifications'
+import { listKanbanAiRecords, markKanbanAiRecordRead } from '../local-tasks/ai-record-file-store'
 
 let registered = false
 
@@ -37,6 +40,14 @@ export function registerLocalTaskHandlers(): void {
   ipcMain.handle('localTasks:list', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(localTaskListArgsSchema, args)
     return store.list(parsed?.projectId, parsed?.projectPath)
+  })
+  ipcMain.handle('localTasks:listAiRecords', (_event, args: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(kanbanAiRecordListArgsSchema, args)
+    return listKanbanAiRecords(parsed)
+  })
+  ipcMain.handle('localTasks:markAiRecordRead', (_event, args: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(markKanbanAiRecordReadArgsSchema, args)
+    return markKanbanAiRecordRead(parsed)
   })
   ipcMain.handle('localTasks:get', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(localTaskIdSchema, args)

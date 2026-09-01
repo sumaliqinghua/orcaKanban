@@ -980,6 +980,9 @@ export type UISlice = {
   /** Transient: the in-window Agent Dashboard companion drawer is open. Not persisted. */
   agentDashboardDrawerOpen: boolean
   setAgentDashboardDrawerOpen: (open: boolean) => void
+  /** Transient: the global prompt library companion drawer is open. */
+  promptLibraryDrawerOpen: boolean
+  setPromptLibraryDrawerOpen: (open: boolean) => void
   statusBarItems: StatusBarItem[]
   toggleStatusBarItem: (item: StatusBarItem) => void
   statusBarVisible: boolean
@@ -2331,6 +2334,8 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
 
   agentDashboardDrawerOpen: false,
   setAgentDashboardDrawerOpen: (open) => set({ agentDashboardDrawerOpen: open }),
+  promptLibraryDrawerOpen: false,
+  setPromptLibraryDrawerOpen: (open) => set({ promptLibraryDrawerOpen: open }),
   statusBarVisible: true,
   setStatusBarVisible: (v) => {
     window.api.ui.set({ statusBarVisible: v }).catch(console.error)

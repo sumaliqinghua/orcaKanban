@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   buildLocalTaskProjectOptions,
   collectLocalTaskProjectRoots,
+  loadKanbanAiRecordsForProjectScope,
   mergeLocalTasksById
 } from './local-task-project-scope'
+import type { KanbanAiRecord } from '../../../../shared/kanban-ai-record'
 
 describe('local task project scope', () => {
   it('lists all registered project and workspace paths for the all-projects view', () => {
@@ -57,6 +59,49 @@ describe('local task project scope', () => {
     expect(mergeLocalTasksById([first, newer, { id: 'lt_2', updatedAt: 3 }])).toEqual([
       { id: 'lt_2', updatedAt: 3 },
       newer
+    ])
+  })
+
+  it('loads AI records across roots, keeps the newest duplicate and tolerates one failed root', async () => {
+    const record = (id: string, createdAt: number): KanbanAiRecord => ({
+      schemaVersion: 1,
+      id,
+      kind: 'status_report',
+      seriesKey: 'status_report:orca',
+      createdAt,
+      source: { automationId: null, automationRunId: null, agentId: null },
+      target: {
+        projectId: 'orca',
+        projectPath: '/repos/orca',
+        workspaceId: null,
+        taskId: null
+      },
+      title: '状态汇报',
+      summary: '本轮摘要',
+      body: { format: 'markdown', content: '## 已完成' },
+      basis: { gitHead: 'abc' },
+      inputFingerprint: `sha256:${'a'.repeat(64)}`,
+      readAt: null
+    })
+    const result = await loadKanbanAiRecordsForProjectScope(
+      [
+        { projectId: 'orca', projectPath: '/repos/orca' },
+        { projectId: 'orca', projectPath: '/worktrees/orca' },
+        { projectId: 'other', projectPath: '/repos/other' }
+      ],
+      async ({ projectPath }) => {
+        if (projectPath === '/repos/other') {
+          throw new Error('unavailable')
+        }
+        return projectPath === '/repos/orca'
+          ? [record('air_duplicate', 1)]
+          : [record('air_duplicate', 3), record('air_second', 2)]
+      }
+    )
+
+    expect(result.map(({ id, createdAt }) => ({ id, createdAt }))).toEqual([
+      { id: 'air_duplicate', createdAt: 3 },
+      { id: 'air_second', createdAt: 2 }
     ])
   })
 })

@@ -47,6 +47,8 @@ function LocalTaskSessionPreview({
 }): React.JSX.Element {
   const snapshot = useLiveDashboardSnapshot()
   const card = snapshot.cards.find((candidate) => candidate.tabId === sessionId) ?? null
+  const ptyIdsByTabId = useAppStore((state) => state.ptyIdsByTabId)
+  const hasLiveTerminal = (ptyIdsByTabId[sessionId]?.length ?? 0) > 0
   const activeWorktreeId = useAppStore((state) => state.activeWorktreeId)
   const activeWorktree = useAppStore((state) =>
     activeWorktreeId ? (findWorktreeById(state.worktreesByRepo, activeWorktreeId) ?? null) : null
@@ -68,7 +70,7 @@ function LocalTaskSessionPreview({
   })
   const [historyLoading, setHistoryLoading] = useState(false)
   const restoreFromHistory = async (): Promise<void> => {
-    if (session.status === 'working') {
+    if (session.status === 'working' || hasLiveTerminal) {
       onOpenWorkspace()
       return
     }
@@ -129,10 +131,12 @@ function LocalTaskSessionPreview({
             onClick={() => void restoreFromHistory()}
             disabled={historyLoading}
           >
-            {session.status === 'working' ? '打开工作树查看会话' : '在工作树中恢复'}
+            {session.status === 'working' || hasLiveTerminal
+              ? '打开工作树查看会话'
+              : '在工作树中恢复'}
           </Button>
           <p>
-            {session.status === 'working'
+            {session.status === 'working' || hasLiveTerminal
               ? '会话正在运行，不会重复恢复；请打开工作树查看当前会话。'
               : '当前会话没有可显示的实时终端，可能已经结束或尚未挂载。'}
           </p>
@@ -222,7 +226,9 @@ export function LocalTaskDetailAside({
       }
       const previewStart = previewResizeStartRef.current
       if (previewStart) {
-        setPreviewWidth(Math.min(900, Math.max(360, previewStart.width + previewStart.x - event.clientX)))
+        setPreviewWidth(
+          Math.min(900, Math.max(360, previewStart.width + previewStart.x - event.clientX))
+        )
       }
     }
     const handlePointerUp = (): void => {

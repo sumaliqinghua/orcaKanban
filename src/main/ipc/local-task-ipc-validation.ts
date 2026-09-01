@@ -16,6 +16,17 @@ export const localTaskIdSchema = z
   .object({ taskId: id, projectPath: z.string().trim().min(1).max(4_096).optional() })
   .strict()
 
+export const kanbanAiRecordListArgsSchema = z
+  .object({
+    projectId: id,
+    projectPath: z.string().trim().min(1).max(4_096)
+  })
+  .strict()
+
+export const markKanbanAiRecordReadArgsSchema = kanbanAiRecordListArgsSchema.extend({
+  recordId: id
+})
+
 export const createLocalTaskArgsSchema = z
   .object({
     projectId: id,

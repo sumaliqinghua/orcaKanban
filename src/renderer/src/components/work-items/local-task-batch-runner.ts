@@ -60,6 +60,8 @@ async function runCandidate(candidate: LocalTaskBatchCandidate, agent: TuiAgent)
       agent,
       worktreeId,
       prompt: buildBatchPrompt(candidate),
+      localTaskId: candidate.task.id,
+      localTaskRoot: candidate.task.projectPath,
       launchSource: 'task_page',
       title: `自动化执行 · ${candidate.task.title}`
     })

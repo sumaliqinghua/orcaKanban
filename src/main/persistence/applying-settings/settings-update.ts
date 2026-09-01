@@ -6,6 +6,7 @@ import {
   normalizeTuiAgentEnvRecord
 } from '../../../shared/tui-agent-launch-defaults'
 import { normalizeTerminalQuickCommands } from '../../../shared/terminal-quick-commands'
+import { normalizePromptLibrary } from '../../../shared/prompt-library'
 import { normalizeTerminalCustomThemes } from '../../../shared/terminal-custom-themes'
 import { normalizeTerminalCursorStyleDefault } from '../../../shared/terminal-cursor-style-settings'
 import { normalizeDesktopTerminalScrollbackRows } from '../../../shared/terminal-scrollback-policy'
@@ -102,6 +103,9 @@ export function updateSettings(
     sanitizedUpdates.terminalQuickCommands = normalizeTerminalQuickCommands(
       updates.terminalQuickCommands
     )
+  }
+  if ('promptLibrary' in updates) {
+    sanitizedUpdates.promptLibrary = normalizePromptLibrary(updates.promptLibrary)
   }
   if ('terminalCustomThemes' in updates) {
     sanitizedUpdates.terminalCustomThemes = normalizeTerminalCustomThemes(

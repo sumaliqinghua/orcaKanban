@@ -75,6 +75,18 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
   }
 }
 
+export function collectLiveTaskSessionIds(
+  dashboardCards: readonly { tabId: string }[],
+  ptyIdsByTabId: Readonly<Record<string, readonly string[]>>
+): ReadonlySet<string> {
+  return new Set([
+    ...dashboardCards.map((card) => card.tabId),
+    ...Object.entries(ptyIdsByTabId)
+      .filter(([, ptyIds]) => ptyIds.length > 0)
+      .map(([tabId]) => tabId)
+  ])
+}
+
 export function reconcileWorkItemSessionLiveness(
   item: WorkItem,
   liveSessionIds: ReadonlySet<string>,

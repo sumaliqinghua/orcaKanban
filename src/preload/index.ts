@@ -562,6 +562,10 @@ const api = {
   localTasks: {
     list: (args?: { projectId?: string; projectPath?: string }) =>
       ipcRenderer.invoke('localTasks:list', args),
+    listAiRecords: (args: Parameters<LocalTaskApi['listAiRecords']>[0]) =>
+      ipcRenderer.invoke('localTasks:listAiRecords', args),
+    markAiRecordRead: (args: Parameters<LocalTaskApi['markAiRecordRead']>[0]) =>
+      ipcRenderer.invoke('localTasks:markAiRecordRead', args),
     get: (taskId: string, projectPath?: string) =>
       ipcRenderer.invoke('localTasks:get', { taskId, projectPath }),
     create: (args: Parameters<LocalTaskApi['create']>[0]) =>

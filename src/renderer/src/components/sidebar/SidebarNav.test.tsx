@@ -26,7 +26,8 @@ const mocks = vi.hoisted(() => ({
   agentBucketCounts: { attention: 0, working: 0, done: 0, idle: 0 },
   getAgentBucketCounts: vi.fn(),
   dismissMobileOnboardingBadge: vi.fn(),
-  setSetupGuideSidebarDismissed: vi.fn()
+  setSetupGuideSidebarDismissed: vi.fn(),
+  setPromptLibraryDrawerOpen: vi.fn()
 }))
 
 vi.mock('@/store', () => ({
@@ -148,7 +149,9 @@ function setSidebarState({
     persistedUIReady: true,
     activeModal: null,
     setupGuideSidebarDismissed: true,
-    setSetupGuideSidebarDismissed: mocks.setSetupGuideSidebarDismissed
+    setSetupGuideSidebarDismissed: mocks.setSetupGuideSidebarDismissed,
+    promptLibraryDrawerOpen: false,
+    setPromptLibraryDrawerOpen: mocks.setPromptLibraryDrawerOpen
   }
 }
 
@@ -253,6 +256,17 @@ describe('SidebarNav', () => {
 
     expect(queryButtonByText(container, 'Agent Dashboard')).toBeNull()
     expect(mocks.getAgentBucketCounts).not.toHaveBeenCalled()
+  })
+
+  it('opens the prompt library without navigating away from the current page', async () => {
+    const container = await renderSidebarNav()
+
+    await clickButton(getButtonByText(container, 'Prompt Library'))
+
+    expect(mocks.setPromptLibraryDrawerOpen).toHaveBeenCalledWith(true)
+    expect(mocks.openAutomationsPage).not.toHaveBeenCalled()
+    expect(mocks.openActivityPage).not.toHaveBeenCalled()
+    expect(mocks.openTaskPage).not.toHaveBeenCalled()
   })
 
   it('mounts the Agent Dashboard row after opt-in', async () => {

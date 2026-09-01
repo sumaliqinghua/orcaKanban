@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kanban AI record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "kind",
+    "seriesKey",
+    "createdAt",
+    "source",
+    "target",
+    "title",
+    "summary",
+    "body",
+    "basis",
+    "inputFingerprint",
+    "readAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^air_[A-Za-z0-9-]+$" },
+    "kind": {
+      "enum": [
+        "requirement_clarification",
+        "candidate_task",
+        "task_simplification",
+        "status_report"
+      ]
+    },
+    "seriesKey": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "number", "minimum": 0 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["automationId", "automationRunId", "agentId"],
+      "properties": {
+        "automationId": { "type": ["string", "null"] },
+        "automationRunId": { "type": ["string", "null"] },
+        "agentId": { "type": ["string", "null"] }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projectId", "projectPath", "workspaceId", "taskId"],
+      "properties": {
+        "projectId": { "type": "string", "minLength": 1 },
+        "projectPath": { "type": "string", "minLength": 1 },
+        "workspaceId": { "type": ["string", "null"] },
+        "taskId": { "type": ["string", "null"] }
+      }
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 10000 },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "content"],
+      "properties": {
+        "format": { "const": "markdown" },
+        "content": { "type": "string", "minLength": 1, "maxLength": 100000 }
+      }
+    },
+    "basis": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
+    },
+    "inputFingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "readAt": { "type": ["number", "null"], "minimum": 0 }
+  }
+}

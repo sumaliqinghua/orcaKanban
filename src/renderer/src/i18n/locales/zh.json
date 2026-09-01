@@ -7,6 +7,58 @@
       "webDescription": "重试 Web 客户端或重新连接到配对的运行时。"
     }
   },
+  "promptLibrary": {
+    "title": "提示词库",
+    "close": "关闭提示词库",
+    "cancel": "取消",
+    "save": "保存",
+    "saveFailed": "无法保存提示词库。",
+    "rename": "重命名",
+    "delete": "删除",
+    "promptCount": "{{value0}} 条提示词",
+    "sidebar": {
+      "label": "提示词库"
+    },
+    "search": {
+      "label": "搜索提示词",
+      "placeholder": "搜索提示词..."
+    },
+    "category": {
+      "label": "分类",
+      "plural": "分类",
+      "all": "全部提示词",
+      "uncategorized": "未分类",
+      "actions": "分类操作",
+      "addTitle": "新建分类",
+      "renameTitle": "重命名分类",
+      "description": "分类用于归纳相关提示词。",
+      "name": "名称",
+      "duplicate": "已存在同名分类。",
+      "limit": "分类数量已达上限。",
+      "deleteTitle": "删除“{{value0}}”？",
+      "deleteDescription": "{{value0}} 条提示词将移到“未分类”。"
+    },
+    "prompt": {
+      "addTitle": "新建提示词",
+      "editTitle": "编辑提示词",
+      "description": "保存可重复使用的提示词文本。",
+      "title": "标题",
+      "content": "提示词",
+      "limit": "提示词数量已达上限。",
+      "delete": "删除提示词",
+      "deleteTitle": "删除“{{value0}}”？",
+      "deleteDescription": "这条提示词将被永久删除。"
+    },
+    "copy": {
+      "action": "复制提示词",
+      "copied": "已复制",
+      "failed": "无法复制提示词。"
+    },
+    "empty": {
+      "library": "还没有提示词",
+      "filtered": "没有匹配的提示词"
+    }
+  },
   "githubChecks": {
     "retrying": "正在重试..."
   },
@@ -14077,6 +14129,36 @@
               "category": "维护",
               "name": "每小时维护检查",
               "prompt": "检查是否有卡住的工作、过时的生成文件、失败的验证以及任何需要人工注意的内容。仅报告需处理的问题。"
+            },
+            "kanbanAdvisor": {
+              "requirementClarification": {
+                "category": "任务中心助理",
+                "label": "收件箱需求澄清",
+                "description": "检查收件箱任务是否缺少范围、上下文或验收信息，但不修改任务。",
+                "name": "收件箱需求澄清",
+                "prompt": "读取 assistant/kanban-advisor/README.md、assistant/kanban-advisor/references/modes.md 和 assistant/kanban-advisor/references/result-contract.md，遵循 requirement_clarification 模式。检查当前工作区中的 Inbox 本地任务，读取任务描述、相关会话摘要、同一 seriesKey 的历史 AI 记录和相关的最近 Git 变更。只有发现新的歧义、用户回答、代码约束或明显更好的描述时才写入新的 AI 记录，并使用 node assistant/kanban-advisor/scripts/kanban-result.mjs write。如果任务和证据没有变化，返回 no_change，不要写文件。不要修改任务、不要把 Inbox 标记为 ready、不要启动项目 Agent、不要修改代码。"
+              },
+              "candidateTask": {
+                "category": "任务中心助理",
+                "label": "每周候选任务规划",
+                "description": "根据目标、已确认决策和近期项目工作提出少量前瞻任务。",
+                "name": "每周候选任务规划",
+                "prompt": "读取 assistant/kanban-advisor/README.md、assistant/kanban-advisor/references/modes.md 和 assistant/kanban-advisor/references/result-contract.md，遵循 candidate_task 模式。读取项目目标、已确认决策、近期完成工作、现有本地任务、历史 candidate_task 记录和相关 Git 变更。只提出尚未存在于任务列表或历史建议中的独立工作；确实有新的候选任务时，使用 node assistant/kanban-advisor/scripts/kanban-result.mjs write 写入一条包含验收标准的 AI 记录。如果没有实质变化或没有新的候选任务，返回 no_change。不要创建任务、修改优先级或启动项目 Agent。"
+              },
+              "taskSimplification": {
+                "category": "任务中心助理",
+                "label": "滞留任务简化",
+                "description": "把长期没有进展的任务缩小成更容易决策的问题。",
+                "name": "每日滞留任务简化",
+                "prompt": "读取 assistant/kanban-advisor/README.md、assistant/kanban-advisor/references/modes.md 和 assistant/kanban-advisor/references/result-contract.md，遵循 task_simplification 模式。检查长期未更新的 Open、Inbox 和 Needs review 本地任务、最近会话和输出、历史 task_simplification 记录以及相关 Git 变更。提出更小的下一步和具体的新描述，但不要修改原任务。只有任务 framing 或证据有实质新变化时才使用 node assistant/kanban-advisor/scripts/kanban-result.mjs write；如果任务、证据和历史简化没有变化，返回 no_change。不要创建任务、修改任务状态或启动 Agent。"
+              },
+              "statusReport": {
+                "category": "任务中心助理",
+                "label": "每日任务状态汇报",
+                "description": "汇总已完成、进行中、阻塞、失败和待审阅的工作。",
+                "name": "每日任务状态汇报",
+                "prompt": "读取 assistant/kanban-advisor/README.md、assistant/kanban-advisor/references/modes.md 和 assistant/kanban-advisor/references/result-contract.md，遵循 status_report 模式。读取本地任务状态变化、最近任务运行和失败、Needs review 项目、项目目标、决策以及相关 Git 变更。只有至少一项汇报事实或待决策事项发生变化时，才使用 node assistant/kanban-advisor/scripts/kanban-result.mjs write 写入简洁的 AI 记录；否则返回 no_change。不要修改任务、创建工作或启动 Agent。"
+              }
             }
           },
           "schedule": {

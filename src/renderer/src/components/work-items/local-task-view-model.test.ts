@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { LocalTask } from '../../../../shared/local-task-types'
-import { localTaskToViewModel, reconcileWorkItemSessionLiveness } from './local-task-view-model'
+import {
+  collectLiveTaskSessionIds,
+  localTaskToViewModel,
+  reconcileWorkItemSessionLiveness
+} from './local-task-view-model'
 import type { WorkItem } from './mock-data'
 
 const NOW = 100_000
@@ -31,6 +35,11 @@ function item(updatedAt: number): WorkItem {
 }
 
 describe('local task live session reconciliation', () => {
+  it('keeps PTY-backed task tabs live even without a dashboard card', () => {
+    const result = collectLiveTaskSessionIds([], { 'session-1': ['pty-1'], 'session-2': [] })
+    expect(result).toEqual(new Set(['session-1']))
+  })
+
   it('keeps a dashboard-visible session running', () => {
     const result = reconcileWorkItemSessionLiveness(item(NOW - 60_000), new Set(['session-1']), NOW)
     expect(result.status).toBe('In progress')

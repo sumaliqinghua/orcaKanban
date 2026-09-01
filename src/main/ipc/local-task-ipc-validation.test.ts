@@ -5,6 +5,8 @@ import {
   createLocalTaskSubtaskArgsSchema,
   archiveLocalTaskArgsSchema,
   editLocalTaskStepTitleArgsSchema,
+  kanbanAiRecordListArgsSchema,
+  markKanbanAiRecordReadArgsSchema,
   parseLocalTaskIpcArgs,
   startLocalTaskBatchArgsSchema,
   updateLocalTaskArgsSchema,
@@ -132,5 +134,29 @@ describe('local task IPC validation', () => {
     expect(
       archiveLocalTaskArgsSchema.parse({ taskId: 'lt_1', activeSessionIds: ['session-1'] })
     ).toEqual({ taskId: 'lt_1', activeSessionIds: ['session-1'] })
+  })
+
+  it('validates Kanban AI record list and read requests', () => {
+    expect(
+      kanbanAiRecordListArgsSchema.parse({
+        projectId: ' project-1 ',
+        projectPath: ' /tmp/project '
+      })
+    ).toEqual({ projectId: 'project-1', projectPath: '/tmp/project' })
+    expect(
+      markKanbanAiRecordReadArgsSchema.parse({
+        projectId: 'project-1',
+        projectPath: '/tmp/project',
+        recordId: 'air_1'
+      })
+    ).toMatchObject({ recordId: 'air_1' })
+    expect(() =>
+      markKanbanAiRecordReadArgsSchema.parse({
+        projectId: 'project-1',
+        projectPath: '/tmp/project',
+        recordId: 'air_1',
+        readAt: 1
+      })
+    ).toThrow()
   })
 })

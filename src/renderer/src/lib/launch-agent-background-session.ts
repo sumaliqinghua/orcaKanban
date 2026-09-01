@@ -1,8 +1,9 @@
 import { useAppStore } from '@/store'
 import { buildAgentStartupPlan } from '@/lib/tui-agent-startup'
-import type {
-  LaunchAgentBackgroundSessionArgs,
-  LaunchAgentBackgroundSessionResult
+import {
+  addLocalTaskAgentEnv,
+  type LaunchAgentBackgroundSessionArgs,
+  type LaunchAgentBackgroundSessionResult
 } from '@/lib/agent-background-session-contract'
 import { tuiAgentToAgentKind } from '@/lib/telemetry'
 import { scheduleAgentBackgroundDraft } from '@/lib/agent-background-draft-delivery'
@@ -54,7 +55,11 @@ export async function launchAgentBackgroundSession(
   }
   const cmdOverrides = store.settings?.agentCmdOverrides ?? {}
   const agentArgs = resolveTuiAgentLaunchArgs(agent, store.settings?.agentDefaultArgs)
-  const agentEnv = resolveTuiAgentLaunchEnv(agent, store.settings?.agentDefaultEnv)
+  const agentEnv = addLocalTaskAgentEnv(
+    resolveTuiAgentLaunchEnv(agent, store.settings?.agentDefaultEnv),
+    args.localTaskId,
+    args.localTaskRoot
+  )
   // Folder launch ownership cannot be derived from a repo row (#2989).
   const launchHost = resolveAgentBackgroundLaunchHost({
     store,
@@ -83,7 +88,6 @@ export async function launchAgentBackgroundSession(
   const trimmedPrompt = prompt?.trim() ?? ''
   const hasPrompt = trimmedPrompt.length > 0
   const isFollowupPath = requireTuiAgentConfig(agent).promptInjectionMode === 'stdin-after-start'
-
   const pasteDraftAfterLaunch = hasPrompt && isFollowupPath ? trimmedPrompt : null
   const startupPlan = buildAgentStartupPlan({
     agent,
@@ -99,7 +103,6 @@ export async function launchAgentBackgroundSession(
   if (!startupPlan) {
     return null
   }
-
   // A hidden run tab must never be store-visible without its PTY (#2989).
   const { reservedTabId, leafId, launchToken, launchRegistration, paneEnv } =
     reserveAgentBackgroundSessionIdentity({
@@ -292,11 +295,9 @@ export async function launchAgentBackgroundSession(
       unsubscribeExit = subscribeToPtyExit(ptyId, (code) => handleExit(ptyId, code))
     }
     sshStartupDelivery.armFallback(ptyId)
-
     // Why: bind the explicit PTY and ownership before mount; an earlier mount
     // can double-spawn, while later tracking can miss user takeover.
     requestBackgroundTerminalWorktreeMount({ worktreeId, tabIds: [tab.id] })
-
     if (pasteDraftAfterLaunch !== null) {
       scheduleAgentBackgroundDraft(tab.id, pasteDraftAfterLaunch, agent)
     }

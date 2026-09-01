@@ -73,6 +73,10 @@ describe('getDefaultSettings', () => {
     expect(getDefaultSettings('/tmp').terminalLinkActionPopoverEnabled).toBe(true)
   })
 
+  it('starts with an empty global prompt library', () => {
+    expect(getDefaultSettings('/tmp').promptLibrary).toEqual({ categories: [], prompts: [] })
+  })
+
   it('confirms before closing pinned tabs by default', () => {
     expect(getDefaultSettings('/tmp').confirmClosePinnedTab).toBe(true)
   })

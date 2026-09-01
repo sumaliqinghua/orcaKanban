@@ -3,12 +3,14 @@ import type { WorkItem } from './mock-data'
 
 export function LocalTaskQueueTabs({
   items,
+  aiRecordUnreadCount,
   value,
   onChange
 }: {
   items: WorkItem[]
-  value: 'all' | 'inbox' | 'review'
-  onChange: (value: 'all' | 'inbox' | 'review') => void
+  aiRecordUnreadCount: number
+  value: 'all' | 'inbox' | 'review' | 'ai'
+  onChange: (value: 'all' | 'inbox' | 'review' | 'ai') => void
 }): React.JSX.Element {
   return (
     <div className="flex items-center rounded-md border border-border p-0.5">
@@ -16,7 +18,8 @@ export function LocalTaskQueueTabs({
         [
           ['all', '全部'],
           ['inbox', '收件箱'],
-          ['review', '待审阅']
+          ['review', '待审阅'],
+          ['ai', 'AI 记录']
         ] as const
       ).map(([nextValue, label]) => (
         <Button
@@ -32,7 +35,9 @@ export function LocalTaskQueueTabs({
               ? items.length
               : nextValue === 'inbox'
                 ? items.filter((item) => item.intakeState === 'inbox').length
-                : items.filter((item) => item.status === 'Needs review').length}
+                : nextValue === 'review'
+                  ? items.filter((item) => item.status === 'Needs review').length
+                  : aiRecordUnreadCount}
           </span>
         </Button>
       ))}

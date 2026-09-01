@@ -61,6 +61,7 @@ export function useLocalTaskComposer({
   const [clarificationRequested, setClarificationRequested] = useState(
     modalData.localTaskDraft?.clarificationRequested ?? false
   )
+  const effectiveIntakeState = taskIntakeState === 'inbox' ? 'inbox' : 'ready'
   const normalizedLabels = useMemo(
     () =>
       [
@@ -107,6 +108,8 @@ export function useLocalTaskComposer({
         agent,
         worktreeId: worktree.id,
         prompt,
+        localTaskId: task.id,
+        localTaskRoot: task.projectPath,
         launchSource: 'task_page',
         title: `任务澄清 · ${task.title}`
       })
@@ -159,8 +162,8 @@ export function useLocalTaskComposer({
         title: taskTitle.trim() || undefined,
         description,
         labels: normalizedLabels,
-        intakeState: taskIntakeState,
-        clarificationRequested: taskIntakeState === 'inbox' && clarificationRequested,
+        intakeState: effectiveIntakeState,
+        clarificationRequested: effectiveIntakeState === 'inbox' && clarificationRequested,
         workspaceId,
         workspaceLabel: workspace
           ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
@@ -179,7 +182,7 @@ export function useLocalTaskComposer({
     taskDescription,
     taskTitle,
     normalizedLabels,
-    taskIntakeState,
+    effectiveIntakeState,
     clarificationRequested,
     startClarification
   ])
@@ -209,8 +212,8 @@ export function useLocalTaskComposer({
           title: taskTitle.trim() || undefined,
           description,
           labels: normalizedLabels,
-          intakeState: taskIntakeState,
-          clarificationRequested: taskIntakeState === 'inbox' && clarificationRequested,
+          intakeState: effectiveIntakeState,
+          clarificationRequested: effectiveIntakeState === 'inbox' && clarificationRequested,
           workspaceId: completion.worktreeId,
           workspaceLabel: workspace
             ? `${workspace.displayName} · ${workspace.branch || `HEAD ${workspace.head.slice(0, 7)}`}`
@@ -244,7 +247,7 @@ export function useLocalTaskComposer({
       taskDescription,
       normalizedLabels,
       taskTitle,
-      taskIntakeState,
+      effectiveIntakeState,
       clarificationRequested,
       startClarification
     ]
@@ -259,7 +262,7 @@ export function useLocalTaskComposer({
           title: taskTitle,
           description: taskDescription,
           labels: normalizedLabels,
-          intakeState: taskIntakeState,
+          intakeState: effectiveIntakeState,
           clarificationRequested
         },
         ...(cardProps.repoId ? { initialRepoId: cardProps.repoId } : {}),
@@ -271,7 +274,7 @@ export function useLocalTaskComposer({
       modalData.telemetrySource,
       normalizedLabels,
       taskDescription,
-      taskIntakeState,
+      effectiveIntakeState,
       clarificationRequested,
       taskTitle
     ]

@@ -1,4 +1,5 @@
 import type { LocalTask } from '../../../../shared/local-task-types'
+import type { KanbanAiRecord } from '../../../../shared/kanban-ai-record'
 
 export type LocalTaskProjectFilter = string
 
@@ -105,6 +106,33 @@ export async function loadLocalTasksForProjectScope(
     throw reason instanceof Error ? reason : new Error('本地任务加载失败')
   }
   return tasks
+}
+
+export async function loadKanbanAiRecordsForProjectScope(
+  roots: readonly LocalTaskProjectRoot[],
+  list: (args: LocalTaskProjectRoot) => Promise<KanbanAiRecord[]>
+): Promise<KanbanAiRecord[]> {
+  if (roots.length === 0) {
+    return []
+  }
+  const results = await Promise.allSettled(roots.map((root) => list(root)))
+  const byId = new Map<string, KanbanAiRecord>()
+  for (const result of results) {
+    if (result.status !== 'fulfilled') {
+      continue
+    }
+    for (const record of result.value) {
+      const current = byId.get(record.id)
+      if (!current || record.createdAt > current.createdAt) {
+        byId.set(record.id, record)
+      }
+    }
+  }
+  if (byId.size === 0 && results.every((result) => result.status === 'rejected')) {
+    const reason = results[0]?.status === 'rejected' ? results[0].reason : null
+    throw reason instanceof Error ? reason : new Error('AI 记录加载失败')
+  }
+  return [...byId.values()].sort((left, right) => right.createdAt - left.createdAt)
 }
 
 export function isLocalTaskInProjectScope<T extends { projectId: string; projectPath: string }>(

@@ -181,6 +181,66 @@ describe('Store', () => {
     ).toEqual(['third.example', 'active.example:6768'])
   })
 
+  it('normalizes the global prompt library on load and every settings write', async () => {
+    writeDataFile({
+      settings: {
+        promptLibrary: {
+          categories: [
+            { id: 'planning', name: ' Planning ' },
+            { id: 'duplicate', name: 'planning' }
+          ],
+          prompts: [
+            {
+              id: 'prompt-1',
+              title: ' Plan ',
+              content: 'Draft a plan. ',
+              categoryId: 'planning',
+              createdAt: 1,
+              updatedAt: 2
+            }
+          ]
+        }
+      }
+    })
+    const store = await createStore()
+
+    expect(store.getSettings().promptLibrary).toEqual({
+      categories: [{ id: 'planning', name: 'Planning' }],
+      prompts: [
+        {
+          id: 'prompt-1',
+          title: 'Plan',
+          content: 'Draft a plan.',
+          categoryId: 'planning',
+          createdAt: 1,
+          updatedAt: 2
+        }
+      ]
+    })
+
+    const updated = store.updateSettings({
+      promptLibrary: {
+        categories: [],
+        prompts: [
+          {
+            id: 'prompt-2',
+            title: 'Review',
+            content: 'Review the diff.',
+            categoryId: 'missing',
+            createdAt: 3,
+            updatedAt: 3
+          }
+        ]
+      }
+    })
+
+    expect(updated.promptLibrary?.prompts[0]?.categoryId).toBeNull()
+    store.flush()
+    expect((readDataFile() as { settings?: GlobalSettings }).settings?.promptLibrary).toEqual(
+      updated.promptLibrary
+    )
+  })
+
   it('notifies settings listeners with changed keys only', async () => {
     const store = await createStore()
     const listener = vi.fn()

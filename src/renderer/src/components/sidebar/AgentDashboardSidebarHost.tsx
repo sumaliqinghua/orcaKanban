@@ -20,6 +20,8 @@ export default function AgentDashboardSidebarHost({
 }: AgentDashboardSidebarHostProps): React.JSX.Element | null {
   const drawerOpen = useAppStore((s) => s.agentDashboardDrawerOpen)
   const setDrawerOpen = useAppStore((s) => s.setAgentDashboardDrawerOpen)
+  const promptLibraryDrawerOpen = useAppStore((s) => s.promptLibraryDrawerOpen)
+  const setPromptLibraryDrawerOpen = useAppStore((s) => s.setPromptLibraryDrawerOpen)
 
   useEffect(() => {
     if (!sidebarOpen && drawerOpen) {
@@ -29,13 +31,19 @@ export default function AgentDashboardSidebarHost({
   useEffect(() => {
     if (drawerOpen) {
       closeWorkspaceBoard()
+      setPromptLibraryDrawerOpen(false)
     }
-  }, [closeWorkspaceBoard, drawerOpen])
+  }, [closeWorkspaceBoard, drawerOpen, setPromptLibraryDrawerOpen])
   useEffect(() => {
     if (workspaceBoardOpen) {
       setDrawerOpen(false)
     }
   }, [setDrawerOpen, workspaceBoardOpen])
+  useEffect(() => {
+    if (promptLibraryDrawerOpen) {
+      setDrawerOpen(false)
+    }
+  }, [promptLibraryDrawerOpen, setDrawerOpen])
 
   return sidebarOpen ? (
     <AgentDashboardDrawer leftSidebarStyle={leftSidebarStyle} statusBarVisible={statusBarVisible} />

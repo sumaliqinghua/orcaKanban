@@ -1,5 +1,130 @@
 # 实现记录
 
+## [2026-09-01] 将 Kanban Advisor 从项目 Skill 改为模板显式规则
+
+- **What（做了什么）**：
+  - `.agents/skills/kanban-advisor/`：移除整个项目级 Skill，避免 Codex、Claude 等支持项目 Skill 发现的普通任务会话自动加载 Kanban Advisor 写入规则。
+  - `assistant/kanban-advisor/`：保留原有四种分析模式、结果契约、JSON Schema 和 `kanban-result.mjs` 历史/写入脚本，但改成普通项目文档；`README.md` 不含 Skill frontmatter，并明确只有自动化 Prompt 显式引用时才使用。
+  - `src/renderer/src/components/automations/automation-templates.ts`、`src/renderer/src/i18n/locales/en.json`、`zh.json`：四个模板 Prompt 改为显式读取 `assistant/kanban-advisor/README.md`、`references/modes.md` 和 `references/result-contract.md`，脚本调用路径同步改到新目录。
+  - `src/renderer/src/components/automations/automation-templates.test.ts`、`config/scripts/kanban-advisor-result-script.test.mjs`：模板测试增加“不得包含旧 Skill 调用语句”的断言；脚本测试改用普通文档目录中的脚本。
+  - `tests/e2e/automation-kanban-advisor-templates.spec.ts`：Electron 用例验证四个模板真实显示，并验证点击需求澄清模板后 Prompt 编辑器包含分析模式和 `assistant/kanban-advisor/README.md` 路径。
+  - `assistant/results/2026-08-31/`：删除普通任务会话误加载项目 Skill 后生成的 AI 记录，保留空的结果目录供真实自动化后续写入。
+- **Why（为什么这么做）**：
+  - 项目根目录 `.agents/skills` 是多个 Agent 的自动发现位置，普通任务会话也会看到其中的 Skill。把只属于四个自动化模板的写入规则放在这里，会扩大触发范围并导致普通开发任务错误写入 AI 记录。
+  - 普通文档加模板 Prompt 显式引用保留了统一格式、历史读取和无变化去重，同时把授权边界收窄到用户主动创建的四个 Automation。
+- **How（怎么实现的）**：
+  - 普通任务会话 → 只扫描标准 Skill 目录 → 不发现 Kanban Advisor；四个 Automation 模板 → Prompt 显式读取 `assistant/kanban-advisor/` → 选择模式并读取历史 → 无变化返回 `no_change`，有变化时调用脚本写入 AI 记录。
+- **用户须知**：
+  - 四个模板仍不会自动创建或启用；用户从模板创建并保存 Automation 后，才能按计划或 `Run Now` 运行。普通任务即使位于同一项目，也不会因为规则文档存在而自动写 AI 记录。
+- **已知限制**：
+  - 规则隔离依赖模板 Prompt 中的显式路径；如果用户手动删除这些路径，自动化 Agent 将不会获得统一输出契约。
+- **验证结果**：
+  - 模板与结果脚本定向测试共 3 项通过；`tc:web`、`tc:node`、本地化提取、本地化目录和 changed-file 质量门通过；Electron E2E 1 项通过；`git diff --check` 通过。
+- **关联假设**：无。
+
+## [2026-09-01] 增加 Kanban Advisor 自动化模板
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/automations/automation-templates.ts`：在现有四个通用模板后增加四个 Kanban Advisor 模板，分别对应 `requirement_clarification`、`candidate_task`、`task_simplification` 和 `status_report`。每个模板包含名称、说明、完整 Prompt、默认周期和宽限时间；Prompt 明确要求读取模板专用规则文档、读取同系列历史、调用 `kanban-result.mjs write`，无变化时返回 `no_change`。
+  - `src/renderer/src/i18n/locales/en.json`、`zh.json`：增加四个模板的英文和简体中文分类、名称、说明和 Prompt 文案。
+  - `src/renderer/src/components/automations/automation-templates.test.ts`：验证四个模板 ID、Prompt 中的显式规则文档路径/`no_change` 约束以及小时/每周/每日默认时间。
+  - `PRD.md`、`plan.md`、`PROJECT_STATUS.md`：记录 v1.8 模板范围、默认值、复用边界和验收结果。
+- **Why（为什么这么做）**：
+  - 分析模式、记录规则和写入脚本已经存在，但用户仍需手写 Prompt 才能创建 Automation；将标准 Prompt 做成现有模板可以消除这一步，同时保留 Automation 原有的项目、workspace、Agent、时间、启停和 Run Now 编辑能力。
+  - 模板只预填 `AutomationDraft`，不扩展 Automation 执行枚举，避免把分析文档误做成第二套调度器。
+- **How（怎么实现的）**：
+  - 自动化空状态/编辑器模板列表 → 选择 Kanban Advisor 模板 → 现有 `applyTemplateToDraft` 写入名称、Prompt、周期和时间 → 用户保存或修改 → 现有 Automation 服务按计划运行 → Agent 按 Prompt 读取模板专用规则文档并写 AI 记录。
+- **用户须知**：
+  - 四个模板不会自动创建或启用 Automation；需要点击模板并保存。保存后可像普通 Automation 一样改时间、停用或立即运行。
+  - “每周候选任务规划”默认每周一 10:00；需求澄清默认每小时 5 分；滞留任务简化默认每天 11:00；状态汇报默认每天 18:00。
+- **已知限制**：
+  - 当前没有单独的“分析模式”字段；模板保存后仍是通用 Prompt Automation。模板覆盖的默认项目和 workspace 由现有编辑器决定，用户可在保存前调整。
+- **关联假设**：无新增假设。
+
+## [2026-08-31] 增加 AI 记录流与 Kanban Advisor 规则
+
+- **What（做了什么）**：
+  - `src/shared/kanban-ai-record.ts`：定义 `KanbanAiRecord`、四种记录类型、`seriesKey`、`basis`、`inputFingerprint`、`readAt` 及列表/已读请求参数。
+  - `src/main/local-tasks/ai-record-file-store.ts`：扫描 `assistant/results/YYYY-MM-DD/air_*.json`，限制最多 1,000 个文件和 256 KiB 单文件；严格校验、按 ID 去重、按时间排序，并用原子 JSON 写入保存首次已读时间。
+  - `src/main/ipc/local-task-ipc-validation.ts`、`src/main/ipc/local-tasks.ts`、`src/preload/api/local-task-api.ts`、`src/preload/index.ts`：在现有 `localTasks` 通道增加 `listAiRecords` 和 `markAiRecordRead`，renderer 不直接访问文件系统。
+  - `assistant/kanban-advisor/`：增加四种分析模式、统一 Markdown 章节、历史读取顺序、无变化门禁、JSON Schema 和确定性 `history`/`write` 脚本；相同 `seriesKey` 与 `inputFingerprint` 返回 `no_change`，不落新文件。该目录是模板显式读取的普通文档目录，不参与项目 Skill 自动发现。
+  - `src/renderer/src/components/work-items/KanbanAiRecordList.tsx`、`KanbanAiRecordDetailAside.tsx`、`KanbanAiRecordsPane.tsx`：任务中心新增 AI 记录队列、未读标记、Markdown 预览和唯一“查看任务”按钮；未关联任务的记录保持只读。
+  - `LocalTaskQueueTabs.tsx`、`LocalTaskSourceTabs.tsx`、`WorkItemsPrototypePage.tsx`、`use-local-task-center-interactions.ts`、`local-task-project-scope.ts`、`kanban-ai-record-task-target.ts`：复用现有队列、项目范围、任务详情侧栏和 Markdown 样式，提供跨项目读取、严格任务目标匹配，并将页面级交互拆出以保持页面低于 400 行。
+  - 测试覆盖文件 schema/排序/去重/已读、IPC 参数、结果写入脚本、renderer 组件、任务目标匹配和 Electron Playwright 端到端流程。
+- **Why（为什么这么做）**：
+  - 用户需要保留同类型分析的多次结果并支持从近到远阅读，同时避免定时运行重复生成相同建议；因此采用一个文件一条记录、`seriesKey` 归组、`basis`/`inputFingerprint` 去重，且把 `readAt` 与内容变化完全分离。
+  - 复用项目目录和现有 localTasks IPC，不增加第二套数据库、顶层页面、常驻调度 Agent 或未完成的 Proposal 状态机；自动化继续负责触发，分析 Agent 只负责生成记录。
+  - 首版只保留“查看任务”，避免在没有完整业务状态机时引入采纳、忽略和稍后处理等动作。
+- **How（怎么实现的）**：
+  - 分析 Agent → `kanban-result.mjs history` 读取同系列历史 → 比较稳定输入依据 → 无变化返回 `no_change`；有新判断时 → `write` 校验并原子写入 `assistant/results/<date>/air_<id>.json` → 任务中心通过 IPC 读取 → 打开预览调用 `markAiRecordRead` → 按 `projectId + taskId` 进入现有任务详情。
+- **用户须知**：
+  - 四个 Kanban Advisor 自动化模板写记录时必须使用 `assistant/kanban-advisor/scripts/kanban-result.mjs` 和 `references/result-contract.md` payload，不要手写 `id`、`createdAt`、`inputFingerprint` 或 `readAt`。
+  - `readAt = null` 表示未读；打开预览即标记已读，首版没有手动改回未读的 UI；无 `taskId` 的记录只能阅读。
+- **已知限制**：
+  - 输入变化但语义无变化的第二层判断仍由模板启动的 Agent 完成；首版只扫描本地项目，远程/SSH 结果、自动清理和全套 E2E 类型债务后置。
+- **关联假设**：`ASSUMPTIONS.md` 的“AI 记录使用项目内可清理目录”“打开 AI 记录预览即标记已读”“AI 记录首版仅支持本地项目”。
+
+## [2026-08-31] 修复主动问询 Agent 无法读取任务上下文
+
+- **What（做了什么）**：
+  - `src/renderer/src/lib/agent-background-session-contract.ts`：为后台 Agent 启动参数增加可选的 `localTaskId`（本地任务 ID）和 `localTaskRoot`（包含 `orca/<task-id>/task.json` 的项目根目录）。
+  - `src/renderer/src/lib/launch-agent-background-session.ts`：在解析 Agent 默认环境后追加上述两个字段，生成 PTY/远程 runtime 都会继承的启动环境；未传字段时保持原有普通后台启动行为。
+  - `src/renderer/src/hooks/useLocalTaskComposer.ts`：主动问询澄清会话启动时传入创建完成任务的 ID 和项目路径。
+  - `src/renderer/src/components/work-items/local-task-batch-runner.ts`：批量执行会话启动时传入候选任务的 ID 和项目路径，补齐同一任务桥接能力。
+  - `src/renderer/src/lib/launch-agent-background-session.test.ts`：增加 PTY spawn 环境断言，验证 `ORCA_LOCAL_TASK_ID`、`ORCA_LOCAL_TASK_ROOT` 与稳定会话身份同时存在。
+- **Why（为什么这么做）**：
+  - “创建后主动问询补充描述”使用的是后台启动器，而该路径此前只带有 workspace、tab 和 pane 身份，没有任务桥接所需的环境变量，Agent 执行 `orca local-task current --json` 时只能得到“当前 Agent 会话未绑定本地任务”。
+  - 将注入放在后台启动器这一共享边界，而不是在某个调用方拼接 shell 命令，可同时覆盖本地 PTY、SSH 和远程 runtime，避免三条启动路径再次分叉。
+- **How（怎么实现的）**：
+  - 任务澄清/批次 runner → `launchAgentBackgroundSession({ localTaskId, localTaskRoot })` → `resolveTuiAgentLaunchEnv` 合并任务字段 → `buildAgentStartupPlan` → `paneEnv` → PTY 或 runtime terminal → Agent CLI 读取环境 → runtime RPC 按项目根目录读取 `orca/<task-id>/task.json`。
+  - 用户自定义 Agent 环境仍先被解析，任务字段随后写入，因此不会被旧配置意外覆盖。
+- **用户须知**：
+  - 勾选主动问询后，澄清 Agent 可以直接运行 `orca local-task current --json` 并在当前会话请求补充信息；不需要用户手动从任务中心再次启动。
+  - 批量执行 Agent 同样具备任务 CLI 上下文；从 workspace 快捷入口直接启动的会话仍不会自动绑定任务，这是有意保留的边界。
+- **已知限制**：
+  - 既有运行中的 Orca 进程可能仍加载旧的 renderer/CLI 产物；需重启开发进程后再验证新启动链路。
+- **关联假设**：无新增待确认假设。
+
+## [2026-08-31] 修复新建任务默认进入收件箱
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/work-items/WorkItemsPrototypePage.tsx`：任务中心打开新建任务弹窗时传入空白草稿，并明确设置 `intakeState: 'ready'`、`clarificationRequested: false`，不再依赖弹窗状态残留或隐式默认值。
+  - `src/renderer/src/hooks/useLocalTaskComposer.ts`：新增 `effectiveIntakeState` 归一化值；创建任务和新建 workspace 后创建任务均只把明确的 `inbox` 写入收件箱，其余值写为 `ready`。
+  - `plan.md`、`PROJECT_STATUS.md`：同步记录默认可执行任务规则和验收标准。
+- **Why（为什么这么做）**：
+  - 用户看到表单显示“可执行任务”，但创建结果进入收件箱，说明创建入口可能复用了旧草稿或传入了非预期值。入口显式初始化 + 提交归一化可以同时消除 UI 状态残留和异常值传播。
+  - Store 原本已经把缺省 `intakeState` 设为 `ready`，因此无需改变持久化格式或 Inbox 业务规则，只修正 renderer 创建参数。
+- **How（怎么实现的）**：
+  - 任务中心“新建” → `openModal(... localTaskDraft.intakeState = 'ready')` → composer 初始化 `ready` → 提交时 `effectiveIntakeState` 归一化 → `localTasks.create` → `task.json.intakeState`。
+  - 用户切换到“收件箱，稍后整理”时，状态仍为 `inbox`，主动问询复选框行为保持不变。
+- **用户须知**：
+  - 现在从任务中心新建任务，默认会直接进入可执行任务列表；不需要额外点击“整理为可执行”。
+  - 需要先记录、稍后补充的任务仍可手动选择收件箱。
+- **已知限制**：
+  - 已经创建并处于 Inbox 的历史任务不会自动迁移，需在任务详情中手动执行“整理为可执行”。
+- **关联假设**：无新增待确认假设。
+
+## [2026-08-31] 修复任务会话误恢复导致 Codex active writer 冲突
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/work-items/local-task-view-model.ts`：新增 `collectLiveTaskSessionIds`，把仪表盘卡片和 `ptyIdsByTabId` 中仍有活动 PTY 的 tab 合并为实时会话集合。
+  - `src/renderer/src/components/work-items/WorkItemsPrototypePage.tsx`：任务状态校正同时使用仪表盘卡片和活动 PTY；卡片短暂缺失时不会把仍运行的任务标为待恢复。
+  - `src/renderer/src/components/work-items/LocalTaskDetailAside.tsx`：会话预览恢复逻辑增加 PTY 保护；活动 PTY 存在时只调用打开工作树，不调用 AI Vault resume；按钮和说明同步显示“打开工作树查看会话”。
+  - `src/renderer/src/components/work-items/local-task-view-model.test.ts`：覆盖“无仪表盘卡片但有活动 PTY”的实时会话识别。
+  - `plan.md`、`PROJECT_STATUS.md`：记录恢复保护和实时性判定约定。
+- **Why（为什么这么做）**：
+  - 任务会话关联保存的是 Orca tab ID，而仪表盘卡片是展示投影，可能因 Agent 状态尚未上报、卡片筛选或短暂重建而缺失。仅依赖卡片会误判终端已结束。
+  - 对仍有活动 PTY 的 Codex transcript 再执行 `resume` 会与原进程争用同一线程写入者，产生 `thread/resume failed ... already has an active writer`。PTY 是本地窗口是否仍承载该会话的直接证据，应优先于历史扫描结果。
+- **How（怎么实现的）**：
+  - renderer store `ptyIdsByTabId` + dashboard cards → `collectLiveTaskSessionIds` → 任务会话状态校正。
+  - 详情恢复按钮 → 检查 `session.status` 或 `ptyIdsByTabId[sessionId]` → 有活动会话则打开工作树；仅在无活动 PTY 时扫描 Agent Session History 并尝试恢复。
+- **用户须知**：
+  - 只要任务对应的终端仍有活动 PTY，即使仪表盘卡片暂时未出现，任务中心也不会再次恢复 Codex 会话。
+  - “在工作树中恢复”仅用于确实没有活动 PTY 的历史会话；活动会话会显示“打开工作树查看会话”。
+- **已知限制**：
+  - 如果 Codex 进程在 Orca 之外运行、且没有可见 PTY 映射，任务中心无法仅凭本地状态判断 active writer；此时仍可能需要用户先结束原进程再恢复。
+- **关联假设**：无新增待确认假设。
+
 ## [2026-08-22] 事项中心低保真原型
 
 - **What（做了什么）**：
@@ -558,3 +683,43 @@
   - Inbox 任务必须先点击“整理为可执行”，然后再点击“执行当前任务”。
 - **已知限制**：AI 批次排序、批次进度详情和完整端到端测试仍在阶段 7 后续任务中。
 - **关联假设**：`ASSUMPTIONS.md` 的“异步员工模式的执行边界”。
+## [2026-09-01] 实现全局提示词库与非模态抽屉
+
+- **What（做了什么）**：
+  - `src/shared/prompt-library.ts`：新增 `PromptLibrary` 聚合对象、`PromptLibraryCategory` 分类和 `PromptLibraryPrompt` 提示词类型；分类包含 ID/名称，提示词包含 ID/标题/正文/单一可选分类/创建时间/更新时间。新增 `normalizePromptLibrary` 统一清理损坏数据，新增 `deletePromptLibraryCategory` 在删除分类时保留提示词并移到未分类。
+  - `src/shared/global-settings-types.ts`、`src/shared/default-global-settings.ts`：在当前用户资料的 `GlobalSettings` 增加原子 `promptLibrary` 设置，默认值为空分类和空提示词；没有增加项目文件、远程 wire 字段或执行主机配置。
+  - `src/main/persistence/applying-settings/settings-update.ts`、`src/main/persistence/loading-store/normalize-loaded-global-settings.ts`：主进程在每次写入和每次旧资料加载时调用同一个归一化函数，确保 renderer、磁盘旧值和未来其他写入者遵守相同边界。
+  - `src/renderer/src/lib/prompt-library-filter.ts`：实现提示词筛选与排序。搜索统一大小写和连续空白，同时匹配标题、完整正文与分类名称；分类筛选使用 `undefined` 表示全部、`null` 表示未分类、分类 ID 表示一个用户分类；结果按更新时间、创建时间和 ID 稳定排序。
+  - `src/renderer/src/store/slices/ui.ts`：新增非持久化 `promptLibraryDrawerOpen` 和 setter。它只描述当前窗口是否显示抽屉，不写入用户资料，不改变 `activeView`。
+  - `PromptLibrarySidebarEntry.tsx`、`SidebarNav.tsx`：在自动化之后、智能体仪表盘之前增加始终可见的“提示词库”入口；按钮用 `NotebookText` 图标、侧栏 token、`aria-expanded` 和 `aria-controls`，点击只切换抽屉。
+  - `PromptLibrarySidebarHost.tsx`、`sidebar/index.tsx`、`AgentDashboardSidebarHost.tsx`：把提示词库抽屉挂载在侧栏剪裁边界之外；打开时关闭 Workspace 看板和智能体仪表盘，Workspace 看板或智能体仪表盘打开时反向关闭提示词库，侧栏折叠时也会关闭。
+  - `PromptLibraryDrawer.tsx`：复用现有 `Sheet`、Workspace 看板外部点击处理和侧栏/状态栏尺寸常量，从侧栏右缘打开 760px 上限的非模态覆盖抽屉；支持关闭按钮、外部点击和 `Esc`，并在菜单、选择器或确认对话框打开时让内层浮层优先处理 `Esc`。
+  - `PromptLibraryPanel.tsx`：实现提示词库工作区和所有数据操作。新增/编辑使用 `crypto.randomUUID` 生成稳定 ID，通过 `updateSettingsOrThrow` 写入完整聚合对象；删除提示词和分类均先确认；复制调用现有 `window.api.ui.writeClipboardText`，成功显示 1.5 秒勾选状态，保存/复制失败使用 toast 显示可读错误。
+  - `PromptLibraryCategorySidebar.tsx`、`PromptLibraryPromptList.tsx`：实现全部、未分类和用户分类列表及数量；提示词行显示标题、分类、三行正文预览以及带工具提示的复制、编辑、删除图标。桌面为 180px 分类栏加提示词列表，600px 窄窗口为分类内容高度加剩余提示词列表。
+  - `PromptLibraryCategoryDialog.tsx`、`PromptLibraryPromptDialog.tsx`：使用现有 Dialog、Input、Textarea、Select 和 Button 实现分类与提示词表单；标题和正文必填；分类名称在忽略大小写、前后空格和连续空白后不可重复；保存失败保留用户输入供重试。
+  - `src/renderer/src/i18n/locales/en.json`、`zh.json`：补充提示词库入口、搜索、分类、表单、删除确认、复制反馈、容量上限和空状态的英文与简体中文文案。
+  - `src/shared/prompt-library.test.ts`、`prompt-library-filter.test.ts`、`persistence-settings-update.test.ts`、`constants.test.ts`：覆盖默认空库、合法值往返、损坏数据、容量/长度上限、重复值、失效分类引用、分类删除保留提示词、组合搜索和持久化加载/写入。
+  - `SidebarNav.test.tsx`、`PromptLibrarySidebarHost.test.tsx`、`PromptLibraryDrawer.test.tsx`、`PromptLibraryPanel.test.tsx`、`PromptLibraryDialogs.test.tsx`：覆盖不切换主页面、三类抽屉互斥、侧栏关闭、`Esc` 优先级、搜索、复制反馈、筛选不写数据、必填字段和重复分类校验。
+  - `tests/e2e/prompt-library-drawer.spec.ts`：新增真实 Electron Playwright 流程，验证保持自动化页面、抽屉稳定贴合侧栏且不越出窗口、新建提示词、复制到 Electron 系统剪贴板，以及桌面与 600px 窄窗口截图。
+- **Why（为什么这么做）**：
+  - 现有终端快速命令的 `agent-prompt` 必须绑定具体 Agent，并面向直接启动/发送；提示词库只管理和复制任意文本。独立模型避免把两种不同权限和使用意图混在一起。
+  - 分类和提示词放进一个 `promptLibrary` 设置，可以在删除分类时一次完成“移除分类 + 清空提示词分类引用”，不会在两次持久化之间留下悬空状态。
+  - 复用智能体仪表盘和 Workspace 看板的 companion sheet 行为，使用户保留当前页面上下文，同时沿用已经验证过的侧栏宽度、状态栏边界、外部关闭和互斥模式。
+  - 考虑过按项目文件保存，但用户确认的是所有项目共享的个人模板；因此选择当前 Orca 用户资料，并明确不把私人提示词发布给 SSH 或配对 runtime。
+- **How（怎么实现的）**：
+  - 数据流：提示词/分类表单 → `PromptLibraryPanel` 构造下一份完整库 → Zustand `updateSettingsOrThrow` → `settings:set` IPC → 主进程 `normalizePromptLibrary` → 用户资料持久化 → settings changed 通知其他窗口。
+  - 打开流：侧栏按钮 → `promptLibraryDrawerOpen=true` → `PromptLibrarySidebarHost` 关闭其他 companion panel → `PromptLibraryDrawer` 从侧栏右缘覆盖当前主页面；整个过程不调用页面导航方法。
+  - 搜索流：当前库 + 查询词 + 分类筛选 → `filterPromptLibraryPrompts` → 标题/正文/分类名匹配 → 更新时间倒序列表。
+  - 复制流：提示词行复制按钮 → Electron clipboard IPC → 完整正文写入系统剪贴板 → 行内 Copy 图标切换为 Check 1.5 秒；失败只显示错误，不关闭抽屉或改变筛选。
+  - 删除分类流：用户确认 → `deletePromptLibraryCategory` 删除分类 → 所属提示词 `categoryId=null` 并更新时间 → 单次全库写入。
+- **用户须知**：
+  - 左侧“提示词库”不属于页面 tab；打开后当前任务中心、自动化、终端 workspace 和 tab 都保持不变。
+  - 数据属于当前 Orca 用户资料，对本机所有项目可见；切换项目不会切换提示词库。
+  - 固定筛选项“全部提示词”和“未分类”不能删除；用户分类删除后提示词不会丢失，而是进入“未分类”。
+  - 首版没有内置示例，首次打开为空；支持最多 100 个分类、500 条提示词，标题最多 120 字，正文最多 20,000 字。
+- **已知限制**：
+  - 首版不支持提示词变量、直接发送给 Agent、项目级提示词、导入导出、云同步或远程主机独立库。
+  - 多个 Orca 窗口同时编辑提示词库时，沿用全局设置的最后一次完整写入生效语义；没有新增逐提示词并发合并协议。
+  - 全套 `typecheck:e2e` 仍受仓库既有测试类型债阻塞；本次新增 E2E 文件未出现在错误列表，且真实 Electron 用例已通过。
+- **关联假设**：无。本轮所有产品选择均由用户在澄清阶段确认。
+- **验证结果**：117 项定向 Vitest 通过；完整 `pnpm tc` 通过；本地化目录和提取校验通过；changed-file 普通、类型感知和 React 专项质量门禁均为 0 新问题；Electron E2E 构建和 1 条完整交互用例通过；桌面与 600px 窄窗口截图已人工检查，无文本重叠或控件溢出。全仓本地化覆盖检查仍被工作区原有任务中心硬编码中文阻塞，报告中没有提示词库文件。完成通知已按要求调用飞书会话总结发送器，但 webhook 返回 `19007: Bot Not Enabled`，消息未发送。

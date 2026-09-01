@@ -13,9 +13,16 @@ import type {
   UpdateLocalTaskSubtaskArgs,
   TransferLocalTaskSubtaskArgs
 } from '../../shared/local-task-types'
+import type {
+  KanbanAiRecord,
+  ListKanbanAiRecordsArgs,
+  MarkKanbanAiRecordReadArgs
+} from '../../shared/kanban-ai-record'
 
 export type LocalTaskApi = {
   list: (args?: { projectId?: string; projectPath?: string }) => Promise<LocalTask[]>
+  listAiRecords: (args: ListKanbanAiRecordsArgs) => Promise<KanbanAiRecord[]>
+  markAiRecordRead: (args: MarkKanbanAiRecordReadArgs) => Promise<KanbanAiRecord>
   get: (taskId: string, projectPath?: string) => Promise<LocalTask | null>
   create: (args: CreateLocalTaskArgs) => Promise<LocalTask>
   update: (args: { taskId: string; updates: UpdateLocalTaskArgs }) => Promise<LocalTask>
