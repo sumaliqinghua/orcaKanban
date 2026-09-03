@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { MessageSquare, Play } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,6 +22,23 @@ import { useAppStore } from '@/store'
 import type { WorkItem } from './mock-data'
 import { buildTaskPrompt } from './local-task-agent-prompt'
 
+export async function persistLocalTaskSessionAssociation(
+  item: WorkItem,
+  tabId: string,
+  request: string,
+  workspaceId: string
+): Promise<void> {
+  await window.api.localTasks.createSession({
+    taskId: item.id,
+    projectPath: item.projectPath,
+    sessionId: tabId,
+    title: request.split(/\r?\n/, 1)[0]?.trim().slice(0, 120) || 'Agent 会话',
+    workspaceId,
+    currentPrompt: request,
+    associationSource: 'task-center'
+  })
+}
+
 export function LocalTaskAgentPicker({
   item,
   onStarted
@@ -40,9 +58,22 @@ export function LocalTaskAgentPicker({
   const hasSessions = item.sessions > 0
   const requestText = hasSessions ? request.trim() : item.description
   const taskPrompt = buildTaskPrompt(item, requestText)
-  const handleStarted = (tabId: string): void => {
-    setDialogOpen(false)
-    onStarted(tabId, requestText)
+  const handleStarted = async (tabId: string): Promise<void> => {
+    if (!worktreeId) {
+      return
+    }
+    try {
+      // Persist the association before the task panel is closed or refreshed.
+      await persistLocalTaskSessionAssociation(item, tabId, requestText, worktreeId)
+      setDialogOpen(false)
+      onStarted(tabId, requestText)
+    } catch (cause) {
+      useAppStore.getState().closeTab(tabId, {
+        recordInteraction: false,
+        reason: 'cleanup'
+      })
+      toast.error(cause instanceof Error ? cause.message : '关联会话创建失败')
+    }
   }
 
   const agentMenu = (

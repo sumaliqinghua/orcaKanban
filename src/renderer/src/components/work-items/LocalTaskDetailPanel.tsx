@@ -21,6 +21,7 @@ import { LocalTaskSubtaskCreateDialog } from './LocalTaskSubtaskCreateDialog'
 import { LocalTaskSubtaskBlock } from './LocalTaskSubtaskBlock'
 import { LocalTaskReportButton } from './LocalTaskReportButton'
 import type { TuiAgent } from '../../../../shared/tui-agent'
+import type { AgentRevealArgs } from '../dashboard-popout/AgentTerminalDialog'
 
 export function DetailPanel({
   item,
@@ -44,7 +45,7 @@ export function DetailPanel({
   labelSuggestions: string[]
   onEditStep: (subtaskId: string, stepId: string) => void
   onOpenSession: (sessionId: string) => void
-  onOpenWorkspace: () => void
+  onOpenWorkspace: (request?: string | AgentRevealArgs) => void
   onSessionStarted: (tabId: string, request: string) => void
   onReportSessionStarted: (tabId: string, request: string, agent: TuiAgent) => Promise<void>
   onTaskChanged: (task: LocalTask) => void
@@ -179,6 +180,7 @@ export function DetailPanel({
                   key={subtask.id}
                   subtask={subtask}
                   sessions={item.sessionsList}
+                  projectPath={item.projectPath}
                   onComplete={() => onCompleteSubtask(subtask.id)}
                   onEditStep={(stepId) => onEditStep(subtask.id, stepId)}
                   onTaskChanged={onTaskChanged}
@@ -286,7 +288,7 @@ export function DetailPanel({
               variant="ghost"
               size="sm"
               className="mt-2 h-6 gap-1 px-0 text-[10px]"
-              onClick={onOpenWorkspace}
+              onClick={() => onOpenWorkspace()}
             >
               <ArrowUpRight className="size-3" />
               打开 workspace 查看对话

@@ -4,6 +4,7 @@ export function getLocalTaskContext(): {
   taskId: string
   sessionId: string
   worktreeId?: string
+  projectPath?: string
 } {
   const taskId = process.env.ORCA_LOCAL_TASK_ID?.trim()
   const sessionId =

@@ -8,7 +8,11 @@ const longText = z.string().trim().min(1).max(100_000)
 const taskStatus = z.enum(LOCAL_TASK_STATUSES)
 
 export const localTaskListArgsSchema = z
-  .object({ projectId: id.optional(), projectPath: z.string().trim().min(1).max(4_096).optional() })
+  .object({
+    projectId: id.optional(),
+    projectPath: z.string().trim().min(1).max(4_096).optional(),
+    includeArchived: z.boolean().optional()
+  })
   .strict()
   .optional()
 
@@ -45,6 +49,7 @@ export const createLocalTaskArgsSchema = z
 export const updateLocalTaskArgsSchema = z
   .object({
     taskId: id,
+    projectPath: z.string().trim().min(1).max(4_096).optional(),
     updates: z
       .object({
         title: shortText.optional(),
@@ -84,6 +89,8 @@ export const updateLocalTaskSessionOutputArgsSchema = z
   })
   .strict()
 
+export const rebindLocalTaskSessionTabArgsSchema = z.object({ sessionId: id, tabId: id }).strict()
+
 export const createLocalTaskSubtaskArgsSchema = z
   .object({
     taskId: id,
@@ -106,6 +113,7 @@ export const transferLocalTaskSubtaskArgsSchema = z
   .object({
     subtaskId: id,
     sessionId: id.nullable(),
+    projectPath: z.string().trim().min(1).max(4_096).optional(),
     force: z.boolean().optional()
   })
   .strict()
@@ -133,10 +141,36 @@ export const reportLocalTaskCompletedArgsSchema = z
   })
   .strict()
 
-export const acceptLocalTaskArgsSchema = z.object({ taskId: id }).strict()
+export const acceptLocalTaskArgsSchema = localTaskIdSchema
 
 export const archiveLocalTaskArgsSchema = z
-  .object({ taskId: id, activeSessionIds: z.array(id).max(500).optional() })
+  .object({
+    taskId: id,
+    projectPath: z.string().trim().min(1).max(4_096).optional(),
+    activeSessionIds: z.array(id).max(500).optional()
+  })
+  .strict()
+
+export const deleteLocalTaskArgsSchema = z
+  .object({
+    taskId: z
+      .string()
+      .trim()
+      .regex(/^lt_[A-Za-z0-9-]+$/)
+      .max(200),
+    projectPath: z.string().trim().min(1).max(4_096),
+    activeSessionIds: z.array(id).max(500).optional()
+  })
+  .strict()
+
+export const transferLocalTaskWorkspaceArgsSchema = z
+  .object({
+    sourceProjectPath: z.string().trim().min(1).max(4_096),
+    targetProjectId: id,
+    targetProjectPath: z.string().trim().min(1).max(4_096),
+    targetWorkspaceId: id,
+    targetWorkspaceLabel: shortText
+  })
   .strict()
 
 export const startLocalTaskBatchArgsSchema = z

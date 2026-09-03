@@ -141,7 +141,9 @@ export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
     params: UpdateDescription,
     handler: (params) => {
       ensureContext(params)
-      return result(getLocalTaskStore().updateDescription(params.taskId, params.description))
+      return result(
+        getLocalTaskStore().updateDescription(params.taskId, params.description, params.projectPath)
+      )
     }
   }),
   defineMethod({
@@ -210,6 +212,7 @@ export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
         getLocalTaskStore().transferSubtask({
           subtaskId: params.subtaskId,
           sessionId: session!.id,
+          projectPath: params.projectPath,
           force: params.force
         })
       )

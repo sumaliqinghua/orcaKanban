@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -110,6 +110,170 @@ describe('LocalTaskStore file-first persistence', () => {
       expect.arrayContaining([first.id, second.id])
     )
     secondStore.close()
+  })
+
+  it('ignores a stale task copy checked out in another workspace', () => {
+    const ownerRoot = projectPath()
+    const shadowRoot = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: ownerRoot,
+      description: '修复线上问题',
+      workspaceId: 'owner-workspace'
+    })
+    const session = store.createSession({
+      taskId: task.id,
+      projectPath: ownerRoot,
+      sessionId: 'session-1',
+      workspaceId: task.workspaceId
+    })
+    const staleReview = store.updateSessionOutput({
+      sessionId: session.id,
+      latestOutput: '等待验收'
+    })
+    const shadowTaskPath = join(shadowRoot, 'orca', task.id, 'task.json')
+    mkdirSync(join(shadowRoot, 'orca', task.id), { recursive: true })
+    writeFileSync(shadowTaskPath, `${JSON.stringify(staleReview, null, 2)}\n`, 'utf8')
+    store.accept(task.id)
+    store.archive(task.id)
+    store.close()
+
+    const reloaded = new LocalTaskStore()
+    expect(reloaded.list('orca', ownerRoot)).toEqual([])
+    expect(reloaded.list('orca', shadowRoot)).toEqual([])
+    expect(reloaded.get(task.id)?.archivedAt).not.toBeNull()
+    reloaded.close()
+  })
+
+  it('uses an explicit project path when the same task id has two owned copies', () => {
+    const firstRoot = projectPath()
+    const secondRoot = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: firstRoot,
+      description: '同 ID 任务',
+      workspaceId: 'first-workspace'
+    })
+    const secondTask = {
+      ...task,
+      projectPath: secondRoot,
+      workspaceId: 'second-workspace',
+      updatedAt: task.updatedAt + 1
+    }
+    const secondTaskDirectory = join(secondRoot, 'orca', task.id)
+    mkdirSync(secondTaskDirectory, { recursive: true })
+    writeFileSync(
+      join(secondTaskDirectory, 'task.json'),
+      `${JSON.stringify(secondTask, null, 2)}\n`,
+      'utf8'
+    )
+
+    store.list('orca', firstRoot)
+    store.list('orca', secondRoot)
+    expect(store.get(task.id)?.workspaceId).toBe('second-workspace')
+
+    store.archive(task.id, [], firstRoot)
+
+    expect(store.get(task.id, firstRoot)?.archivedAt).not.toBeNull()
+    expect(store.get(task.id, secondRoot)?.archivedAt).toBeNull()
+    store.close()
+  })
+
+  it('skips a deleted newest indexed copy when creating a session', () => {
+    const firstRoot = projectPath()
+    const secondRoot = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: firstRoot,
+      description: '清理失效索引后启动',
+      workspaceId: 'first-workspace'
+    })
+    const newerTask = {
+      ...task,
+      projectPath: secondRoot,
+      workspaceId: 'second-workspace',
+      updatedAt: task.updatedAt + 1
+    }
+    const newerDirectory = join(secondRoot, 'orca', task.id)
+    mkdirSync(newerDirectory, { recursive: true })
+    writeFileSync(join(newerDirectory, 'task.json'), `${JSON.stringify(newerTask)}\n`, 'utf8')
+
+    store.list('orca', firstRoot)
+    store.list('orca', secondRoot)
+    rmSync(secondRoot, { recursive: true, force: true })
+
+    const session = store.createSession({ taskId: task.id, sessionId: 'session-after-cleanup' })
+
+    expect(session.taskId).toBe(task.id)
+    expect(store.get(task.id, firstRoot)?.sessions[0]?.id).toBe('session-after-cleanup')
+    store.close()
+  })
+
+  it('transfers task ownership and context files to a merged target workspace', () => {
+    const sourceRoot = projectPath()
+    const targetRoot = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: sourceRoot,
+      description: '合入后继续验收',
+      workspaceId: 'source-workspace',
+      workspaceLabel: 'feature/task'
+    })
+    const session = store.createSession({
+      taskId: task.id,
+      projectPath: sourceRoot,
+      sessionId: 'session-1',
+      workspaceId: task.workspaceId
+    })
+    store.updateSessionOutput({ sessionId: session.id, latestOutput: '等待验收' })
+    writeFileSync(join(sourceRoot, 'orca', task.id, 'prd.md'), '# 合入任务\n', 'utf8')
+
+    const [transferred] = store.transferWorkspace({
+      sourceProjectPath: sourceRoot,
+      targetProjectId: 'orca',
+      targetProjectPath: targetRoot,
+      targetWorkspaceId: 'target-workspace',
+      targetWorkspaceLabel: 'main'
+    })
+
+    expect(transferred).toMatchObject({
+      id: task.id,
+      projectPath: targetRoot,
+      workspaceId: 'target-workspace',
+      workspaceLabel: 'main',
+      status: 'Needs review'
+    })
+    expect(store.list('orca', sourceRoot)).toEqual([])
+    expect(store.list('orca', targetRoot)).toHaveLength(1)
+    expect(readFileSync(join(targetRoot, 'orca', task.id, 'prd.md'), 'utf8')).toBe('# 合入任务\n')
+    const sourceShadow = JSON.parse(
+      readFileSync(join(sourceRoot, 'orca', task.id, 'task.json'), 'utf8')
+    ) as { projectPath: string }
+    expect(sourceShadow.projectPath).toBe(targetRoot)
+    store.close()
+  })
+
+  it('does not retain a task after its unmerged workspace directory is deleted', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: root,
+      description: '随 workspace 删除',
+      workspaceId: 'temporary-workspace'
+    })
+
+    store.close()
+    rmSync(root, { recursive: true, force: true })
+
+    const reloaded = new LocalTaskStore()
+    expect(reloaded.list('orca', root)).toEqual([])
+    expect(reloaded.get(task.id, root)).toBeNull()
+    reloaded.close()
   })
 
   it('rejects legacy status values instead of normalizing them', () => {
@@ -473,6 +637,40 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('ignores deleted task paths while transferring a subtask', () => {
+    const firstRoot = projectPath()
+    const secondRoot = projectPath()
+    const store = new LocalTaskStore()
+    const first = store.create({
+      projectId: 'orca',
+      projectPath: firstRoot,
+      description: '旧 workspace 任务'
+    })
+    const withSubtask = store.createSubtask({
+      taskId: first.id,
+      projectPath: firstRoot,
+      title: '可移交子任务'
+    })
+    const secondTask = { ...withSubtask, projectPath: secondRoot }
+    const secondDirectory = join(secondRoot, 'orca', secondTask.id)
+    mkdirSync(secondDirectory, { recursive: true })
+    writeFileSync(join(secondDirectory, 'task.json'), `${JSON.stringify(secondTask)}\n`, 'utf8')
+
+    // Prime the in-memory index with the old path, then remove that workspace.
+    store.list('orca', firstRoot)
+    rmSync(firstRoot, { recursive: true, force: true })
+    store.list('orca', secondRoot)
+
+    const transferred = store.transferSubtask({
+      subtaskId: secondTask.subtasks[0]!.id,
+      sessionId: 'session-next'
+    })
+
+    expect(transferred.projectPath).toBe(secondRoot)
+    expect(transferred.subtasks[0]?.sessionId).toBe('session-next')
+    store.close()
+  })
+
   it('assigns existing unbound subtasks when the first session is created', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
@@ -574,6 +772,26 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
+  it('persists a new Terminal Tab id without changing the stable task session id', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '恢复绑定' })
+    const session = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'old-tab-id'
+    })
+
+    const rebound = store.rebindSessionTab({ sessionId: session.id, tabId: 'new-tab-id' })
+
+    expect(rebound.sessions[0]).toMatchObject({ id: 'old-tab-id', tabId: 'new-tab-id' })
+    expect(store.get(task.id, root)?.sessions[0]).toMatchObject({
+      id: 'old-tab-id',
+      tabId: 'new-tab-id'
+    })
+    store.close()
+  })
+
   it('does not create duplicate working sessions for the same prompt', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
@@ -661,10 +879,55 @@ describe('LocalTaskStore file-first persistence', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
     const task = store.create({ projectId: 'orca', projectPath: root, description: '归档恢复' })
-    store.archive(task.id)
+    const session = store.createSession({
+      taskId: task.id,
+      projectPath: root,
+      sessionId: 'review-session'
+    })
+    store.updateSessionOutput({ sessionId: session.id, latestOutput: '已完成' })
+    store.accept(task.id, root)
+    store.archive(task.id, [], root)
     expect(store.list('orca', root)).toHaveLength(0)
-    expect(store.restore(task.id).archivedAt).toBeNull()
+    expect(store.list('orca', root, { includeArchived: true })).toMatchObject([
+      { id: task.id, status: 'Done', archivedAt: expect.any(Number) }
+    ])
+    expect(store.restore(task.id, root)).toMatchObject({ status: 'Done', archivedAt: null })
     expect(store.list('orca', root)).toHaveLength(1)
+    store.close()
+  })
+
+  it('deletes only an archived task directory', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '永久删除' })
+    const sibling = store.create({
+      projectId: 'orca',
+      projectPath: root,
+      description: '保留的相邻任务'
+    })
+    expect(() => store.deleteTask(task.id, root, [])).toThrow('archived')
+    expect(existsSync(join(root, 'orca', task.id))).toBe(true)
+
+    store.archive(task.id, [], root)
+    expect(store.deleteTask(task.id, root, [])).toEqual({ taskId: task.id, projectPath: root })
+
+    expect(existsSync(join(root, 'orca', task.id))).toBe(false)
+    expect(existsSync(join(root, 'orca', sibling.id))).toBe(true)
+    expect(store.get(task.id, root)).toBeNull()
+    store.close()
+  })
+
+  it('rejects deleting an archived task with a live Agent session', () => {
+    const root = projectPath()
+    const store = new LocalTaskStore()
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '运行中删除' })
+    store.createSession({ taskId: task.id, projectPath: root, sessionId: 'running-session' })
+    store.update(task.id, { archived: true }, root)
+
+    expect(() => store.deleteTask(task.id, root, ['running-session'])).toThrow(
+      'running Agent session'
+    )
+    expect(existsSync(join(root, 'orca', task.id))).toBe(true)
     store.close()
   })
 

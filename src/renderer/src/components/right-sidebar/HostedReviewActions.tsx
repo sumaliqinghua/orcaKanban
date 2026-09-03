@@ -31,6 +31,7 @@ import {
   RIGHT_SIDEBAR_SPLIT_ACTION_ROW_CLASS
 } from './right-sidebar-primary-action-layout'
 import { translate } from '@/i18n/i18n'
+import { resolveLocalTaskWorkspaceTransfer } from '../work-items/local-task-workspace-transfer'
 import {
   getGitHubPRStackMergeBlocker,
   getGitHubPRStackMergeScope,
@@ -121,6 +122,21 @@ export default function HostedReviewActions({
     () => resolveGitHubPRMergeMethods(isGitLab ? null : (githubPR?.mergeMethodSettings ?? null)),
     [githubPR?.mergeMethodSettings, isGitLab]
   )
+  const transferLocalTasks = useCallback(async (): Promise<void> => {
+    if (stackUsesMergeQueue) {
+      return
+    }
+    const transfer = resolveLocalTaskWorkspaceTransfer({
+      repo,
+      source: worktree,
+      targetBranch: review.baseRefName ?? githubPR?.baseRefName,
+      worktrees: useAppStore.getState().allWorktrees()
+    })
+    if (!transfer) {
+      return
+    }
+    await window.api.localTasks.transferWorkspace(transfer)
+  }, [githubPR?.baseRefName, repo, review.baseRefName, stackUsesMergeQueue, worktree])
   const {
     merging,
     stateUpdating,
@@ -138,7 +154,8 @@ export default function HostedReviewActions({
     reviewLabel,
     defaultMergeMethod: mergeMethods.defaultMethod,
     autoMergeAction: mergePresentation.autoMergeAction,
-    onRefreshReview
+    onRefreshReview,
+    onMergeSucceeded: transferLocalTasks
   })
   const isUpdatingReviewState = stateUpdating !== null
   const primaryMergeDisabled =

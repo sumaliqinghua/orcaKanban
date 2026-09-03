@@ -10,6 +10,7 @@ import {
   createLocalTaskArgsSchema,
   createLocalTaskSessionArgsSchema,
   createLocalTaskSubtaskArgsSchema,
+  deleteLocalTaskArgsSchema,
   editLocalTaskStepTitleArgsSchema,
   localTaskIdSchema,
   localTaskListArgsSchema,
@@ -19,13 +20,18 @@ import {
   reportLocalTaskCompletedArgsSchema,
   startLocalTaskBatchArgsSchema,
   transferLocalTaskSubtaskArgsSchema,
+  transferLocalTaskWorkspaceArgsSchema,
   updateLocalTaskRunArgsSchema,
   updateLocalTaskArgsSchema,
   updateLocalTaskStepArgsSchema,
   updateLocalTaskSessionOutputArgsSchema,
+  rebindLocalTaskSessionTabArgsSchema,
   updateLocalTaskSubtaskArgsSchema
 } from './local-task-ipc-validation'
-import { publishLocalTaskChange } from '../local-tasks/change-notifications'
+import {
+  publishLocalTaskChange,
+  publishLocalTaskDeletion
+} from '../local-tasks/change-notifications'
 import { listKanbanAiRecords, markKanbanAiRecordRead } from '../local-tasks/ai-record-file-store'
 
 let registered = false
@@ -39,7 +45,9 @@ export function registerLocalTaskHandlers(): void {
   store.setOnChanged(publishLocalTaskChange)
   ipcMain.handle('localTasks:list', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(localTaskListArgsSchema, args)
-    return store.list(parsed?.projectId, parsed?.projectPath)
+    return store.list(parsed?.projectId, parsed?.projectPath, {
+      includeArchived: parsed?.includeArchived
+    })
   })
   ipcMain.handle('localTasks:listAiRecords', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(kanbanAiRecordListArgsSchema, args)
@@ -61,14 +69,14 @@ export function registerLocalTaskHandlers(): void {
   })
   ipcMain.handle('localTasks:update', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(updateLocalTaskArgsSchema, args)
-    const task = store.update(parsed.taskId, parsed.updates)
+    const task = store.update(parsed.taskId, parsed.updates, parsed.projectPath)
     publishLocalTaskChange(task)
     return task
   })
   ipcMain.handle('localTasks:createSession', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(createLocalTaskSessionArgsSchema, args)
     const session = store.createSession(parsed)
-    const task = store.get(parsed.taskId)
+    const task = store.get(parsed.taskId, parsed.projectPath)
     if (task) {
       publishLocalTaskChange(task)
     }
@@ -77,6 +85,12 @@ export function registerLocalTaskHandlers(): void {
   ipcMain.handle('localTasks:updateSessionOutput', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(updateLocalTaskSessionOutputArgsSchema, args)
     const task = store.updateSessionOutput(parsed)
+    publishLocalTaskChange(task)
+    return task
+  })
+  ipcMain.handle('localTasks:rebindSessionTab', (_event, args: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(rebindLocalTaskSessionTabArgsSchema, args)
+    const task = store.rebindSessionTab(parsed)
     publishLocalTaskChange(task)
     return task
   })
@@ -124,21 +138,31 @@ export function registerLocalTaskHandlers(): void {
   })
   ipcMain.handle('localTasks:accept', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(acceptLocalTaskArgsSchema, args)
-    const task = store.accept(parsed.taskId)
+    const task = store.accept(parsed.taskId, parsed.projectPath)
     publishLocalTaskChange(task)
     return task
   })
   ipcMain.handle('localTasks:archive', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(archiveLocalTaskArgsSchema, args)
-    const task = store.archive(parsed.taskId, parsed.activeSessionIds)
+    const task = store.archive(parsed.taskId, parsed.activeSessionIds, parsed.projectPath)
     publishLocalTaskChange(task)
     return task
   })
   ipcMain.handle('localTasks:restore', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(acceptLocalTaskArgsSchema, args)
-    const task = store.restore(parsed.taskId)
+    const task = store.restore(parsed.taskId, parsed.projectPath)
     publishLocalTaskChange(task)
     return task
+  })
+  ipcMain.handle('localTasks:delete', (_event, args: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(deleteLocalTaskArgsSchema, args)
+    const deletion = store.deleteTask(parsed.taskId, parsed.projectPath, parsed.activeSessionIds)
+    publishLocalTaskDeletion(deletion)
+    return deletion
+  })
+  ipcMain.handle('localTasks:transferWorkspace', (_event, args: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(transferLocalTaskWorkspaceArgsSchema, args)
+    return store.transferWorkspace(parsed)
   })
   ipcMain.handle('localTasks:updateStep', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(

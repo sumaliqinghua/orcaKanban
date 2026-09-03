@@ -90,12 +90,28 @@ export function mergeLocalTasksById<T extends { id: string; updatedAt: number }>
 export async function loadLocalTasksForProjectScope(
   roots: readonly LocalTaskProjectRoot[],
   projectFilter: LocalTaskProjectFilter,
-  list: (args?: { projectId?: string; projectPath?: string }) => Promise<LocalTask[]>
+  list: (args?: {
+    projectId?: string
+    projectPath?: string
+    includeArchived?: boolean
+  }) => Promise<LocalTask[]>,
+  options: { includeArchived?: boolean } = {}
 ): Promise<LocalTask[]> {
   const requests =
     roots.length > 0
-      ? roots.map((root) => list({ projectId: root.projectId, projectPath: root.projectPath }))
-      : [list(projectFilter === 'all' ? undefined : { projectId: projectFilter })]
+      ? roots.map((root) =>
+          list({
+            projectId: root.projectId,
+            projectPath: root.projectPath,
+            ...(options.includeArchived ? { includeArchived: true } : {})
+          })
+        )
+      : [
+          list({
+            ...(projectFilter === 'all' ? {} : { projectId: projectFilter }),
+            ...(options.includeArchived ? { includeArchived: true } : {})
+          })
+        ]
   const results = await Promise.allSettled(requests)
   const tasks = mergeLocalTasksById(
     results.flatMap((result) => (result.status === 'fulfilled' ? result.value : []))

@@ -65,6 +65,17 @@ function AgentTerminalFrame({
           type="button"
           variant="ghost"
           size="icon-xs"
+          className="opacity-70 hover:opacity-100"
+          onClick={reveal}
+          aria-label="跳转到终端 Tab"
+          title="跳转到终端 Tab"
+        >
+          <SquareArrowOutUpRight className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
           className="ml-auto opacity-70 hover:opacity-100"
           onClick={() => onOpenChange(false)}
         >

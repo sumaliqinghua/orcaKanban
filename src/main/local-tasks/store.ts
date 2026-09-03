@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type {
   CreateLocalTaskArgs,
   CreateLocalTaskSessionArgs,
   CreateLocalTaskSubtaskArgs,
   EditLocalTaskStepTitleArgs,
+  LocalTaskDeletion,
   LocalTask,
+  RebindLocalTaskSessionTabArgs,
   LocalTaskBatch,
   LocalTaskBatchTaskRef,
   LocalTaskSession,
@@ -16,8 +18,10 @@ import type {
   UpdateLocalTaskStepArgs,
   UpdateLocalTaskSubtaskArgs,
   UpdateLocalTaskSessionOutputArgs,
-  TransferLocalTaskSubtaskArgs
+  TransferLocalTaskSubtaskArgs,
+  TransferLocalTaskWorkspaceArgs
 } from '../../shared/local-task-types'
+import { normalizeRuntimePathForComparison } from '../../shared/cross-platform-path'
 import {
   atomicWrite,
   localTaskDirectory,
@@ -27,7 +31,8 @@ import {
   writeJson,
   LOCAL_TASK_PLAN_FILE_NAME,
   LOCAL_TASK_PRD_FILE_NAME,
-  LOCAL_TASK_RECORDS_FILE_NAME
+  LOCAL_TASK_RECORDS_FILE_NAME,
+  LOCAL_TASK_ROOT_NAME
 } from './file-store-format'
 import { LocalTaskFileWatchers } from './file-store-watch'
 import * as mutations from './file-store-mutations'
@@ -43,7 +48,7 @@ const normalizeLabels = (value: string[] | undefined): string[] =>
   [...new Set((value ?? []).map((label) => label.trim()).filter(Boolean))].slice(0, 20)
 
 export class LocalTaskStore {
-  private readonly locations = new Map<string, string>()
+  private readonly locations = new Map<string, Map<string, string>>()
   private readonly watchers: LocalTaskFileWatchers
   private changeListener: ((task: LocalTask) => void) | null = null
 
@@ -59,9 +64,17 @@ export class LocalTaskStore {
     this.changeListener = listener
   }
 
-  list(projectId?: string, projectPath?: string): LocalTask[] {
+  list(
+    projectId?: string,
+    projectPath?: string,
+    options: { includeArchived?: boolean } = {}
+  ): LocalTask[] {
     const roots = projectPath ? [resolve(projectPath)] : this.knownProjectPaths()
-    const tasks = roots.flatMap((root) => taskFiles(root).map((path) => this.readRemembered(path)))
+    const tasks = roots.flatMap((root) =>
+      taskFiles(root)
+        .map((path) => this.readOwned(path, root))
+        .filter((task): task is LocalTask => task !== null)
+    )
     if (projectPath) {
       this.watchers.watchProject(projectPath)
     }
@@ -69,18 +82,26 @@ export class LocalTaskStore {
       this.watchers.watchTask(task)
     }
     return tasks
-      .filter((task): task is LocalTask => task !== null)
       .filter((task) => !projectId || task.projectId === projectId)
-      .filter((task) => task.archivedAt === null)
+      .filter((task) => options.includeArchived === true || task.archivedAt === null)
       .sort((a, b) => b.updatedAt - a.updatedAt)
   }
 
   get(id: string, projectPath?: string): LocalTask | null {
-    const path = projectPath ? localTaskFile(projectPath, id) : this.locations.get(id)
+    const path = projectPath ? localTaskFile(projectPath, id) : this.latestKnownPath(id)
     if (!path || !existsSync(path)) {
       return null
     }
-    return this.readRemembered(path)
+    try {
+      return projectPath ? this.readOwned(path, projectPath) : this.readRemembered(path)
+    } catch (error) {
+      // A workspace may be removed between the existence check and the read.
+      if (!existsSync(path)) {
+        this.removeIndexedPath(id, path)
+        return null
+      }
+      throw error
+    }
   }
 
   create(args: CreateLocalTaskArgs): LocalTask {
@@ -134,17 +155,17 @@ export class LocalTaskStore {
     return task
   }
 
-  update(id: string, updates: UpdateLocalTaskArgs): LocalTask {
-    return mutations.updateTask(this.access(), id, updates)
+  update(id: string, updates: UpdateLocalTaskArgs, projectPath?: string): LocalTask {
+    return mutations.updateTask(this.access(), id, updates, projectPath)
   }
 
-  updateDescription(id: string, description: string): LocalTask {
-    const task = this.require(id)
+  updateDescription(id: string, description: string, projectPath?: string): LocalTask {
+    const task = this.require(id, projectPath)
     return this.writeTask({ ...task, description: description.trim(), updatedAt: timestamp() })
   }
 
-  accept(id: string): LocalTask {
-    const task = this.require(id)
+  accept(id: string, projectPath?: string): LocalTask {
+    const task = this.require(id, projectPath)
     if (task.status !== 'Needs review') {
       throw new Error('Only a local task awaiting review can be accepted')
     }
@@ -159,8 +180,8 @@ export class LocalTaskStore {
     })
   }
 
-  archive(id: string, activeSessionIds?: string[]): LocalTask {
-    const task = this.require(id)
+  archive(id: string, activeSessionIds?: string[], projectPath?: string): LocalTask {
+    const task = this.require(id, projectPath)
     const activeIds = new Set(
       activeSessionIds ??
         task.sessions.filter((session) => session.status === 'working').map((session) => session.id)
@@ -180,8 +201,76 @@ export class LocalTaskStore {
       updatedAt
     })
   }
-  restore(id: string): LocalTask {
-    return this.update(id, { archived: false })
+  restore(id: string, projectPath?: string): LocalTask {
+    return this.update(id, { archived: false }, projectPath)
+  }
+
+  deleteTask(id: string, projectPath: string, activeSessionIds?: string[]): LocalTaskDeletion {
+    if (!/^lt_[A-Za-z0-9-]+$/.test(id)) {
+      throw new Error('Invalid local task id')
+    }
+    const task = this.require(id, projectPath)
+    if (task.archivedAt === null) {
+      throw new Error('Only an archived local task can be permanently deleted')
+    }
+    const activeIds = new Set(
+      activeSessionIds ??
+        task.sessions.filter((session) => session.status === 'working').map((session) => session.id)
+    )
+    if (task.sessions.some((session) => activeIds.has(session.id))) {
+      throw new Error('Cannot delete a task with a running Agent session')
+    }
+    const directory = localTaskDirectory(task.projectPath, task.id)
+    const expectedParent = join(resolve(task.projectPath), LOCAL_TASK_ROOT_NAME)
+    if (
+      normalizeRuntimePathForComparison(dirname(directory)) !==
+      normalizeRuntimePathForComparison(expectedParent)
+    ) {
+      throw new Error('Refusing to delete a local task outside its workspace task directory')
+    }
+    this.watchers.unwatchTask(task)
+    rmSync(directory, { recursive: true, force: false })
+    this.forgetLocation(task.id, task.projectPath)
+    return { taskId: task.id, projectPath: task.projectPath }
+  }
+
+  transferWorkspace(args: TransferLocalTaskWorkspaceArgs): LocalTask[] {
+    const sourceRoot = resolve(args.sourceProjectPath)
+    const targetRoot = resolve(args.targetProjectPath)
+    if (
+      normalizeRuntimePathForComparison(sourceRoot) ===
+      normalizeRuntimePathForComparison(targetRoot)
+    ) {
+      return []
+    }
+    const sourceTasks = taskFiles(sourceRoot)
+      .map((path) => ({ path, task: readLocalTaskFile(path) }))
+      .filter(({ task }) => this.isOwnedBy(task, sourceRoot))
+    const updatedAt = timestamp()
+    const transferred = sourceTasks.map(({ path, task }) => {
+      const targetDirectory = localTaskDirectory(targetRoot, task.id)
+      cpSync(localTaskDirectory(sourceRoot, task.id), targetDirectory, {
+        recursive: true,
+        force: true
+      })
+      const next: LocalTask = {
+        ...task,
+        projectId: args.targetProjectId,
+        projectPath: targetRoot,
+        workspaceId: args.targetWorkspaceId,
+        workspaceLabel: args.targetWorkspaceLabel,
+        updatedAt
+      }
+      this.writeTask(next)
+      writeJson(path, next)
+      this.forgetLocation(task.id, sourceRoot)
+      return next
+    })
+    this.watchers.watchProject(targetRoot)
+    for (const task of transferred) {
+      this.watchers.watchTask(task)
+    }
+    return transferred
   }
 
   createSession(args: CreateLocalTaskSessionArgs & { projectPath?: string }): LocalTaskSession {
@@ -208,6 +297,10 @@ export class LocalTaskStore {
   updateSessionOutput(args: UpdateLocalTaskSessionOutputArgs): LocalTask {
     return mutations.updateSessionOutput(this.access(), args)
   }
+
+  rebindSessionTab(args: RebindLocalTaskSessionTabArgs): LocalTask {
+    return mutations.rebindSessionTab(this.access(), args)
+  }
   startBatch(
     refs: LocalTaskBatchTaskRef[],
     options?: {
@@ -233,7 +326,7 @@ export class LocalTaskStore {
     return {
       requireTask: (id, projectPath) => this.require(id, projectPath),
       readTask: (path) => this.readRemembered(path),
-      taskPaths: () => this.locations.values(),
+      taskPaths: () => this.knownTaskPaths(),
       writeTask: (task) => this.writeTask(task)
     }
   }
@@ -265,19 +358,116 @@ export class LocalTaskStore {
       taskId: task.id,
       subtasks: task.subtasks
     })
-    this.locations.set(task.id, path)
+    this.rememberLocation(task, path)
     this.changeListener?.(task)
     return task
   }
 
   private readRemembered(path: string): LocalTask {
     const task = readLocalTaskFile(path)
-    this.locations.set(task.id, path)
+    this.rememberLocation(task, path)
     return task
   }
 
+  private readOwned(path: string, projectPath: string): LocalTask | null {
+    const task = readLocalTaskFile(path)
+    if (!this.isOwnedBy(task, projectPath)) {
+      return null
+    }
+    this.rememberLocation(task, path)
+    return task
+  }
+
+  private rememberLocation(task: LocalTask, path: string): void {
+    const key = normalizeRuntimePathForComparison(task.projectPath)
+    const byProject = this.locations.get(task.id) ?? new Map<string, string>()
+    byProject.set(key, path)
+    this.locations.set(task.id, byProject)
+  }
+
+  private forgetLocation(id: string, projectPath: string): void {
+    const byProject = this.locations.get(id)
+    if (!byProject) {
+      return
+    }
+    byProject.delete(normalizeRuntimePathForComparison(resolve(projectPath)))
+    if (byProject.size === 0) {
+      this.locations.delete(id)
+    }
+  }
+
+  private isOwnedBy(task: LocalTask, projectPath: string): boolean {
+    return (
+      normalizeRuntimePathForComparison(task.projectPath) ===
+      normalizeRuntimePathForComparison(resolve(projectPath))
+    )
+  }
+
+  private latestKnownPath(id: string): string | undefined {
+    const byProject = this.locations.get(id)
+    if (!byProject) {
+      return undefined
+    }
+    const candidates: Array<{ path: string; updatedAt: number }> = []
+    for (const [projectPath, path] of byProject) {
+      try {
+        if (!existsSync(path)) {
+          byProject.delete(projectPath)
+          continue
+        }
+        candidates.push({ path, updatedAt: readLocalTaskFile(path).updatedAt })
+      } catch (error) {
+        // The workspace can disappear after existsSync but before readFileSync.
+        if (!existsSync(path)) {
+          byProject.delete(projectPath)
+          continue
+        }
+        throw error
+      }
+    }
+    if (byProject.size === 0) {
+      this.locations.delete(id)
+    }
+    return candidates
+      .sort(
+        (left, right) => right.updatedAt - left.updatedAt || left.path.localeCompare(right.path)
+      )
+      .at(0)?.path
+  }
+
+  private removeIndexedPath(id: string, path: string): void {
+    const byProject = this.locations.get(id)
+    if (!byProject) {
+      return
+    }
+    for (const [projectPath, indexedPath] of byProject) {
+      if (indexedPath === path) {
+        byProject.delete(projectPath)
+      }
+    }
+    if (byProject.size === 0) {
+      this.locations.delete(id)
+    }
+  }
+
+  private *knownTaskPaths(): Iterable<string> {
+    for (const [taskId, byProject] of this.locations) {
+      for (const [projectPath, path] of byProject) {
+        if (existsSync(path)) {
+          yield path
+        } else {
+          // External workspace cleanup can race the in-memory index.
+          byProject.delete(projectPath)
+        }
+      }
+      if (byProject.size === 0) {
+        this.locations.delete(taskId)
+      }
+    }
+  }
+
   private knownProjectPaths(): string[] {
-    return [...new Set([...this.locations.values()].map((path) => dirname(dirname(dirname(path)))))]
+    return [...new Set([...this.knownTaskPaths()].map((path) => dirname(dirname(dirname(path)))))]
   }
 
   private handleChangedPath(path: string): void {
@@ -285,7 +475,11 @@ export class LocalTaskStore {
       return
     }
     try {
-      const task = this.readRemembered(path)
+      const projectPath = dirname(dirname(dirname(path)))
+      const task = this.readOwned(path, projectPath)
+      if (!task) {
+        return
+      }
       this.watchers.watchTask(task)
       this.changeListener?.(task)
     } catch {

@@ -1,6 +1,26 @@
 import { Button } from '@/components/ui/button'
 import type { WorkItem } from './mock-data'
 
+export type LocalTaskQueueView = 'all' | 'inbox' | 'review' | 'archived' | 'ai'
+
+export function isLocalTaskInQueue(item: WorkItem, view: LocalTaskQueueView): boolean {
+  const archived = item.archivedAt != null
+  if (view === 'archived') {
+    return archived
+  }
+  if (view === 'ai') {
+    return false
+  }
+  if (archived) {
+    return false
+  }
+  return (
+    view === 'all' ||
+    (view === 'inbox' && item.intakeState === 'inbox') ||
+    (view === 'review' && item.status === 'Needs review')
+  )
+}
+
 export function LocalTaskQueueTabs({
   items,
   aiRecordUnreadCount,
@@ -9,8 +29,8 @@ export function LocalTaskQueueTabs({
 }: {
   items: WorkItem[]
   aiRecordUnreadCount: number
-  value: 'all' | 'inbox' | 'review' | 'ai'
-  onChange: (value: 'all' | 'inbox' | 'review' | 'ai') => void
+  value: LocalTaskQueueView
+  onChange: (value: LocalTaskQueueView) => void
 }): React.JSX.Element {
   return (
     <div className="flex items-center rounded-md border border-border p-0.5">
@@ -19,6 +39,7 @@ export function LocalTaskQueueTabs({
           ['all', '全部'],
           ['inbox', '收件箱'],
           ['review', '待审阅'],
+          ['archived', '已归档'],
           ['ai', 'AI 记录']
         ] as const
       ).map(([nextValue, label]) => (
@@ -31,13 +52,9 @@ export function LocalTaskQueueTabs({
         >
           {label}
           <span className="ml-1 text-[10px] text-muted-foreground">
-            {nextValue === 'all'
-              ? items.length
-              : nextValue === 'inbox'
-                ? items.filter((item) => item.intakeState === 'inbox').length
-                : nextValue === 'review'
-                  ? items.filter((item) => item.status === 'Needs review').length
-                  : aiRecordUnreadCount}
+            {nextValue === 'ai'
+              ? aiRecordUnreadCount
+              : items.filter((item) => isLocalTaskInQueue(item, nextValue)).length}
           </span>
         </Button>
       ))}

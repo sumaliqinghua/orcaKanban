@@ -8,7 +8,12 @@ export function transferSubtask(
   store: FileStoreMutationAccess,
   args: TransferLocalTaskSubtaskArgs
 ): LocalTask {
-  const { task, index } = findSubtask(store.taskPaths(), args.subtaskId, store.readTask)
+  const { task, index } = findSubtask(
+    store.taskPaths(),
+    args.subtaskId,
+    store.readTask,
+    args.projectPath
+  )
   const current = task.subtasks[index]
   if (current.sessionId === args.sessionId) {
     return task

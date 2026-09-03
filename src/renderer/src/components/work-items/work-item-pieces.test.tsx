@@ -13,6 +13,7 @@ function item(intakeState: WorkItem['intakeState']): WorkItem {
     description: '描述',
     status: 'Open',
     workspace: 'workspace',
+    projectPath: '/tmp/project',
     project: 'project',
     updated: 'now',
     sessions: 0,
@@ -34,13 +35,46 @@ describe('local task bottom actions', () => {
         item={item('ready')}
         onAccept={() => {}}
         onArchive={() => {}}
+        onRestore={() => {}}
+        onDelete={() => {}}
         onPromote={() => {}}
         onMoveToInbox={onMoveToInbox}
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '移至收件箱' }))
+    const moveButton = screen.getByRole('button', { name: '移至收件箱' })
+    expect(moveButton).toBeVisible()
+    expect(screen.queryByRole('button', { name: '整理为可执行' })).not.toBeInTheDocument()
+
+    fireEvent.click(moveButton)
 
     expect(onMoveToInbox).toHaveBeenCalledOnce()
+  })
+
+  it('offers restore and confirmed permanent deletion only for archived tasks', () => {
+    const onRestore = vi.fn()
+    const onDelete = vi.fn()
+    render(
+      <LocalTaskActions
+        item={{ ...item('ready'), archivedAt: 1 }}
+        onAccept={() => {}}
+        onArchive={() => {}}
+        onRestore={onRestore}
+        onDelete={onDelete}
+        onPromote={() => {}}
+        onMoveToInbox={() => {}}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '恢复任务' }))
+    fireEvent.click(screen.getByRole('button', { name: '永久删除' }))
+
+    expect(onRestore).toHaveBeenCalledOnce()
+    expect(screen.getByText('/tmp/project/orca/task-1')).toBeVisible()
+    expect(screen.getByText('此操作不可恢复。', { exact: false })).toBeVisible()
+    expect(onDelete).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '确认永久删除' }))
+    expect(onDelete).toHaveBeenCalledOnce()
   })
 })

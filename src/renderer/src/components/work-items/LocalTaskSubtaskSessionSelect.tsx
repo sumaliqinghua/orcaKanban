@@ -14,10 +14,12 @@ import type { Subtask, WorkItem } from './mock-data'
 export function LocalTaskSubtaskSessionSelect({
   subtask,
   sessions,
+  projectPath,
   onTaskChanged
 }: {
   subtask: Subtask
   sessions: WorkItem['sessionsList']
+  projectPath?: string
   onTaskChanged: (task: LocalTask) => void
 }): React.JSX.Element {
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null)
@@ -27,6 +29,7 @@ export function LocalTaskSubtaskSessionSelect({
       const task = await window.api.localTasks.transferSubtask({
         subtaskId: subtask.id,
         sessionId,
+        ...(projectPath ? { projectPath } : {}),
         ...(force ? { force: true } : {})
       })
       setError(null)

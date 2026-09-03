@@ -1406,6 +1406,12 @@ export default function AutomationsPage(): React.JSX.Element {
       name: template.name,
       prompt: template.prompt,
       preset: template.preset,
+      executionMode: template.executionMode ?? current.executionMode,
+      localTaskScope: template.localTaskScope ?? current.localTaskScope,
+      workspaceMode:
+        template.executionMode === 'open_local_tasks' ? 'existing' : current.workspaceMode,
+      reuseSession:
+        template.executionMode === 'open_local_tasks' ? false : current.reuseSession,
       time: template.time ?? current.time,
       dayOfWeek: template.dayOfWeek ?? current.dayOfWeek,
       customSchedule: '',
@@ -1481,6 +1487,8 @@ export default function AutomationsPage(): React.JSX.Element {
           ...baseDraft,
           name: template.name,
           prompt: template.prompt,
+          executionMode: template.executionMode ?? baseDraft.executionMode,
+          localTaskScope: template.localTaskScope ?? baseDraft.localTaskScope,
           preset: template.preset,
           time: template.time ?? baseDraft.time,
           dayOfWeek: template.dayOfWeek ?? baseDraft.dayOfWeek,

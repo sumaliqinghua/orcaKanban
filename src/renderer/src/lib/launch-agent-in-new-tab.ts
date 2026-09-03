@@ -90,8 +90,22 @@ export function launchAgentInNewTab(args: LaunchAgentInNewTabArgs): LaunchAgentI
     localTaskRoot
   } = args
   const store = useAppStore.getState()
-  const worktree = store.allWorktrees?.().find((entry: { id: string }) => entry.id === worktreeId)
+  const worktree = store
+    .allWorktrees?.()
+    .find((entry: { id: string; repoId: string; path?: string }) => entry.id === worktreeId)
   const repo = worktree ? store.repos?.find((entry) => entry.id === worktree.repoId) : null
+  if (launchSource === 'task_page' && worktree && store.activeWorktreeId !== worktreeId) {
+    // Task-center launches must make the requested workspace current before
+    // creating the tab; otherwise the Agent tab is backgrounded behind the
+    // previous view and its startup prompt is not visible to the user.
+    if (worktree.repoId !== store.activeRepoId) {
+      store.setActiveRepo(worktree.repoId)
+    }
+    if (store.activeView !== 'terminal') {
+      store.setActiveView('terminal')
+    }
+    store.setActiveWorktree(worktreeId)
+  }
   const resolvedLaunchPlatform =
     launchPlatform ??
     (repo

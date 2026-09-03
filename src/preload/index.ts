@@ -576,6 +576,8 @@ const api = {
       ipcRenderer.invoke('localTasks:createSession', args),
     updateSessionOutput: (args: Parameters<LocalTaskApi['updateSessionOutput']>[0]) =>
       ipcRenderer.invoke('localTasks:updateSessionOutput', args),
+    rebindSessionTab: (args: Parameters<LocalTaskApi['rebindSessionTab']>[0]) =>
+      ipcRenderer.invoke('localTasks:rebindSessionTab', args),
     startBatch: (args: Parameters<LocalTaskApi['startBatch']>[0]) =>
       ipcRenderer.invoke('localTasks:startBatch', args),
     updateRun: (args: Parameters<LocalTaskApi['updateRun']>[0]) =>
@@ -594,6 +596,10 @@ const api = {
       ipcRenderer.invoke('localTasks:archive', args),
     restore: (args: Parameters<LocalTaskApi['restore']>[0]) =>
       ipcRenderer.invoke('localTasks:restore', args),
+    delete: (args: Parameters<LocalTaskApi['delete']>[0]) =>
+      ipcRenderer.invoke('localTasks:delete', args),
+    transferWorkspace: (args: Parameters<LocalTaskApi['transferWorkspace']>[0]) =>
+      ipcRenderer.invoke('localTasks:transferWorkspace', args),
     onChanged: (callback: Parameters<LocalTaskApi['onChanged']>[0]): (() => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,
@@ -603,6 +609,16 @@ const api = {
       ): void => callback(task)
       ipcRenderer.on('localTasks:changed', listener)
       return () => ipcRenderer.removeListener('localTasks:changed', listener)
+    },
+    onDeleted: (callback: Parameters<LocalTaskApi['onDeleted']>[0]): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        deletion: Parameters<LocalTaskApi['onDeleted']>[0] extends (value: infer T) => unknown
+          ? T
+          : never
+      ): void => callback(deletion)
+      ipcRenderer.on('localTasks:deleted', listener)
+      return () => ipcRenderer.removeListener('localTasks:deleted', listener)
     }
   } satisfies PreloadApi['localTasks'],
   app: {

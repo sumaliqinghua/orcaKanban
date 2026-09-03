@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Archive,
   Bot,
@@ -9,11 +10,22 @@ import {
   MessageSquare,
   MoreHorizontal,
   Play,
-  Sparkles
+  RotateCcw,
+  Sparkles,
+  Trash2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { joinPath } from '@/lib/path'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import {
   getTaskPerspectiveStatus,
   type Subtask,
@@ -32,35 +44,107 @@ export function LocalTaskActions({
   item,
   onAccept,
   onArchive,
+  onRestore,
+  onDelete,
   onPromote,
   onMoveToInbox
 }: {
   item: WorkItem
   onAccept: () => void
   onArchive: () => void
+  onRestore: () => void
+  onDelete: () => void
   onPromote: () => void
   onMoveToInbox: () => void
 }): React.JSX.Element {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const archived = item.archivedAt != null
+  const taskDirectory = joinPath(item.projectPath ?? '', `orca/${item.id}`)
   return (
-    <div className="flex shrink-0 gap-2 border-t border-border bg-background px-5 py-3">
-      {item.intakeState === 'inbox' ? (
-        <Button className="flex-1 gap-1.5 text-xs" onClick={onPromote}>
-          整理为可执行
-        </Button>
-      ) : item.status === 'Needs review' ? (
-        <Button className="flex-1 gap-1.5 text-xs" onClick={onAccept}>
-          验收通过
-        </Button>
-      ) : null}
-      {item.intakeState !== 'inbox' ? (
-        <Button variant="ghost" size="icon" aria-label="移至收件箱" onClick={onMoveToInbox}>
-          <Inbox className="size-4" />
-        </Button>
-      ) : null}
-      <Button variant="ghost" size="icon" aria-label="归档本地任务" onClick={onArchive}>
-        <Archive className="size-4" />
-      </Button>
-    </div>
+    <>
+      <div className="flex shrink-0 gap-2 border-t border-border bg-background px-5 py-3">
+        {archived ? (
+          <>
+            <Button variant="outline" className="flex-1 gap-1.5 text-xs" onClick={onRestore}>
+              <RotateCcw className="size-4" />
+              恢复任务
+            </Button>
+            <Button
+              variant="destructive"
+              className="gap-1.5 text-xs"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="size-4" />
+              永久删除
+            </Button>
+          </>
+        ) : (
+          <>
+            {item.intakeState === 'inbox' ? (
+              <Button className="flex-1 gap-1.5 text-xs" onClick={onPromote}>
+                整理为可执行
+              </Button>
+            ) : item.status === 'Needs review' ? (
+              <Button className="flex-1 gap-1.5 text-xs" onClick={onAccept}>
+                验收通过
+              </Button>
+            ) : null}
+            {item.intakeState !== 'inbox' ? (
+              <Button
+                variant="outline"
+                className="flex-1 gap-1.5 text-xs"
+                onClick={onMoveToInbox}
+              >
+                <Inbox className="size-4" />
+                移至收件箱
+              </Button>
+            ) : null}
+            <Button variant="ghost" size="icon" aria-label="归档本地任务" onClick={onArchive}>
+              <Archive className="size-4" />
+            </Button>
+          </>
+        )}
+      </div>
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>永久删除本地任务</DialogTitle>
+            <DialogDescription>
+              此操作不可恢复。Orca 会删除任务记录和 workspace
+              中的整个任务目录，但不会删除业务代码或自动操作 Git。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 rounded-md border border-border bg-muted/35 px-3 py-2 text-xs">
+            <div>
+              <span className="text-muted-foreground">任务：</span>
+              <span className="font-medium text-foreground">{item.title}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Workspace：</span>
+              <span className="font-medium text-foreground">{item.workspace}</span>
+            </div>
+            <div className="break-all font-mono text-[11px] text-muted-foreground">
+              {taskDirectory}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                onDelete()
+              }}
+            >
+              <Trash2 className="size-4" />
+              确认永久删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

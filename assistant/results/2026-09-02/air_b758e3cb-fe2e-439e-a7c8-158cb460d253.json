@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "air_b758e3cb-fe2e-439e-a7c8-158cb460d253",
+  "kind": "status_report",
+  "seriesKey": "status_report:718b5b63-4432-4e6a-9b32-8dec3a77fdeb",
+  "source": {
+    "automationId": "kanban-status-report-daily",
+    "automationRunId": null,
+    "agentId": "codex"
+  },
+  "target": {
+    "projectId": "718b5b63-4432-4e6a-9b32-8dec3a77fdeb",
+    "projectPath": "/Users/lmy/proj/OPC/orcaKanban",
+    "workspaceId": "718b5b63-4432-4e6a-9b32-8dec3a77fdeb::/Users/lmy/proj/OPC/orcaKanban",
+    "taskId": null
+  },
+  "title": "项目状态：AI 记录与任务中心能力已落地，批次完善仍在进行",
+  "summary": "当前仓库仍处于大规模未提交改动阶段；阶段 8-10 与阶段 11.2-11.3 已记录完成，阶段 7 的批次排序、重启恢复、进度/待审阅细节仍未完成。本项目未发现本地任务文件、近期自动化运行或失败 dispatch。",
+  "body": {
+    "format": "markdown",
+    "content": "## 已完成\n\n- 阶段 8 AI 记录流、阶段 9 Kanban Advisor 模板、阶段 10 提示词库，以及阶段 11.2 workspace 所有权和 11.3 归档/永久删除已在 `PROJECT_STATUS.md` 与 `Records.md` 记录为完成。\n- 当前 Git HEAD 为 `2511c1022d83f6891ea3b25d778d4aa3b8d631da`（`feat: ai自动化实现记录`）；`git diff --check` 通过。\n\n## 进行中\n\n- 阶段 7 仍缺 AI 批次排序、跨重启批次恢复、完整批次进度/集中待审阅细节和端到端验证。\n- 工作区相对 HEAD 有 54 个已修改文件和 7 个未跟踪文件，改动覆盖任务 Store/IPC、自动化模板、任务中心 UI、会话启动与测试；这些改动尚未形成新的提交。\n\n## 阻塞与风险\n\n- 当前项目目录及其工作树没有 `orca/<task-id>/task.json`，因此无法从本地文件核验本项目的任务状态变化或 Needs review 明细；其他项目的任务不纳入本报告。\n- 用户资料中的自动化运行列表为空；编排数据库只有历史兼容运行，没有任务、近期 dispatch 或失败 dispatch。\n- 已知技术债仍包括：批次执行依赖任务中心窗口、完整 `typecheck:e2e` 有既有类型错误、远程/SSH AI 记录与远程任务所有权转移尚未支持。\n\n## 待处理\n\n- 完成阶段 7 的排序、重启恢复、批次进度和待审阅详情，并补齐端到端验收。\n- 确认 `ASSUMPTIONS.md` 中“远程 workspace 任务所有权转移不回退到本机”和“AI 记录首版仅支持本地项目”两项待确认假设。\n- 对当前 54 个修改与 7 个未跟踪文件进行拆分审查和提交边界确认。"
+  },
+  "basis": {
+    "gitHead": "2511c1022d83f6891ea3b25d778d4aa3b8d631da",
+    "modifiedFileCount": 54,
+    "untrackedFileCount": 7,
+    "localTaskFileCount": 0,
+    "automationRunCount": 0,
+    "orchestrationTaskCount": 0,
+    "orchestrationFailureDispatchCount": 0,
+    "stage7Remaining": "batch sorting; restart recovery; progress and review details; e2e validation",
+    "pendingAssumptions": "remote workspace ownership transfer; local-only AI records"
+  },
+  "createdAt": 1788370485397,
+  "inputFingerprint": "sha256:bdd986762a9c259a84b1fed238f044ba03f79e8949c04a113add09b172df1787",
+  "readAt": null
+}

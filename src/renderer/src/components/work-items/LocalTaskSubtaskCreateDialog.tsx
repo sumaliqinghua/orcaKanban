@@ -159,7 +159,8 @@ export function LocalTaskSubtaskCreateDialog({
       }
       const task = await window.api.localTasks.transferSubtask({
         subtaskId,
-        sessionId: targetSessionId
+        sessionId: targetSessionId,
+        projectPath: item.projectPath
       })
       onTaskChanged(task)
       close()

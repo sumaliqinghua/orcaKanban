@@ -39,6 +39,8 @@ export function LocalTaskCenterDetail({
       onReportSessionStarted={taskActions.reportSessionStarted}
       onAccept={taskActions.acceptSelected}
       onArchive={taskActions.archiveSelected}
+      onRestore={taskActions.restoreSelected}
+      onDelete={taskActions.deleteSelected}
       onPromote={taskActions.promoteSelected}
       onMoveToInbox={taskActions.moveSelectedToInbox}
       onTaskChanged={onTaskChanged}

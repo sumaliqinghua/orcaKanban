@@ -30,7 +30,7 @@ import { prepareAiVaultSessionContinuation } from './ai-vault-session-continuati
 import type { AgentSessionContinuationRequest } from '@/lib/agent-session-continuation'
 import { findWorktreeById } from '@/store/slices/worktree-helpers'
 
-type ResumeOptions = { tabId?: string }
+type ResumeOptions = { tabId?: string; onTabCreated?: (tabId: string) => void }
 
 export function useAiVaultSessionLaunchActions({
   activeWorktree,
@@ -143,6 +143,7 @@ export function useAiVaultSessionLaunchActions({
             })
             return
           }
+          options?.onTabCreated?.(launchResult.tabId)
           if (useAppStore.getState().activeWorktreeId !== targetId.worktreeId) {
             activateAiVaultResumeWorkspace(targetId.worktreeId)
           }

@@ -3,6 +3,7 @@ import { useAppStore } from '@/store'
 import { TOGGLE_WORKSPACE_BOARD_EVENT } from '@/components/sidebar/useWorkspaceBoardPanel'
 import type { LocalTask } from '../../../../shared/local-task-types'
 import type { WorkItem } from './mock-data'
+import type { LocalTaskQueueView } from './LocalTaskQueueTabs'
 import { localTaskToViewModel } from './local-task-view-model'
 
 export function useLocalTaskCenterInteractions({
@@ -24,7 +25,7 @@ export function useLocalTaskCenterInteractions({
   setSelectedId: React.Dispatch<React.SetStateAction<string | null>>
   setLoadError: (value: string | null) => void
   setDetailOpen: React.Dispatch<React.SetStateAction<boolean>>
-  setQueueView: React.Dispatch<React.SetStateAction<'all' | 'inbox' | 'review' | 'ai'>>
+  setQueueView: React.Dispatch<React.SetStateAction<LocalTaskQueueView>>
   setQuery: React.Dispatch<React.SetStateAction<string>>
   setExpandedIds: React.Dispatch<React.SetStateAction<ReadonlySet<string>>>
 }): {

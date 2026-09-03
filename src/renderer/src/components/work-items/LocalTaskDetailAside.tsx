@@ -8,7 +8,7 @@ import type { LocalTask } from '../../../../shared/local-task-types'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import { DetailPanel } from './LocalTaskDetailPanel'
 import { LocalTaskActions, StatusBadge } from './work-item-pieces'
-import { AgentTerminalPanel } from '../dashboard-popout/AgentTerminalDialog'
+import { AgentTerminalPanel, type AgentRevealArgs } from '../dashboard-popout/AgentTerminalDialog'
 import { useLiveDashboardSnapshot } from '../dashboard/useLiveDashboardSnapshot'
 import { useAiVaultSessionLaunchActions } from '../right-sidebar/ai-vault-session-launch-actions'
 import { findWorktreeById } from '@/store/slices/worktree-helpers'
@@ -26,6 +26,7 @@ function LocalTaskSessionPreview({
 }: {
   sessionId: string
   session: {
+    tabId?: string
     title: string
     status: 'working' | 'idle' | 'done'
     latestOutput?: string | null
@@ -42,13 +43,14 @@ function LocalTaskSessionPreview({
   projectPath: string
   workspaceId: string
   onClose: () => void
-  onOpenWorkspace: () => void
+  onOpenWorkspace: (request?: string | AgentRevealArgs) => void
   onTaskChanged: (task: LocalTask) => void
 }): React.JSX.Element {
   const snapshot = useLiveDashboardSnapshot()
-  const card = snapshot.cards.find((candidate) => candidate.tabId === sessionId) ?? null
+  const tabId = session.tabId ?? sessionId
+  const card = snapshot.cards.find((candidate) => candidate.tabId === tabId) ?? null
   const ptyIdsByTabId = useAppStore((state) => state.ptyIdsByTabId)
-  const hasLiveTerminal = (ptyIdsByTabId[sessionId]?.length ?? 0) > 0
+  const hasLiveTerminal = (ptyIdsByTabId[tabId]?.length ?? 0) > 0
   const activeWorktreeId = useAppStore((state) => state.activeWorktreeId)
   const activeWorktree = useAppStore((state) =>
     activeWorktreeId ? (findWorktreeById(state.worktreesByRepo, activeWorktreeId) ?? null) : null
@@ -71,7 +73,7 @@ function LocalTaskSessionPreview({
   const [historyLoading, setHistoryLoading] = useState(false)
   const restoreFromHistory = async (): Promise<void> => {
     if (session.status === 'working' || hasLiveTerminal) {
-      onOpenWorkspace()
+      onOpenWorkspace(sessionId)
       return
     }
     setHistoryLoading(true)
@@ -83,17 +85,28 @@ function LocalTaskSessionPreview({
       })
       const matching = result.sessions.find((candidate) => {
         const prompt = candidate.firstUserPrompt ?? candidate.lastUserPrompt ?? ''
-        return (
-          candidate.cwd === projectPath ||
-          (session.currentPrompt?.trim() ? prompt.includes(session.currentPrompt.trim()) : false) ||
-          candidate.title === session.title
-        )
+        const requestedPrompt = session.currentPrompt?.trim()
+        if (requestedPrompt) {
+          return prompt.includes(requestedPrompt)
+        }
+        return candidate.cwd === projectPath && candidate.title === session.title
       })
       if (matching) {
         handleResume(
           matching,
           workspaceId === 'local' ? (activeWorktreeId ?? undefined) : workspaceId,
-          { tabId: sessionId }
+          {
+            tabId: sessionId,
+            onTabCreated: (tabId) => {
+              if (tabId === sessionId) {
+                return
+              }
+              void window.api.localTasks
+                .rebindSessionTab({ sessionId, tabId })
+                .then(onTaskChanged)
+                .catch(() => {})
+            }
+          }
         )
         onOpenWorkspace()
       } else {
@@ -167,7 +180,13 @@ function LocalTaskSessionPreview({
           }
         }}
         onReveal={() => {
-          onOpenWorkspace()
+          onOpenWorkspace({
+            repoId: card.repoId,
+            worktreeId: card.worktreeId,
+            executionHostId: card.executionHostId,
+            tabId: card.tabId,
+            leafId: card.leafId
+          })
           onClose()
         }}
       />
@@ -189,6 +208,8 @@ export function LocalTaskDetailAside({
   onReportSessionStarted,
   onAccept,
   onArchive,
+  onRestore,
+  onDelete,
   onPromote,
   onMoveToInbox,
   labelSuggestions,
@@ -202,11 +223,13 @@ export function LocalTaskDetailAside({
   onEditDescription: (description: string) => void
   onEditLabels: (labels: string[]) => void
   onEditStep: (subtaskId: string, stepId: string) => void
-  onOpenWorkspace: () => void
+  onOpenWorkspace: (request?: string | AgentRevealArgs) => void
   onSessionStarted: (tabId: string, request: string) => void
   onReportSessionStarted: (tabId: string, request: string, agent: TuiAgent) => Promise<void>
   onAccept: () => void
   onArchive: () => void
+  onRestore: () => void
+  onDelete: () => void
   onPromote: () => void
   onMoveToInbox: () => void
   labelSuggestions: string[]
@@ -313,6 +336,8 @@ export function LocalTaskDetailAside({
             item={item}
             onAccept={onAccept}
             onArchive={onArchive}
+            onRestore={onRestore}
+            onDelete={onDelete}
             onPromote={onPromote}
             onMoveToInbox={onMoveToInbox}
           />

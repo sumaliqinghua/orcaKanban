@@ -29,6 +29,8 @@ export type LocalTaskSubtask = {
 
 export type LocalTaskSession = {
   id: string
+  /** 当前 Orca Terminal Tab ID；恢复后 Tab 可能因 ID 冲突被重新生成。 */
+  tabId?: string
   taskId: string
   workspaceId: string
   title: string
@@ -181,8 +183,27 @@ export type UpdateLocalTaskSessionOutputArgs = {
   manualNotes?: string | null
 }
 
-export type AcceptLocalTaskArgs = { taskId: string }
-export type ArchiveLocalTaskArgs = { taskId: string; activeSessionIds?: string[] }
+export type RebindLocalTaskSessionTabArgs = {
+  sessionId: string
+  tabId: string
+}
+
+export type AcceptLocalTaskArgs = { taskId: string; projectPath?: string }
+export type ArchiveLocalTaskArgs = AcceptLocalTaskArgs & { activeSessionIds?: string[] }
+export type DeleteLocalTaskArgs = {
+  taskId: string
+  projectPath: string
+  activeSessionIds?: string[]
+}
+export type LocalTaskDeletion = { taskId: string; projectPath: string }
+
+export type TransferLocalTaskWorkspaceArgs = {
+  sourceProjectPath: string
+  targetProjectId: string
+  targetProjectPath: string
+  targetWorkspaceId: string
+  targetWorkspaceLabel: string
+}
 
 export type CreateLocalTaskSubtaskArgs = {
   taskId: string
@@ -201,6 +222,7 @@ export type UpdateLocalTaskSubtaskArgs = {
 export type TransferLocalTaskSubtaskArgs = {
   subtaskId: string
   sessionId: string | null
+  projectPath?: string
   force?: boolean
 }
 

@@ -1,4 +1,8 @@
-import type { AutomationSchedulePreset } from '../../../../shared/automations-types'
+import type {
+  AutomationExecutionMode,
+  AutomationLocalTaskScope,
+  AutomationSchedulePreset
+} from '../../../../shared/automations-types'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import { translate } from '@/i18n/i18n'
 import { createLocalizedCatalog } from '@/i18n/localized-catalog'
@@ -11,6 +15,8 @@ export type AutomationTemplate = {
   name: string
   prompt: string
   preset: AutomationSchedulePreset
+  executionMode?: AutomationExecutionMode
+  localTaskScope?: AutomationLocalTaskScope
   time?: string
   dayOfWeek?: string
   agentId?: TuiAgent
@@ -18,6 +24,34 @@ export type AutomationTemplate = {
 }
 
 export const getAutomationTemplates = createLocalizedCatalog((): AutomationTemplate[] => [
+  {
+    id: 'kanban-open-local-tasks-daily',
+    category: translate(
+      'auto.components.automations.automation.templates.kanbanAdvisor.openLocalTasks.category',
+      'Kanban advisor'
+    ),
+    label: translate(
+      'auto.components.automations.automation.templates.kanbanAdvisor.openLocalTasks.label',
+      'Daily Open task execution'
+    ),
+    description: translate(
+      'auto.components.automations.automation.templates.kanbanAdvisor.openLocalTasks.description',
+      'Run all ready, unstarted Open local tasks in this workspace in sequence.'
+    ),
+    name: translate(
+      'auto.components.automations.automation.templates.kanbanAdvisor.openLocalTasks.name',
+      'Daily Open task execution'
+    ),
+    prompt: translate(
+      'auto.components.automations.automation.templates.kanbanAdvisor.openLocalTasks.prompt',
+      "Execute the current workspace's Open local tasks that are ready and have not started. Process tasks in workspace order, keep execution within the existing workspace, and leave every result in Needs review for human acceptance."
+    ),
+    preset: 'daily',
+    time: '09:30',
+    executionMode: 'open_local_tasks',
+    localTaskScope: 'workspace',
+    missedRunGraceMinutes: '180'
+  },
   {
     id: 'repo-health-weekday',
     category: translate(

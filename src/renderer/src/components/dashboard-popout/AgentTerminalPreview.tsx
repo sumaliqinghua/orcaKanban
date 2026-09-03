@@ -114,6 +114,7 @@ export function AgentTerminalPreview({
     let refreshInFlight = false
     let refreshAgain = false
     let retryTimer: ReturnType<typeof setTimeout> | null = null
+    let inputRefreshTimer: ReturnType<typeof setTimeout> | null = null
     const pendingLivePayloads: Extract<TerminalPreviewDataPayload, { type: 'data' }>[] = []
 
     const fitToBox = (): void => {
@@ -271,6 +272,17 @@ export function AgentTerminalPreview({
           return
         }
         void window.api.terminalPreview.input(ptyId, data)
+        if (inputRefreshTimer) {
+          clearTimeout(inputRefreshTimer)
+        }
+        inputRefreshTimer = setTimeout(() => {
+          inputRefreshTimer = null
+          if (!disposed) {
+            // Input is authoritative in the PTY even when live output is
+            // backlogged; refresh the visible grid after the burst settles.
+            void setup(true)
+          }
+        }, 200)
       })
     }
 
@@ -405,6 +417,9 @@ export function AgentTerminalPreview({
       disposed = true
       if (retryTimer) {
         clearTimeout(retryTimer)
+      }
+      if (inputRefreshTimer) {
+        clearTimeout(inputRefreshTimer)
       }
       gridClaim.dispose()
       boxResizeObserver?.disconnect()

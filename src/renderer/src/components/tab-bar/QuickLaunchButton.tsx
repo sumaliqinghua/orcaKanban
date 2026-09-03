@@ -15,6 +15,7 @@ import {
   filterEnabledTuiAgents
 } from '../../../../shared/tui-agent-selection'
 import { translate } from '@/i18n/i18n'
+import { TUI_AGENT_CONFIG } from '../../../../shared/tui-agent-config'
 
 export type QuickLaunchAgentMenuItemsProps = {
   worktreeId: string
@@ -22,7 +23,7 @@ export type QuickLaunchAgentMenuItemsProps = {
   /** Called after the tab is created so keyboard focus lands in the new xterm.
    *  Reuses the TabBar's existing double-rAF handoff — this component does
    *  not duplicate the focus logic. */
-  onFocusTerminal: (tabId: string) => void
+  onFocusTerminal: (tabId: string) => void | Promise<void>
   /** Optional initial prompt forwarded to `launchAgentInNewTab`. When set,
    *  the picked agent boots with this prompt — argv/flag agents auto-submit,
    *  followup-path agents land it as a draft for the user to confirm. */
@@ -130,10 +131,22 @@ function QuickLaunchAgentMenuItemsInner({
   }, [openSettingsPage, openSettingsTarget])
 
   const runLaunch = useCallback(
-    (agent: TuiAgent) => {
+    async (agent: TuiAgent) => {
       if (onSelectAgent) {
         onSelectAgent(agent)
         return
+      }
+      const preflight = TUI_AGENT_CONFIG[agent].preflightTrust
+      const workspacePath = useAppStore.getState().getKnownWorktreeById?.(worktreeId)?.path
+      if (preflight && workspacePath && window.api.agentTrust?.markTrusted) {
+        try {
+          await window.api.agentTrust.markTrusted({
+            preset: preflight,
+            workspacePath
+          })
+        } catch {
+          // The Agent can still show its own trust prompt when preflight is unavailable.
+        }
       }
       const entry = getCatalogEntry(agent)
       const label = entry?.label ?? agent
@@ -163,7 +176,7 @@ function QuickLaunchAgentMenuItemsInner({
         // next session-tabs snapshot instead of a local tab id.
         return
       }
-      onFocusTerminal(result.tabId)
+      await onFocusTerminal(result.tabId)
 
       // Why: launch success means the terminal session exists. Agent readiness
       // can lag behind on slow machines, and prompt paste flows already own

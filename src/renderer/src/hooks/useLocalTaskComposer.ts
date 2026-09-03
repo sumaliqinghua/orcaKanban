@@ -230,6 +230,7 @@ export function useLocalTaskComposer({
           return window.api.localTasks
             .createSession({
               taskId: task.id,
+              projectPath: task.projectPath,
               sessionId,
               title: `${sessionTab.launchAgent} 会话`,
               workspaceId: completion.worktreeId

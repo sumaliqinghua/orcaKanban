@@ -52,4 +52,10 @@ export class LocalTaskFileWatchers {
       })
     )
   }
+
+  unwatchTask(task: LocalTask): void {
+    const directory = localTaskDirectory(task.projectPath, task.id)
+    this.watchers.get(directory)?.close()
+    this.watchers.delete(directory)
+  }
 }

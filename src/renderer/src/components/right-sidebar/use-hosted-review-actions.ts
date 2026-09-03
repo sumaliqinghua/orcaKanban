@@ -15,7 +15,7 @@ import { buildGitHubPRStackMergeConfirmation } from './github-pr-stack-confirmat
 
 export type HostedReviewActionInfo = Pick<
   HostedReviewInfo,
-  'provider' | 'number' | 'state' | 'status' | 'mergeable'
+  'provider' | 'number' | 'state' | 'status' | 'mergeable' | 'baseRefName'
 > &
   Partial<
     Pick<
@@ -37,7 +37,8 @@ export function useHostedReviewActions({
   reviewLabel,
   defaultMergeMethod,
   autoMergeAction,
-  onRefreshReview
+  onRefreshReview,
+  onMergeSucceeded
 }: {
   review: HostedReviewActionInfo
   githubPR?: PRInfo | null
@@ -48,6 +49,7 @@ export function useHostedReviewActions({
   defaultMergeMethod: GitHubPRMergeMethod
   autoMergeAction: GitHubPRAutoMergeAction | null
   onRefreshReview: () => Promise<void>
+  onMergeSucceeded?: () => Promise<void>
 }): {
   merging: boolean
   stateUpdating: 'open' | 'closed' | null
@@ -98,7 +100,18 @@ export function useHostedReviewActions({
         if (!result.ok) {
           setActionError(result.error)
         } else {
-          await onRefreshReview()
+          try {
+            await onMergeSucceeded?.()
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error)
+            setActionError(`Merge succeeded, but local task transfer failed: ${detail}`)
+          }
+          try {
+            await onRefreshReview()
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error)
+            setActionError((current) => current ?? `Merge succeeded, but refresh failed: ${detail}`)
+          }
         }
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'Merge failed')
@@ -114,6 +127,7 @@ export function useHostedReviewActions({
       isGitLab,
       defaultMergeMethod,
       onRefreshReview,
+      onMergeSucceeded,
       repo,
       review.mergeQueueRequired,
       review.number

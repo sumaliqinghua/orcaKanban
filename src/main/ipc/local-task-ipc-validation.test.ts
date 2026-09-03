@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import {
+  acceptLocalTaskArgsSchema,
   createLocalTaskArgsSchema,
   createLocalTaskSessionArgsSchema,
   createLocalTaskSubtaskArgsSchema,
+  deleteLocalTaskArgsSchema,
   archiveLocalTaskArgsSchema,
   editLocalTaskStepTitleArgsSchema,
   kanbanAiRecordListArgsSchema,
   markKanbanAiRecordReadArgsSchema,
+  localTaskListArgsSchema,
   parseLocalTaskIpcArgs,
   startLocalTaskBatchArgsSchema,
+  transferLocalTaskSubtaskArgsSchema,
+  transferLocalTaskWorkspaceArgsSchema,
   updateLocalTaskArgsSchema,
   updateLocalTaskRunArgsSchema,
   updateLocalTaskStepArgsSchema
@@ -95,6 +100,26 @@ describe('local task IPC validation', () => {
     ).toMatchObject({ taskId: 'lt_1', projectPath: '/tmp/project' })
   })
 
+  it('accepts archived listing and rejects unsafe delete task ids', () => {
+    expect(
+      localTaskListArgsSchema.parse({
+        projectId: 'orca',
+        projectPath: '/tmp/project',
+        includeArchived: true
+      })
+    ).toEqual({ projectId: 'orca', projectPath: '/tmp/project', includeArchived: true })
+    expect(
+      deleteLocalTaskArgsSchema.parse({
+        taskId: 'lt_123e4567-e89b-12d3-a456-426614174000',
+        projectPath: '/tmp/project',
+        activeSessionIds: []
+      })
+    ).toMatchObject({ projectPath: '/tmp/project', activeSessionIds: [] })
+    expect(() =>
+      deleteLocalTaskArgsSchema.parse({ taskId: '../outside', projectPath: '/tmp/project' })
+    ).toThrow()
+  })
+
   it('accepts projectPath when creating a subtask in the project file store', () => {
     expect(
       createLocalTaskSubtaskArgsSchema.parse({
@@ -108,6 +133,20 @@ describe('local task IPC validation', () => {
       projectPath: '/tmp/project',
       title: '制作校验工具',
       sessionId: null
+    })
+  })
+
+  it('accepts projectPath when transferring a subtask', () => {
+    expect(
+      transferLocalTaskSubtaskArgsSchema.parse({
+        subtaskId: 'sub_1',
+        sessionId: 'session-1',
+        projectPath: '/tmp/project'
+      })
+    ).toEqual({
+      subtaskId: 'sub_1',
+      sessionId: 'session-1',
+      projectPath: '/tmp/project'
     })
   })
 
@@ -132,8 +171,37 @@ describe('local task IPC validation', () => {
 
   it('accepts bounded live session evidence when archiving', () => {
     expect(
-      archiveLocalTaskArgsSchema.parse({ taskId: 'lt_1', activeSessionIds: ['session-1'] })
-    ).toEqual({ taskId: 'lt_1', activeSessionIds: ['session-1'] })
+      acceptLocalTaskArgsSchema.parse({ taskId: 'lt_1', projectPath: '/tmp/project' })
+    ).toEqual({ taskId: 'lt_1', projectPath: '/tmp/project' })
+    expect(
+      archiveLocalTaskArgsSchema.parse({
+        taskId: 'lt_1',
+        projectPath: '/tmp/project',
+        activeSessionIds: ['session-1']
+      })
+    ).toEqual({
+      taskId: 'lt_1',
+      projectPath: '/tmp/project',
+      activeSessionIds: ['session-1']
+    })
+  })
+
+  it('validates workspace ownership transfers', () => {
+    expect(
+      transferLocalTaskWorkspaceArgsSchema.parse({
+        sourceProjectPath: '/tmp/source',
+        targetProjectId: 'project-1',
+        targetProjectPath: '/tmp/target',
+        targetWorkspaceId: 'workspace-2',
+        targetWorkspaceLabel: 'main'
+      })
+    ).toEqual({
+      sourceProjectPath: '/tmp/source',
+      targetProjectId: 'project-1',
+      targetProjectPath: '/tmp/target',
+      targetWorkspaceId: 'workspace-2',
+      targetWorkspaceLabel: 'main'
+    })
   })
 
   it('validates Kanban AI record list and read requests', () => {

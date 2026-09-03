@@ -52,6 +52,7 @@ const turnSchema = z.strictObject({
 
 const sessionSchema = z.strictObject({
   id: text,
+  tabId: text.optional(),
   taskId: text,
   workspaceId: text,
   title: text,

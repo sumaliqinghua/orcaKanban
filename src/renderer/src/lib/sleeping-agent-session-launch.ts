@@ -60,6 +60,22 @@ function appendTabToWorktreeOrder(worktreeId: string, tabId: string): void {
   state.setTabBarOrder(worktreeId, order)
 }
 
+function rebindLocalTaskSessionTab(record: SleepingAgentSessionRecord, tabId: string): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+  const previousTabId = record.tabId ?? record.paneKey.split(':', 1)[0]?.trim()
+  if (!previousTabId || previousTabId === tabId) {
+    return
+  }
+  const rebind = window.api?.localTasks?.rebindSessionTab
+  if (typeof rebind !== 'function') {
+    return
+  }
+  // Most sleeping records are not task-linked; a missing task association is expected.
+  void rebind({ sessionId: previousTabId, tabId }).catch(() => {})
+}
+
 // Why: mobile-driven wake runs on the desktop host renderer, so it must create
 // the resume tab without stealing the desktop's active worktree/tab/view.
 export function launchSleepingAgentSession(
@@ -125,6 +141,7 @@ export function launchSleepingAgentSession(
     providerSession: record.providerSession
   })
   state.clearSleepingAgentSession(record.paneKey)
+  rebindLocalTaskSessionTab(record, tab.id)
   if (!options?.suppressNavigation) {
     state.setActiveTabType('terminal')
   }

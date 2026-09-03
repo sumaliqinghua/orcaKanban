@@ -27,6 +27,7 @@ export type WorkItem = {
   latestOutput: { session: string; text: string }
   sessionsList: {
     id?: string
+    tabId?: string
     title: string
     currentPrompt?: string | null
     turns?: {

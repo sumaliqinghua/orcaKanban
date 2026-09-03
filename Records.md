@@ -683,6 +683,7 @@
   - Inbox 任务必须先点击“整理为可执行”，然后再点击“执行当前任务”。
 - **已知限制**：AI 批次排序、批次进度详情和完整端到端测试仍在阶段 7 后续任务中。
 - **关联假设**：`ASSUMPTIONS.md` 的“异步员工模式的执行边界”。
+
 ## [2026-09-01] 实现全局提示词库与非模态抽屉
 
 - **What（做了什么）**：
@@ -723,3 +724,303 @@
   - 全套 `typecheck:e2e` 仍受仓库既有测试类型债阻塞；本次新增 E2E 文件未出现在错误列表，且真实 Electron 用例已通过。
 - **关联假设**：无。本轮所有产品选择均由用户在澄清阶段确认。
 - **验证结果**：117 项定向 Vitest 通过；完整 `pnpm tc` 通过；本地化目录和提取校验通过；changed-file 普通、类型感知和 React 专项质量门禁均为 0 新问题；Electron E2E 构建和 1 条完整交互用例通过；桌面与 600px 窄窗口截图已人工检查，无文本重叠或控件溢出。全仓本地化覆盖检查仍被工作区原有任务中心硬编码中文阻塞，报告中没有提示词库文件。完成通知已按要求调用飞书会话总结发送器，但 webhook 返回 `19007: Bot Not Enabled`，消息未发送。
+
+## 2026-09-01 修复任务详情启动后会话未关联
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/work-items/LocalTaskAgentPicker.tsx` 新增 `persistLocalTaskSessionAssociation`，在新 Agent tab 创建成功后，使用任务 ID、项目根目录、tab ID、workspace ID 和本轮请求调用 `window.api.localTasks.createSession`；写入成功后才关闭关联会话弹窗并通知任务中心刷新。写入失败时回退到原有任务中心回调，由其再次执行幂等关联。
+  - `src/renderer/src/components/work-items/LocalTaskAgentPicker.test.ts` 新增回归测试，验证会话字段完整落盘，以及 IPC 失败会向调用方传播错误。
+  - `plan.md`、`ASSUMPTIONS.md`、`PROJECT_STATUS.md` 同步记录任务进度、实现假设和现状。
+- **Why（为什么这么做）**：收件箱任务文件并未缺失，缺失的是启动 tab 对应的 `sessions` 记录。原实现把关联完全交给父级回调，回调与详情页面关闭/卸载存在时序风险。前置写入复用现有幂等 Store 接口，避免新增数据格式或重复的会话模型。
+- **How（怎么实现的）**：Agent 选择 → 创建 tab → `persistLocalTaskSessionAssociation` 写入 `task.json.sessions` → 父级刷新并关闭任务中心；失败时 → 父级旧回调重试。
+- **用户须知**：从任务详情启动 Agent 后，会话会在界面关闭前写入任务文件；同一个 tab 重复触发关联不会产生重复会话。
+- **已知限制**：直接从 workspace 或普通 Agent 入口启动的会话仍不会自动归属任务，必须从任务详情启动或显式关联。
+- **关联假设**：2026-09-01 任务详情启动前置关联会话。
+
+## 2026-09-01 增加 Open 本地任务自动化模板
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/automations/automation-templates.ts`：为 `AutomationTemplate` 增加可选的 `executionMode` 和 `localTaskScope` 字段；新增 `kanban-open-local-tasks-daily` 模板，默认使用 `open_local_tasks` 执行模式、当前 workspace 范围、每日 09:30 和 180 分钟错过运行宽限。
+  - `src/renderer/src/components/automations/AutomationsPage.tsx`：选择模板时把执行模式、本地任务范围和兼容的 workspace/会话复用设置一并写入自动化草稿，确保“从模板开始”和编辑器内选择的结果一致。
+  - `src/renderer/src/components/automations/automation-templates.test.ts`：保留四个分析模板断言，新增 Open 模板 ID、执行模式、范围和时间的回归断言。
+  - `src/renderer/src/i18n/locales/en.json`、`zh.json`：补充第五个模板的中英文名称、说明和 Prompt。
+  - `PRD.md`、`plan.md`、`PROJECT_STATUS.md`：记录 v2.1 需求、阶段 9.5 验收标准和当前模板列表。
+- **Why（为什么这么做）**：
+  - 现有调度器已经实现 `open_local_tasks`：它只筛选已整理、未归档、可用 workspace 中的 Open 任务，并按 workspace 串行启动；缺口是模板选择不会预填执行模式，用户容易误建成普通 Prompt 自动化。
+  - 复用现有批次执行链路，避免新增第二套 Open 任务筛选、并发或运行记录逻辑；四个分析模板仍保持只读 AI 记录职责。
+- **How（怎么实现的）**：模板卡片 → `AutomationTemplate.executionMode/localTaskScope` → `applyTemplateToDraft` 或 `openCreateDialog` → 自动化草稿显示 Open 本地任务与当前 workspace → 保存后由现有 `useAutomationDispatchEvents` 扫描并启动批次。
+- **用户须知**：该模板只是新增可保存的自动化草稿，不会在选择模板时立即运行；保存并启用后，按每日 09:30 调度，默认处理当前 workspace 的 Open 本地任务，结果仍进入任务中心待审阅。
+- **已知限制**：模板未新增“所有本地项目”变体；SSH 目标仍不支持 Open 本地任务自动化；批次执行仍受现有任务中心窗口、workspace 串行和重启恢复限制。
+- **关联假设**：默认时间采用每日 09:30，默认范围采用当前 workspace；用户可在保存前编辑时间、范围和 Agent。
+- **验证结果**：`pnpm test src/renderer/src/components/automations/automation-templates.test.ts` 通过（3 项）；`pnpm tc:web` 通过。
+
+## 2026-09-02 修复任务归档后被 worktree 影子副本复活
+
+- **What（做了什么）**：
+  - `src/main/local-tasks/store.ts`：读取 `orca/<task-id>/task.json` 时校验文件实际根目录与 `task.projectPath`；只索引权威副本。任务位置从单一 `taskId → path` 改为 `taskId → projectPath → path`，旧调用未提供路径时按 `updatedAt` 和路径稳定选择，不再受并发扫描完成顺序影响。新增 workspace 转移：复制完整任务目录到目标 workspace，重写项目/workspace 字段，并把源 `task.json` 改成指向目标的影子副本。
+  - `src/shared/local-task-types.ts`、`src/preload/api/local-task-api.ts`、`src/preload/index.ts`、`src/main/ipc/local-task-ipc-validation.ts`、`src/main/ipc/local-tasks.ts`：验收、归档、恢复和编辑请求增加可选 `projectPath`；新增 `transferWorkspace` IPC，参数包含源路径、目标项目、目标路径、目标 workspace ID 和展示名。可选路径保持旧客户端调用可用。
+  - `src/renderer/src/components/work-items/local-task-center-actions.ts`：标题、描述、标签、Inbox/可执行切换、验收和归档都传递当前任务的 `projectPath`，避免同 ID 副本中错。
+  - `src/renderer/src/components/work-items/local-task-workspace-transfer.ts`：新增合入目标解析，只在同一本机执行主机内，按仓库和 PR/MR 目标分支查找目标 workspace；远程 workspace 不会错误路由到本机 Store。
+  - `HostedReviewActions.tsx`、`use-hosted-review-actions.ts`：Orca 直接 PR/MR 合入成功后调用任务所有权转移，随后刷新 review；合并队列尚未确认完成时不提前转移；转移失败会明确说明“合入成功，任务转移失败”，不误报成合入失败。
+  - `store.test.ts`、`local-task-ipc-validation.test.ts`、`local-task-center-actions.test.ts`、`local-task-workspace-transfer.test.ts`、`use-hosted-review-actions.test.tsx`：覆盖归档副本复活、同 ID 精确写入、所有权转移、workspace 删除、IPC 参数、合入回调和远程不回退。
+- **Why（为什么这么做）**：
+  - 任务与 workspace 是多对一关系，但 Git worktree 会把已跟踪的任务目录检出到多个物理目录。原实现先在每个根目录过滤已归档副本，再按 ID 合并，导致新的已归档副本被丢弃，旧的 `Needs review` 副本成为唯一可见结果。
+  - 没有只在 renderer 按 ID 隐藏重复项，因为 CLI、自动化、文件监听和 IPC 仍可能读写错误副本。归属判定收口在 Store，所有调用方共用同一规则。
+  - 没有恢复独立数据库，因为用户确认任务先跟随 workspace；未合入 workspace 删除后不需额外保留。
+- **How（怎么实现的）**：
+  - 读取链路：workspace 根目录 → 读取 `task.json` → 归一化比较实际根目录与 `projectPath` → 权威副本进入索引/监听/UI，影子副本终止。
+  - 写入链路：用户操作 → renderer 携带 `taskId + projectPath` → IPC 校验 → Store 直接定位权威文件 → 原子写入和变更广播。
+  - 合入链路：Orca 发起 PR/MR 合入 → provider 确认成功 → 按目标分支和执行主机定位目标 workspace → 复制任务目录 → 重写目标所有权 → 源文件变为影子副本。
+- **用户须知**：
+  - 现有 `art-dev-fork` 中的旧任务文件不会被删除，但新版 Store 不再显示或写入它；主 workspace 中的 `Done + archivedAt` 仍是权威状态。
+  - 主进程和 preload 已修改，开发环境需重启 `pnpm dev` 后才能完整加载。
+- **已知限制**：
+  - 手动 Git 合入、SSH/配对 runtime 和尚在 GitHub 合并队列中的 PR 不会自动转移任务所有权；这些路径没有回退为本机文件操作。
+  - 当前会话没有项目指定的 `$electron` 技能，因此未执行真实 Electron 界面的“归档 → 切 Tab → 返回”验收。
+- **关联假设**：`ASSUMPTIONS.md` 中“远程 workspace 任务所有权转移不回退到本机”。
+- **验证结果**：55 项定向 Vitest 通过；完整 `pnpm tc` 通过；Electron 生产构建通过（仅保留仓库既有的动态导入和 CSS `::highlight` 警告）；变更文件的普通、类型感知和 React 质量检查通过；`check:max-lines-ratchet` 和 `git diff --check` 通过。`check:code-quality:changed` 因当前 Node 22 与项目要求 Node 24 的 pnpm engine 警告污染 JSON 输出而在脚本内解析失败，已使用同配置 `oxlint` 直接验证代替。完成通知已调用飞书会话总结发送器，但 webhook 返回 `19007: Bot Not Enabled`，消息未发送。
+
+## 2026-09-02 增加已归档 Tab 和永久删除
+
+- **What（做了什么）**：
+  - `src/main/local-tasks/store.ts` 新增 `includeArchived` 列表选项和 `deleteTask`；默认列表仍排除归档，显式请求才返回归档任务。永久删除重新校验任务 ID、权威 workspace 路径、归档状态和实时会话，然后只删除 `orca/<task-id>/`。
+  - `src/main/local-tasks/file-store-watch.ts` 增加目录监听解除，避免删除后继续监听旧任务。
+  - `src/main/ipc/local-task-ipc-validation.ts` / `src/main/ipc/local-tasks.ts` / `src/preload/api/local-task-api.ts` / `src/preload/index.ts` 增加归档列表选项、永久删除 IPC 和跨窗口 `localTasks:deleted` 通知。
+  - `src/renderer/src/components/work-items/LocalTaskQueueTabs.tsx` / `WorkItemsPrototypePage.tsx` 增加“已归档” Tab；活跃队列继续排除归档，归档 Tab 支持搜索、项目和标签筛选。
+  - `local-task-center-actions.ts` / `work-item-pieces.tsx` / 相关详情组件增加恢复和永久删除操作；永久删除使用破坏性 destructive 按钮和 Dialog，展示任务名、workspace 与精确目录。
+  - 新增 Store、IPC 和 UI 回归测试，覆盖归档查看/恢复、安全删除门禁、目录删除、跨窗口通知和二次确认。
+- **Why（为什么这么做）**：归档是可恢复的隐藏，需要有明确的查看入口；永久删除是用户已明确授权后的不可逆操作，因此只放在已归档详情并在后端重新校验；不引入回收站，避免任务又出现第二个状态真相。
+- **How（怎么实现的）**：任务中心请求 `includeArchived` → Store 扫描权威副本 → Tab 按 `archivedAt` 过滤；恢复操作只清除 `archivedAt`；永久删除则经过 Dialog 二次确认 → IPC 后端再校验 → 解除 watcher → 删除任务目录 → 广播删除事件。
+- **用户须知**：活跃任务不显示永久删除；已归档任务可在 Tab 中恢复或永久删除；如果任务文件已经提交进 Git，删除后只会体现为普通 Git 删除 diff。
+- **已知限制**：当前会话仍没有项目指定的 `$electron` 技能，因此没有执行真实 Electron 验收；已删除且未提交的任务文件不能通过 Orca 回收，只能尝试从 Git 历史恢复。
+- **验证结果**：59 项定向 Vitest 通过；完整 `pnpm tc` 通过；Electron 生产构建通过；普通、类型感知和 React 质量检查、`check:max-lines-ratchet` 和 `git diff --check` 通过。
+
+## 2026-09-02 修复恢复会话后右侧预览找不到 Terminal Tab
+
+- **What（做了什么）**：
+  - `src/shared/local-task-types.ts`：为 `LocalTaskSession` 增加可选 `tabId`，并新增 `RebindLocalTaskSessionTabArgs`。`id` 继续表示任务稳定的会话关联键，`tabId` 表示当前 Orca Terminal Tab。
+  - `src/main/local-tasks/session-tab-mutations.ts`：新增主进程 Store mutation，按会话 ID定位权威任务文件，只更新对应会话的 `tabId`，不改变会话 ID、Codex transcript 或业务状态。
+  - `src/main/local-tasks/file-store-mutations.ts`、`store.ts`、`file-store-format.ts`：导出 mutation、创建新会话时初始化 `tabId=sessionId`，并让旧 task.json 通过可选字段兼容读取。
+  - `src/main/ipc/local-task-ipc-validation.ts`、`src/main/ipc/local-tasks.ts`、`src/preload/api/local-task-api.ts`、`src/preload/index.ts`：新增 `localTasks:rebindSessionTab` IPC 及严格参数校验。
+  - `src/renderer/src/components/work-items/LocalTaskDetailAside.tsx`、`local-task-view-model.ts`：右侧预览优先按 `session.tabId` 查找 Dashboard card，没有该字段时回退旧 `session.id`。
+  - `src/renderer/src/components/right-sidebar/ai-vault-session-launch-actions.ts`：恢复流程暴露实际创建的 Tab ID。
+  - `src/renderer/src/components/work-items/LocalTaskDetailAside.tsx`、`src/renderer/src/lib/sleeping-agent-session-launch.ts`：手动恢复和自动唤醒在发生 Tab ID 重生成时回写任务映射。
+  - `src/main/local-tasks/store.test.ts`：新增稳定会话 ID与新 Tab ID分离保存的回归测试。
+- **Why（为什么这么做）**：
+  - Orca 的 `createTab` 在 ID 冲突时会生成新 Tab，原任务仍保存旧 Tab ID，详情页按旧 ID 查不到实时卡片，于是错误显示“打开工作树查看会话”。
+  - 不直接覆盖会话 `id`，避免 Codex/其他 Agent 的稳定会话关联和历史查找失效；单独保存 `tabId` 可以处理 Tab 重建、恢复和跨重启。
+- **How（怎么实现的）**：
+  - 新建/恢复会话 → `session.id` 保持稳定 → Orca 创建实际 Tab → `onTabCreated` 或自动唤醒拿到新 `tabId` → `rebindSessionTab` 写回 task.json → 详情预览按新 `tabId` 查找卡片。
+  - 旧任务无 `tabId` 时走 `session.id` 回退路径；active PTY 与 host mirror 的重复恢复保护保持不变。
+- **用户须知**：
+  - 需要重启 `pnpm dev` 运行的 Orca，主进程/preload 新增的 IPC 才会加载。
+  - 对已经发生过 ID 冲突的任务，重新从详情中点击一次“在工作树中恢复”或触发一次唤醒后，新的 Tab ID 会写回；之后右侧预览会跟随实际 Tab。
+- **已知限制**：
+  - Web runtime 的远程 Tab 创建是异步且由宿主生成 ID，本轮只保留现有远程恢复保护，未新增远程端任务映射协议。
+- **关联假设**：无。
+- **验证结果**：`pnpm tc:web`、`pnpm tc:node`、`pnpm tc:cli` 通过；本地任务、IPC、视图模型和任务中心定向 Vitest 共 58 项通过。
+
+## 2026-09-02 修正任务会话被错误绑定到普通 Shell
+
+- **What（做了什么）**：
+  - 根据任务 `lt_f3a63f1e-5000-4800-a5da-a12ea002e9c8` 的权威文件和 Orca 终端清单核对出：会话稳定 ID 为 `5026c7b8-3cd4-41bf-bcb8-3542b957242f`，错误 `tabId` 为 `60b3b65e-d84b-4458-a120-ae95b76d5b59`。
+  - 终端清单证明该 Tab 只是普通 shell（无 Agent 身份，屏幕仅有 shell 提示符），不是 Codex 会话。
+  - 从该任务文件移除错误 `tabId`，并把没有实际进程的会话状态从 `working` 修正为 `idle`，保留任务、会话历史和稳定会话 ID。
+  - 从通用新建 Agent 启动链路撤回恢复专用的 `onTabCreated` 回调，避免新任务启动时被恢复映射逻辑干扰；恢复映射仍只在明确的恢复路径使用。
+- **Why（为什么这么做）**：
+  - 前一版把“激活后的当前 Tab”作为没有新 Tab 时的兜底，导致普通 shell 被错误写入任务会话的 `tabId`。
+  - 新建任务和恢复旧会话是两个不同生命周期；新建任务必须以 `onFocusTerminal` 返回的新 Tab 为唯一关联来源，不能共享恢复兜底。
+- **How（怎么实现的）**：
+  - 新建任务：创建 Agent Tab → `onFocusTerminal(actualTabId)` → 任务会话写入同一 Tab ID。
+  - 恢复旧会话：只有恢复动作明确创建新 Tab 时才允许回写 `tabId`；没有新 Tab 就不绑定当前普通 shell。
+  - 数据修复：移除错误映射 → 会话标记 idle → 用户可重新点击“新建关联会话”启动真实 Agent。
+- **用户须知**：
+  - 需要重启 `pnpm dev` 后再测试。
+  - 指定任务的旧普通 shell 绑定已清除；再次启动应创建新的 Agent Tab，而不是复用 `Terminal 1` 等普通 shell。
+  - 如果旧会话没有真实 Codex transcript，它只能作为历史记录保留，不能从中恢复 Agent 进程。
+- **已知限制**：
+  - 当前运行中的 Orca 进程可能还持有旧内存快照；重启后任务文件修正才会完整反映到 UI。
+- **关联假设**：无。
+- **验证结果**：`pnpm tc:web` 通过；启动链路与本地任务相关 Vitest 37 项通过；任务文件和终端清单完成交叉核对。
+
+## 2026-09-02 修复新建任务启动后停留在空白工作区
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/work-items/LocalTaskAgentPicker.tsx`：任务中心创建 Agent Tab 后，先激活任务所属 workspace，再排队聚焦该 Tab，最后写入会话关联并关闭任务中心。
+  - 任务 `lt_ac202109-2f90-4ab5-867e-1f3f235dd7e3` 的现场核对确认：实际 Tab `a597d053-4d57-4dd1-b1f8-299f8ef48328` 已创建，Agent 为 Codex；画面停在 Codex 的 `Hooks need review` 信任提示，不是 Agent 未创建。
+- **Why（为什么这么做）**：
+  - 原链路只创建 Tab 并持久化任务会话，没有激活 `task.workspaceId`，当任务中心本身没有当前工作树时，主区域继续显示“选择一个工作区开始”，用户看不到已启动的 Tab。
+  - 不把普通当前 Tab 作为兜底，避免再次把无关 shell 绑定到任务。
+- **How（怎么实现的）**：
+  - 选择 Agent → 创建实际 Tab → 激活任务 workspace → 延迟聚焦实际 Tab → 写入 `session.id/tabId` → 关闭任务中心。
+  - Codex 首次启动若出现 hooks 信任选择，需在终端完成信任/继续；这是安全确认，不是 Orca 任务关联失败。
+- **用户须知**：
+  - 需要重启 `pnpm dev`/Electron 后验证。
+  - 重新创建任务并点击启动后，应直接进入任务所属工作树的 Agent Tab；若出现 `Hooks need review`，选择信任并继续即可。
+- **已知限制**：
+  - Web runtime 的宿主 Tab 由远端异步镜像，仍需后续补充任务中心对远端创建结果的显式回写。
+- **关联假设**：无。
+- **验证结果**：`pnpm tc:web` 通过；任务启动、Codex 启动链路相关 Vitest 37 项通过。
+
+## 2026-09-02 修复任务中心 Codex 首次启动被 Hooks 信任拦截
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/tab-bar/QuickLaunchButton.tsx`：通用 Agent 菜单启动前复用 `TUI_AGENT_CONFIG[agent].preflightTrust`，对 Codex 任务 workspace 调用 `window.api.agentTrust.markTrusted`，再创建 Tab 和投递任务提示词。
+  - 现场核对任务 `lt_2ea54dd4-1496-4a92-9461-b3447d6106e7`：任务会话 Tab `daba498a-ebae-4072-9800-bc56ca6eda2b` 已存在，Agent 身份为 `codex`，画面停在 `Hooks need review`，因此不是关联到错误任务或没有创建 Tab。
+- **Why（为什么这么做）**：
+  - 任务中心启动入口此前没有执行 Codex 目录信任预检，首次启动会把 Agent 停在安全菜单；任务提示词尚未进入 Codex composer，所以看起来像空会话。
+  - 复用已有 `agentTrust` IPC 和 Agent 配置，不新增第二套信任机制；信任失败仍保留 Codex 自己的交互提示作为安全兜底。
+- **How（怎么实现的）**：
+  - 选择 Codex → 预检并写入工作区信任 → 创建 Agent Tab → 任务提示词按既有 startup/paste 链路提交。
+  - 已经停在 `Hooks need review` 的旧 Tab 需要手动选择 `Trust all and continue` 或 `Continue without trusting`；确认后该 Tab 才会继续执行启动提示词。
+- **用户须知**：
+  - 重启 `pnpm dev`/Electron 后新逻辑生效。
+  - 首次出现 Hooks 菜单时仍建议选择 `Trust all and continue`；之后同一工作区通常不会再次拦截。
+- **已知限制**：
+  - 本轮没有替用户点击安全确认；这是 Codex 的高风险 hooks 授权，需要用户明确选择。
+- **关联假设**：无。
+- **验证结果**：`pnpm tc:web` 通过；QuickLaunch、任务启动和 Codex 启动相关 Vitest 37 项通过；`git diff --check` 通过。
+
+## 2026-09-02 修复任务启动提示词延迟到用户输入后才出现
+
+- **What（做了什么）**：
+  - `src/renderer/src/lib/launch-agent-in-new-tab.ts`：对 `launchSource: task_page` 的任务中心启动，在创建 Tab 前先将目标 workspace、repo 和终端视图设为当前；随后沿用原有 Tab 创建、startup command 投递和 Agent prompt 注入链路。
+  - 现场核对任务 `lt_2ea54dd4-1496-4a92-9461-b3447d6106e7`：任务关联 Tab 已有 Codex 身份，但主区域显示空白 Codex composer；输入 `hi` 后原任务提示词才一起出现，确认是启动 Tab 被后台化/焦点错误，而不是 task.json 关联失败。
+- **Why（为什么这么做）**：
+  - 任务中心此前在启动器外层重复尝试激活 workspace，既可能切走新建 Tab，也不能保证启动器创建时目标 workspace 已是当前；Codex 的 argv prompt 因此留在后台 Tab，直到用户输入才显现。
+  - 把激活放回创建 Tab 的公共入口，保证“目标 workspace → 新 Tab → startup command”是一个连续同步流程；普通 Tab 栏启动不改变行为。
+- **How（怎么实现的）**：
+  - 任务页选择 Agent → `launchAgentInNewTab({ launchSource: 'task_page' })` → `setActiveRepo`/`setActiveView('terminal')`/`setActiveWorktree` → `createTab` → `queueTabStartupCommand` → Tab 挂载后执行 Codex 命令并携带任务 prompt。
+- **用户须知**：
+  - 重启 `pnpm dev`/Electron 后测试。
+  - 新建任务选择 Agent 后，应直接进入任务 workspace 的 Agent Tab 并自动带上任务提示词；不需要先手动发送 `hi`。
+- **已知限制**：
+  - 旧的空白 Tab 不会自动补发已经丢失的历史 prompt；建议关闭旧 Tab 后重新从任务详情启动一次。
+- **关联假设**：无。
+- **验证结果**：`pnpm tc:web` 通过；启动器、任务中心和 QuickLaunch 相关 Vitest 39 项通过；`oxlint` 和 `git diff --check` 通过。
+
+## 2026-09-02 修复任务详情右侧终端预览输入后不刷新
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/dashboard-popout/AgentTerminalPreview.tsx`：用户输入写入 `terminalPreview.input` 后增加 200ms 防抖的权威快照刷新；连续输入只在停顿后刷新一次；组件卸载时清理定时器。
+  - `src/renderer/src/components/dashboard-popout/AgentTerminalPreview.test.tsx`：新增回归测试，验证输入后即使实时输出延迟也会重新调用 `terminalPreview.connect` 获取快照。
+- **Why（为什么这么做）**：
+  - 现场表现为“输入已成功写入，关闭重开后可见，但当前右侧预览不显示”。这说明 PTY 写入正常，问题出在实时增量流排队/ACK 或 xterm 渲染没有及时追上；只依赖实时 `terminalPreview:data` 会把正确输入暂时隐藏。
+  - 快照刷新只作用于显示层，不重复发送输入、不改变 PTY 状态；防抖避免每个字符都触发一次 IPC。
+- **How（怎么实现的）**：
+  - 用户键入 → `terminalPreview.input` 写入 PTY → 200ms 无新输入 → `terminalPreview.connect` 获取当前序列快照 → 原子重绘 xterm → 后续实时数据继续接入。
+- **用户须知**：
+  - 右侧预览输入后最多约 200ms 刷新显示；如果 Agent 本身没有回显，快照也不会伪造文本。
+- **已知限制**：
+  - 本轮未执行真实 Electron 界面点击，只覆盖预览组件与 IPC 单元回归；若仍有个别 PTY 不刷新，需要继续采集该 PTY 的 `terminalPreview:data`/`resync` 日志。
+- **关联假设**：无。
+- **验证结果**：`pnpm tc:web` 通过；AgentTerminalPreview、订阅隔离和 terminal-preview IPC 测试共 55 项通过；`git diff --check` 通过。
+
+## 2026-09-02 增加右侧会话预览跳转到终端 Tab
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/dashboard-popout/AgentTerminalDialog.tsx`：在 Agent 会话预览标题栏增加带图标和 tooltip 的“跳转到终端 Tab”按钮，复用已有 reveal 参数。
+  - `src/renderer/src/components/work-items/LocalTaskDetailAside.tsx`：将预览的 reveal 参数传给任务中心动作，并在嵌入式预览点击跳转后关闭右侧预览。
+  - `src/renderer/src/components/work-items/LocalTaskDetailPanel.tsx`、`local-task-center-actions.ts`：支持传递 `worktreeId`、`executionHostId`、`tabId`、`leafId`；激活 workspace 后调用 `activateTabAndFocusPane` 精确定位 Tab/pane。
+- **Why（为什么这么做）**：
+  - 仅有“打开 workspace”会落到工作树当前 Tab，用户还要手动寻找关联 Agent；卡片本身已经有权威的 Tab 和 pane 路由信息，应直接复用。
+  - 保持现有打开工作树按钮语义不变；新增按钮只负责精确跳转，不改变会话恢复或 PTY 生命周期。
+- **How（怎么实现的）**：
+  - 点击标题栏跳转 → `activateWorktreeFromSidebar(worktreeId, executionHostId)` → `activateTabAndFocusPane(tabId, leafId)` → 关闭任务详情中的嵌入式预览。
+- **用户须知**：
+  - 右侧“会话窗口”标题栏新增外跳图标；点击后会回到主终端并定位同一 Agent 分屏。
+- **已知限制**：
+  - 如果卡片对应 PTY 已结束，仍会定位到该 Tab/pane（若 Tab 仍存在），但不会重新启动 Agent。
+- **关联假设**：无。
+- **验证结果**：`pnpm tc:web` 通过；AgentTerminalDialog、LocalTaskDetailPanel 和任务中心动作测试 14 项通过；`git diff --check` 通过。
+
+## 2026-09-02 增加会话预览精确跳转按钮
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/dashboard-popout/AgentTerminalDialog.tsx`：右侧会话标题栏增加外跳图标按钮，复用卡片的 workspace、执行主机、Tab 和 pane 路由信息。
+  - `src/renderer/src/components/work-items/local-task-workspace-navigation.ts`：抽出任务 workspace 导航逻辑；先激活目标 workspace，再调用 `activateTabAndFocusPane` 精确选择对应 Tab/pane；只有发现本次激活新建的 Tab 时才回写任务 `tabId`。
+  - `LocalTaskDetailAside.tsx`、`LocalTaskDetailPanel.tsx`、`local-task-center-actions.ts`：贯通跳转参数和预览关闭行为。
+- **Why（为什么这么做）**：
+  - 原“打开 workspace”只切工作树，无法保证落到当前关联 Agent Tab；用户需要手动找 Tab，且可能误进普通终端。
+  - 跳转逻辑抽成专用模块，避免任务动作文件继续膨胀超过 300 行质量门禁。
+- **How（怎么实现的）**：点击图标 → 激活目标 workspace/执行主机 → 精确激活 `tabId + leafId` → 关闭右侧嵌入预览；普通 workspace 按钮仍保持原语义。
+- **用户须知**：右侧会话标题栏的外跳图标会直接回到对应 Orca 终端 Tab；若 Tab 已结束但仍存在，会定位到原 Tab，不会自动启动新 Agent。
+- **已知限制**：实时卡片不存在时，右侧备用历史面板没有 pane 路由，只能使用原“打开工作树”路径。
+- **关联假设**：无。
+- **验证结果**：`pnpm tc:web` 通过；相关 UI 和任务动作 Vitest 14 项通过；`oxlint`、`git diff --check` 通过。
+
+## 2026-09-02 修复子任务绑定读取失效任务路径
+
+- **What（做了什么）**：
+  - `src/main/local-tasks/file-store-index.ts`：新增存在性与竞态读取保护；`findTaskWithSession`、`findSubtask`、`findStep` 遍历时跳过已删除的 `task.json`，仅在文件仍存在时把非 ENOENT 解析错误继续抛出。
+  - `src/main/local-tasks/store.ts`：`knownTaskPaths` 生成器过滤并清理内存索引中的失效路径，避免后续 mutation 重复读取旧文件。
+  - `src/shared/local-task-types.ts`、`src/main/ipc/local-task-ipc-validation.ts`、`src/main/runtime/rpc/methods/local-tasks.ts`：为子任务转移参数增加可选 `projectPath`，并贯通校验和 runtime 调用。
+  - `src/cli/local-task-context.ts`：在 CLI 上下文返回类型中声明已有的 `ORCA_LOCAL_TASK_ROOT` 项目路径，确保 `subtask-transfer` 将其传给 runtime。
+  - `src/renderer/src/components/work-items/LocalTaskSubtaskCreateDialog.tsx`、`LocalTaskSubtaskSessionSelect.tsx`、`LocalTaskSubtaskBlock.tsx`、`LocalTaskDetailPanel.tsx`：绑定已有会话和新建会话时传递当前任务项目路径。
+  - `src/main/local-tasks/store.test.ts`、`src/main/ipc/local-task-ipc-validation.test.ts`、`LocalTaskSubtaskControls.test.tsx`：增加失效路径、项目路径校验和 UI 传参回归覆盖。
+- **Why（为什么这么做）**：用户报告的错误发生在 `localTasks:transferSubtask`，但真正失败点是 Store 通过内存索引读取已被 workspace 删除的旧 `task.json`。此前 `get()` 已做存在性检查，而索引 mutation 没有，导致绑定已有会话与新建会话都暴露 ENOENT。把项目路径作为可选上下文传入，并在共享索引层统一跳过失效路径，兼容旧 CLI 调用且避免同 ID 影子副本误写。
+- **How（怎么实现的）**：任务中心绑定 → `localTasks:transferSubtask`（携带 `projectPath`）→ `LocalTaskStore.transferSubtask` → `findSubtask(paths, subtaskId, read, projectPath)` → 跳过不存在路径/非目标 workspace → 写回目标 `task.json`。文件删除与读取之间若发生竞态，`readPresentTask` 会再次检查路径；损坏 JSON 等真实数据错误仍上抛。
+- **用户须知**：需要重启 `pnpm dev`/Electron 使主进程和 preload 变更生效；任务中心新请求会显式传递 `projectPath`，旧版 CLI/runtime 请求仍可工作。任务目录已永久删除时不会自动恢复，只会报告子任务不存在。
+- **已知限制**：同一子任务 ID 若所有副本都已删除，系统无法推断原内容；需要从仍保留任务文件的 workspace 恢复或重新创建。
+- **关联假设**：`ASSUMPTIONS.md` 中“子任务转移按当前项目路径处理失效索引”。
+- **验证结果**：定向 Vitest 59 项通过；`pnpm tc` 通过；`git diff --check` 通过。`pnpm run check:code-quality:changed` 受当前 Node 22 与仓库要求 Node 24 的已有脚本解析问题影响未能运行；直接 `oxlint` 仍报告 `store.ts` 的既有 max-lines 超限，未新增禁用规则。
+
+## 2026-09-02 修复任务启动后关联会话未显示
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/tab-bar/QuickLaunchButton.tsx`：`onFocusTerminal` 支持返回 Promise，启动流程等待回调完成。
+  - `src/renderer/src/components/work-items/LocalTaskAgentPicker.tsx`：任务页启动回调先调用 `persistLocalTaskSessionAssociation` 写入 `task.json`，成功后才关闭弹窗并通知任务中心；失败时关闭刚创建的 Tab 并显示错误。
+  - `src/renderer/src/components/work-items/LocalTaskAgentPicker.test.tsx`：新增异步顺序回归测试，验证 `createSession` 未完成前不会触发 `onStarted`；测试文件改为 `.tsx` 以承载组件 JSX。
+- **Why（为什么这么做）**：截图中的 Tab 已存在，但任务详情会话数仍为 0。原链路把 Tab 创建视为立即成功，`createSession` 由后续任务中心回调异步执行；任务面板关闭、刷新或 IPC 失败时，运行表面与 `task.json` 事实会脱节。以会话持久化完成作为启动成功门槛，可让 UI 只在事实已落盘后继续。
+- **How（怎么实现的）**：选择 Agent → 创建 Tab → 等待 `persistLocalTaskSessionAssociation`（`createSession`）→ 触发 `onStarted` → 任务中心幂等刷新/关闭。异常路径为 `createSession` 失败 → 关闭新 Tab → 显示具体错误。
+- **用户须知**：重启 Electron 后，任务页启动 Agent 会先保存关联会话；若保存失败会提示错误并清理 Tab，不会再出现“Tab 已启动但关联会话为 0”的静默状态。普通 Tab 栏启动不受影响。
+- **已知限制**：任务文件本身已被删除或 workspace 路径失效时，持久化仍会失败；需要恢复任务目录后再启动。
+- **关联假设**：`ASSUMPTIONS.md` 中“任务启动以会话持久化完成作为成功条件”。
+- **验证结果**：AgentPicker、QuickLaunch、任务中心动作和子任务控制相关 Vitest 25 项通过；`pnpm tc` 通过；`git diff --check` 通过。
+
+## 2026-09-03 修复任务启动 ENOENT、简化关联会话流程并清空现场任务
+
+- **What（做了什么）**：
+  - `src/main/local-tasks/store.ts`：`get` 读取任务文件时增加存在性竞态保护；若 workspace 在检查和读取之间被删除，则清理对应任务 ID 的索引路径并返回 `null`。`latestKnownPath` 逐个检查、读取、清理失效路径后再按 `updatedAt` 选择最新副本；真实存在但 JSON 损坏的文件仍继续抛出原始校验错误。
+  - `src/main/local-tasks/store.test.ts`：新增“较新的索引副本被删除后仍可创建会话”回归测试，覆盖失效路径清理后回退到仍存在任务文件的场景。
+  - `src/renderer/src/hooks/useLocalTaskComposer.ts`：新建 workspace 后关联已有 Terminal Tab 时，把刚创建任务返回的 `task.projectPath` 传入 `localTasks.createSession`，消除主进程通过任务 ID 猜路径的分支。
+  - `src/renderer/src/components/work-items/local-task-center-actions.ts`：删除父层对同一 Tab ID 的第二次 `createSession` 调用；现在只读取最新任务快照、更新 UI 并关闭任务中心。AgentPicker 已完成的会话写入仍是唯一持久化操作。
+  - `/Users/lmy/proj/Tile/BallsOutProj/orca/`：按用户授权删除全部 4 个 `lt_*` 目录（其中 2 个目录缺少 `task.json`），未删除项目业务代码或 `orca` 外文件。
+- **Why（为什么这么做）**：
+  - 报错不是某个新任务自身损坏，而是文件型 Store 的全局任务索引包含已被 workspace 删除的路径；启动新会话时，唯一性检查扫描该索引并读取失效文件，底层 `ENOENT` 冒泡，导致所有任务都无法启动。
+  - 项目路径是任务文件所有权的既有事实，显式传递它比按 ID 在多个 workspace 副本中猜测更可靠。读取竞态必须在 Store 边界消化，否则外部删除、合入或清理都会把文件系统瞬时状态暴露给 UI。
+  - 原先“AgentPicker 写入一次 + 父层回调再写一次”的双写只是在依赖幂等性兜底，增加 IPC 和文件扫描次数；保留一个写入屏障即可满足“写入成功后才关闭页面”的时序要求。
+- **How（怎么实现的）**：
+  - 任务页选择 Agent → `QuickLaunchAgentMenuItems` 创建真实 Terminal Tab → `LocalTaskAgentPicker.handleStarted` 等待一次 `localTasks.createSession({ taskId, projectPath, sessionId: tabId, ... })` → 成功后调用父层 `sessionStarted` → `localTasks.get(taskId, projectPath)` 刷新任务 → 关闭任务中心。
+  - Store 读取链路：`get/latestKnownPath` → `existsSync` + `readLocalTaskFile` → 文件在竞态中消失则移除 `locations[taskId]` 对应路径并返回空 → 仍存在但内容非法才抛出明确 schema 错误。
+- **用户须知**：
+  - 修改主进程、preload 或 renderer 后需重启 `pnpm dev`/Electron 才会加载新代码。
+  - `BallsOutProj` 的任务中心现在为空；删除的任务目录若未提交到 Git 不可恢复，需要重新创建任务。
+  - 关联会话启动只写一次任务文件；Store 仍对相同 session ID 幂等，CLI/runtime 的惰性绑定不受影响。
+- **已知限制**：
+  - 任务目录被永久删除后无法从 Store 推断标题、描述或历史会话；只能依靠 Git 中已提交的 `orca/lt_*` 文件恢复。
+  - 本次修复处理的是本机项目文件；SSH/配对 runtime 的任务文件仍需在执行主机上实现对应 Store/RPC 才能支持同等清理语义。
+- **关联假设**：`ASSUMPTIONS.md` 中“清空 BallsOutProj 现场任务目录”。
+- **验证结果**：Store、runtime RPC、IPC 校验 54 项通过；AgentPicker、任务中心动作、子任务控制 15 项通过；`pnpm tc:web` 通过；`git diff --check` 通过。当前 Node 为 22，而仓库声明 Node 24，因此仅出现 engine warning。
+
+## 2026-09-03 从任务详情移至收件箱
+
+- **What（做了什么）**：
+  - `src/renderer/src/components/work-items/work-item-pieces.tsx`：在详情底部 `LocalTaskActions` 中，把非收件箱任务的收件箱入口渲染为带 `Inbox` 图标和“移至收件箱”文字的 `outline` 次要按钮；收件箱任务仍显示原有“整理为可执行”主按钮，归档任务仍只显示恢复/永久删除操作。
+  - `src/renderer/src/components/work-items/work-item-pieces.test.tsx`：断言 ready 任务能看到“移至收件箱”、不会错误显示“整理为可执行”，并验证点击会触发回调。
+  - `src/main/local-tasks/store.test.ts`：新增 Store 回归测试，确认只更新 `intakeState` 时 `projectId`、`projectPath`、`workspaceId`、workspace 展示名、业务状态、会话和子任务完全保持不变。
+  - `PRD.md`、`plan.md`、`PROJECT_STATUS.md`：记录 v2.6 需求、阶段 11.7 checklist、详情入口和数据不变规则。
+- **Why（为什么这么做）**：
+  - 用户需要把已经记录的任务退回收件箱继续整理，但不希望改变任务实际所属项目或代码 workspace。详情底部已经是任务生命周期操作的集中区域，复用它能保持入口范围明确。
+  - 原实现虽然已有图标按钮，但仅靠图标不够直观；可见文字能让“移至收件箱”和已有“整理为可执行”形成清晰的往返关系，也符合操作栏的可访问性要求。
+- **How（怎么实现的）**：
+  - 任务详情 → `LocalTaskActions` → `onMoveToInbox` → `createLocalTaskCenterActions.moveSelectedToInbox` → `window.api.localTasks.update({ taskId, projectPath, updates: { intakeState: 'inbox' } })` → 主进程 Store 原子写回同一份 `orca/<task-id>/task.json`。
+  - Store 使用现有合并更新逻辑，仅覆盖 `intakeState` 和 `updatedAt`；项目、workspace、状态、会话、子任务及执行记录沿用原对象，不复制或迁移任务目录。
+- **用户须知**：
+  - 在任务详情底部点击“移至收件箱”后，任务会从可执行任务筛选中移到“收件箱”Tab；之后可在同一位置点击“整理为可执行”返回 `ready`。
+  - 该操作不会自动启动 Agent，也不会改变任务状态或 workspace；看板和列表卡片没有新增按钮。
+- **已知限制**：
+  - 本轮没有增加“移出收件箱”的新数据模型或拖拽入口；移出仍复用现有“整理为可执行”操作。
+  - 真实 Electron 界面验收未执行；当前环境未提供项目要求的 `$electron` skill，已通过组件/Store 定向测试覆盖行为。
+- **关联假设**：无（项目归属保留、详情页入口和复用现有整理按钮均已由用户明确确认）。
+- **验证结果**：详情动作与 Store 定向测试通过；随后运行 `pnpm tc:web` 和 `git diff --check`。已尝试发送飞书完成通知，但 webhook 返回 `Bot Not Enabled`（机器人未启用），因此通知发送失败。

@@ -15636,6 +15636,13 @@
               "prompt": "Check for stuck work, stale generated files, failing validation, and anything that needs human attention. Report only actionable issues."
             },
             "kanbanAdvisor": {
+              "openLocalTasks": {
+                "category": "Kanban advisor",
+                "label": "Daily Open task execution",
+                "description": "Run all ready, unstarted Open local tasks in this workspace in sequence.",
+                "name": "Daily Open task execution",
+                "prompt": "Execute the current workspace's Open local tasks that are ready and have not started. Process tasks in workspace order, keep execution within the existing workspace, and leave every result in Needs review for human acceptance."
+              },
               "requirementClarification": {
                 "category": "Kanban advisor",
                 "label": "Inbox requirement clarification",

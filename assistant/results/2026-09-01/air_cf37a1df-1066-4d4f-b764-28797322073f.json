@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "air_cf37a1df-1066-4d4f-b764-28797322073f",
+  "kind": "requirement_clarification",
+  "seriesKey": "requirement_clarification:lt_d389a876-2a04-4d73-bbe1-a03b3e5fce1c",
+  "createdAt": 1788260579071,
+  "source": {
+    "automationId": "kanban-requirement-clarification-hourly",
+    "automationRunId": null,
+    "agentId": "codex"
+  },
+  "target": {
+    "projectId": "718b5b63-4432-4e6a-9b32-8dec3a77fdeb",
+    "projectPath": "/Users/lmy/proj/OPC/orcaKanban",
+    "workspaceId": "718b5b63-4432-4e6a-9b32-8dec3a77fdeb::/Users/lmy/proj/OPC/orcaKanban",
+    "taskId": "lt_d389a876-2a04-4d73-bbe1-a03b3e5fce1c"
+  },
+  "title": "用户确认只新增 Open 任务模板，不在本轮运行自动化",
+  "summary": "已明确本轮是产品实现：新增一个预设 Open 本地任务执行模式的模板；选择或保存模板不会立即执行自动化。",
+  "body": {
+    "format": "markdown",
+    "content": "## 当前判断\n\n用户已澄清：需要修改项目，照现有模板新增一个处理 Open 状态本地任务的自动化模板；本轮不要运行该自动化。实现应复用现有 `open_local_tasks` 调度模式，不新增第二套任务筛选或执行链路。\n\n## 已有信息\n\n- 现有自动化编辑器支持 `executionMode=open_local_tasks`，并有当前 workspace/全部本地项目范围选择。\n- 现有调度器会筛选 `Open + ready + 未归档 + workspace 可用 + 无同任务运行中记录` 的任务，按 workspace 串行启动批次，结果进入待审阅。\n- 原有四个任务中心助理模板是分析型模板；本次新增模板属于执行型模板，职责不同，不应要求 `no_change` 或 AI 记录契约。\n- 已新增 `kanban-open-local-tasks-daily`，默认每日 09:30、当前 workspace、`open_local_tasks`，并让模板应用逻辑同步填充执行模式和任务范围。\n\n## 需要确认\n\n无。默认时间为每日 09:30，默认范围为当前 workspace；用户仍可在保存自动化前编辑时间、范围、Agent 和其他设置。\n\n## 建议补充描述\n\n需求可固定为：\n\n> 在自动化“从模板开始”和编辑器模板选择器中新增“每日执行未开始任务”。模板预设为 `open_local_tasks` 执行模式、当前 workspace 范围和每日 09:30，复用现有 Open 本地任务批次筛选、workspace 串行、运行记录和待审阅流程。选择模板只填充草稿，不立即运行；保存并启用后才按计划执行。\n\n本轮不执行该自动化，不创建任务，不改变任何任务状态。"
+  },
+  "basis": {
+    "taskUpdatedAt": 1788196166095,
+    "latestSessionUpdatedAt": 1788195854316,
+    "taskStatus": "In progress",
+    "taskIntakeState": "ready",
+    "taskExecutionState": "idle",
+    "gitHead": "2511c1022d83f6891ea3b25d778d4aa3b8d631da",
+    "userClarification": "新增一个处理 Open 状态任务的自动化模板，但本轮不要运行自动化"
+  },
+  "inputFingerprint": "sha256:9c2ab913f18e7377e5c3a3f3a7fd344b532c7c96dbffc651ddc80ad3266d587d",
+  "readAt": 1788340170607
+}

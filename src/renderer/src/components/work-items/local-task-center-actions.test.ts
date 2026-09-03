@@ -12,7 +12,13 @@ const { getState, activateWorktreeFromSidebar } = vi.hoisted(() => ({
 vi.mock('@/store', () => ({ useAppStore: { getState } }))
 vi.mock('@/lib/sidebar-worktree-activation', () => ({ activateWorktreeFromSidebar }))
 
-const localTaskApi = { update: vi.fn() }
+const localTaskApi = {
+  accept: vi.fn(),
+  archive: vi.fn(),
+  delete: vi.fn(),
+  restore: vi.fn(),
+  update: vi.fn()
+}
 Object.defineProperty(window, 'api', {
   configurable: true,
   value: { localTasks: localTaskApi }
@@ -53,6 +59,7 @@ describe('local task center description action', () => {
 
     expect(localTaskApi.update).toHaveBeenCalledWith({
       taskId: 'task-1',
+      projectPath: '/tmp/project',
       updates: { description: '更新后的描述' }
     })
   })
@@ -70,7 +77,57 @@ describe('local task center description action', () => {
 
     expect(localTaskApi.update).toHaveBeenCalledWith({
       taskId: 'task-1',
+      projectPath: '/tmp/project',
       updates: { intakeState: 'inbox' }
+    })
+  })
+
+  it('targets acceptance and archival at the selected task workspace', () => {
+    localTaskApi.accept.mockReturnValue(new Promise<LocalTask>(() => {}))
+    localTaskApi.archive.mockReturnValue(new Promise<LocalTask>(() => {}))
+    const task = { ...selected(), status: 'Needs review' as const }
+    const actions = createLocalTaskCenterActions({
+      selected: task,
+      setItems: vi.fn(),
+      setSelectedId: vi.fn(),
+      setLoadError: vi.fn()
+    })
+
+    actions.acceptSelected()
+    actions.archiveSelected()
+
+    expect(localTaskApi.accept).toHaveBeenCalledWith({
+      taskId: 'task-1',
+      projectPath: '/tmp/project'
+    })
+    expect(localTaskApi.archive).toHaveBeenCalledWith({
+      taskId: 'task-1',
+      projectPath: '/tmp/project',
+      activeSessionIds: []
+    })
+  })
+
+  it('targets restore and permanent deletion at the archived task workspace', () => {
+    localTaskApi.restore.mockReturnValue(new Promise<LocalTask>(() => {}))
+    localTaskApi.delete.mockReturnValue(new Promise(() => {}))
+    const actions = createLocalTaskCenterActions({
+      selected: { ...selected(), archivedAt: 1 },
+      setItems: vi.fn(),
+      setSelectedId: vi.fn(),
+      setLoadError: vi.fn()
+    })
+
+    actions.restoreSelected()
+    actions.deleteSelected()
+
+    expect(localTaskApi.restore).toHaveBeenCalledWith({
+      taskId: 'task-1',
+      projectPath: '/tmp/project'
+    })
+    expect(localTaskApi.delete).toHaveBeenCalledWith({
+      taskId: 'task-1',
+      projectPath: '/tmp/project',
+      activeSessionIds: []
     })
   })
 

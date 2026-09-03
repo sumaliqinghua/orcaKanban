@@ -1,10 +1,10 @@
-import { activateWorktreeFromSidebar } from '@/lib/sidebar-worktree-activation'
 import { useAppStore } from '@/store'
 import type { LocalTask } from '../../../../shared/local-task-types'
 import type { TuiAgent } from '../../../../shared/tui-agent'
-import { parseWorkspaceKey } from '../../../../shared/workspace-scope'
+import type { DashboardRevealAgentArgs } from '../../../../shared/dashboard-snapshot'
 import { localTaskToViewModel } from './local-task-view-model'
 import type { WorkItem } from './mock-data'
+import { openLocalTaskWorkspace } from './local-task-workspace-navigation'
 
 type ActionContext = {
   selected: WorkItem | null
@@ -24,9 +24,11 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   editLabels: (labels: string[]) => void
   acceptSelected: () => void
   archiveSelected: () => void
+  restoreSelected: () => void
+  deleteSelected: () => void
   promoteSelected: () => void
   moveSelectedToInbox: () => void
-  openWorkspace: () => void
+  openWorkspace: (request?: string | DashboardRevealAgentArgs) => void
   sessionStarted: (tabId: string, request: string) => void
   reportSessionStarted: (tabId: string, request: string, agent: TuiAgent) => Promise<void>
   editStep: (subtaskId: string, stepId: string) => void
@@ -41,7 +43,11 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       return
     }
     void window.api.localTasks
-      .update({ taskId: selected.id, updates: { title: nextTitle } })
+      .update({
+        taskId: selected.id,
+        projectPath: selected.projectPath,
+        updates: { title: nextTitle }
+      })
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务标题更新失败')
@@ -56,7 +62,11 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       return
     }
     void window.api.localTasks
-      .update({ taskId: selected.id, updates: { description: nextDescription } })
+      .update({
+        taskId: selected.id,
+        projectPath: selected.projectPath,
+        updates: { description: nextDescription }
+      })
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务描述更新失败')
@@ -67,7 +77,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       return
     }
     void window.api.localTasks
-      .update({ taskId: selected.id, updates: { labels } })
+      .update({ taskId: selected.id, projectPath: selected.projectPath, updates: { labels } })
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务标签更新失败')
@@ -78,7 +88,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       return
     }
     void window.api.localTasks
-      .accept({ taskId: selected.id })
+      .accept({ taskId: selected.id, projectPath: selected.projectPath })
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务验收失败')
@@ -91,12 +101,13 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     void window.api.localTasks
       .archive({
         taskId: selected.id,
+        projectPath: selected.projectPath,
         activeSessionIds: selected.sessionsList.flatMap((session) =>
           session.id && session.status === 'working' ? [session.id] : []
         )
       })
       .then((task) => {
-        setItems((current) => current.filter((item) => item.id !== task.id))
+        replaceTask(setItems, task)
         setSelectedId(null)
       })
       .catch((error: unknown) => {
@@ -109,12 +120,54 @@ export function createLocalTaskCenterActions(context: ActionContext): {
         setLoadError(message || '任务归档失败')
       })
   }
+  const restoreSelected = (): void => {
+    if (!selected || selected.archivedAt == null || !selected.projectPath) {
+      return
+    }
+    void window.api.localTasks
+      .restore({ taskId: selected.id, projectPath: selected.projectPath })
+      .then((task) => {
+        replaceTask(setItems, task)
+        setSelectedId(null)
+      })
+      .catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : '任务恢复失败')
+      )
+  }
+  const deleteSelected = (): void => {
+    if (!selected || selected.archivedAt == null || !selected.projectPath) {
+      return
+    }
+    void window.api.localTasks
+      .delete({
+        taskId: selected.id,
+        projectPath: selected.projectPath,
+        activeSessionIds: selected.sessionsList.flatMap((session) =>
+          session.id && session.status === 'working' ? [session.id] : []
+        )
+      })
+      .then((deletion) => {
+        setItems((current) =>
+          current.filter(
+            (item) => item.id !== deletion.taskId || item.projectPath !== deletion.projectPath
+          )
+        )
+        setSelectedId(null)
+      })
+      .catch((error: unknown) =>
+        setLoadError(error instanceof Error ? error.message : '任务永久删除失败')
+      )
+  }
   const promoteSelected = (): void => {
     if (!selected || selected.intakeState !== 'inbox') {
       return
     }
     void window.api.localTasks
-      .update({ taskId: selected.id, updates: { intakeState: 'ready', status: 'Open' } })
+      .update({
+        taskId: selected.id,
+        projectPath: selected.projectPath,
+        updates: { intakeState: 'ready', status: 'Open' }
+      })
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务整理状态更新失败')
@@ -125,64 +178,38 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       return
     }
     void window.api.localTasks
-      .update({ taskId: selected.id, updates: { intakeState: 'inbox' } })
+      .update({
+        taskId: selected.id,
+        projectPath: selected.projectPath,
+        updates: { intakeState: 'inbox' }
+      })
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务移至收件箱失败')
       )
   }
-  const openWorkspace = (): void => {
+  const openWorkspace = (request?: string | DashboardRevealAgentArgs): void => {
     if (!selected) {
       return
     }
-    const state = useAppStore.getState()
-    const activeWorktreeId = state.activeWorktreeId
-    const requestedId = selected.workspaceId
-    const knownWorkspace = requestedId ? state.getKnownWorktreeById(requestedId) : undefined
-    const workspaceByPath = selected.projectPath
-      ? state.allWorktrees().find((worktree) => worktree.path === selected.projectPath)
-      : undefined
-    const target =
-      requestedId === 'local'
-        ? activeWorktreeId
-        : (knownWorkspace?.id ??
-          workspaceByPath?.id ??
-          (requestedId && parseWorkspaceKey(requestedId) ? requestedId : null))
-    if (!target) {
-      setLoadError('当前任务没有可激活的 workspace')
-      return
-    }
-    void activateWorktreeFromSidebar(target)
-      .then((activated) => {
-        if (activated === false) {
-          setLoadError('当前任务的 workspace 不可用')
-          return
-        }
-        useAppStore.getState().closeWorkItemsPage()
-      })
-      .catch((error: unknown) =>
-        setLoadError(error instanceof Error ? error.message : 'workspace 打开失败')
-      )
+    openLocalTaskWorkspace({
+      item: selected,
+      request,
+      setLoadError,
+      rebindSessionTab: (sessionId, tabId) => {
+        void window.api.localTasks
+          .rebindSessionTab({ sessionId, tabId })
+          .then((task) => replaceTask(setItems, task))
+          .catch(() => {})
+      }
+    })
   }
-  const sessionStarted = (tabId: string, request: string): void => {
+  const sessionStarted = (): void => {
     if (!selected) {
       return
     }
-    const workspaceId =
-      selected.workspaceId === 'local'
-        ? (useAppStore.getState().activeWorktreeId ?? 'local')
-        : selected.workspaceId
     void window.api.localTasks
-      .createSession({
-        taskId: selected.id,
-        projectPath: selected.projectPath,
-        sessionId: tabId,
-        title: request.split(/\r?\n/, 1)[0]?.trim().slice(0, 120) || 'Agent 会话',
-        workspaceId,
-        currentPrompt: request,
-        associationSource: 'task-center'
-      })
-      .then(() => window.api.localTasks.get(selected.id, selected.projectPath))
+      .get(selected.id, selected.projectPath)
       .then((task) => {
         if (task) {
           replaceTask(setItems, task)
@@ -242,6 +269,8 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     editLabels,
     acceptSelected,
     archiveSelected,
+    restoreSelected,
+    deleteSelected,
     promoteSelected,
     moveSelectedToInbox,
     openWorkspace,

@@ -15,7 +15,11 @@ import {
   reconcileWorkItemSessionLiveness
 } from './local-task-view-model'
 import { useLocalTaskBatchController } from './use-local-task-batch-controller'
-import { LocalTaskQueueTabs } from './LocalTaskQueueTabs'
+import {
+  isLocalTaskInQueue,
+  LocalTaskQueueTabs,
+  type LocalTaskQueueView
+} from './LocalTaskQueueTabs'
 import { useLiveDashboardSnapshot } from '@/components/dashboard/useLiveDashboardSnapshot'
 import {
   isLocalTaskInProjectScope,
@@ -27,7 +31,6 @@ import { useLocalTaskCenterInteractions } from './use-local-task-center-interact
 import { LocalTaskSourceTabs } from './LocalTaskSourceTabs'
 type ViewMode = 'board' | 'list'
 type BoardPerspective = 'subtasks' | 'tasks'
-type QueueView = 'all' | 'inbox' | 'review' | 'ai'
 
 export default function WorkItemsPrototypePage(): React.JSX.Element {
   const { projectFilter, setProjectFilter, projectOptions, projectRoots, createProjectId } =
@@ -44,7 +47,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const [tab, setTab] = useState<'work-items' | 'external'>('work-items')
   const [query, setQuery] = useState('')
   const [labelFilter, setLabelFilter] = useState('')
-  const [queueView, setQueueView] = useState<QueueView>('all')
+  const [queueView, setQueueView] = useState<LocalTaskQueueView>('all')
   const [detailOpen, setDetailOpen] = useState(false)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
   const dashboardSnapshot = useLiveDashboardSnapshot()
@@ -57,15 +60,14 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
     () => items.map((item) => reconcileWorkItemSessionLiveness(item, liveSessionIds)),
     [items, liveSessionIds]
   )
-  const selected =
-    effectiveItems.find((item) => item.id === selectedId) ?? effectiveItems[0] ?? null
   const loadTasks = useCallback(async (): Promise<void> => {
     setLoading(true)
     try {
       const tasks = await loadLocalTasksForProjectScope(
         projectRoots,
         projectFilter,
-        window.api.localTasks.list
+        window.api.localTasks.list,
+        { includeArchived: true }
       )
       const viewItems = tasks.map(localTaskToViewModel)
       setItems(viewItems)
@@ -84,17 +86,12 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   })
   useEffect(() => {
     void loadTasks()
-    return window.api.localTasks.onChanged((task) => {
+    const unsubscribeChanged = window.api.localTasks.onChanged((task) => {
       const inScope =
         projectRoots.length === 0
           ? projectFilter === 'all' || task.projectId === projectFilter
           : isLocalTaskInProjectScope(task, projectRoots)
       if (!inScope) {
-        return
-      }
-      if (task.archivedAt !== null) {
-        setItems((current) => current.filter((item) => item.id !== task.id))
-        setSelectedId((current) => (current === task.id ? null : current))
         return
       }
       const viewItem = localTaskToViewModel(task)
@@ -105,6 +102,18 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
           : [viewItem, ...current]
       })
     })
+    const unsubscribeDeleted = window.api.localTasks.onDeleted((deletion) => {
+      setItems((current) =>
+        current.filter(
+          (item) => item.id !== deletion.taskId || item.projectPath !== deletion.projectPath
+        )
+      )
+      setSelectedId((current) => (current === deletion.taskId ? null : current))
+    })
+    return () => {
+      unsubscribeChanged()
+      unsubscribeDeleted()
+    }
   }, [loadTasks, projectFilter, projectRoots])
   const filtered = useMemo(
     () =>
@@ -112,18 +121,17 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
         (item) =>
           (item.title.toLowerCase().includes(query.toLowerCase()) ||
             item.id.toLowerCase().includes(query.toLowerCase())) &&
-          (queueView === 'all' ||
-            (queueView === 'inbox' && item.intakeState === 'inbox') ||
-            (queueView === 'review' && item.status === 'Needs review')) &&
+          isLocalTaskInQueue(item, queueView) &&
           (!labelFilter || (item.labels ?? []).includes(labelFilter))
       ),
     [effectiveItems, labelFilter, query, queueView]
   )
+  const selected = filtered.find((item) => item.id === selectedId) ?? filtered[0] ?? null
   const availableLabels = useMemo(
     () => [...new Set(effectiveItems.flatMap((item) => item.labels ?? []))].sort(),
     [effectiveItems]
   )
-  const changeQueueView = (value: QueueView): void => {
+  const changeQueueView = (value: LocalTaskQueueView): void => {
     setQueueView(value)
     if (value === 'ai') {
       setDetailOpen(false)

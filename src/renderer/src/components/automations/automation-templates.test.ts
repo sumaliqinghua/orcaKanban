@@ -4,7 +4,9 @@ import { getAutomationTemplates } from './automation-templates'
 describe('automation templates', () => {
   it('includes the four Kanban advisor analysis templates', () => {
     const templates = getAutomationTemplates()
-    const advisorTemplates = templates.filter((template) => template.id.startsWith('kanban-'))
+    const advisorTemplates = templates.filter(
+      (template) => template.id.startsWith('kanban-') && template.executionMode === undefined
+    )
 
     expect(advisorTemplates.map((template) => template.id)).toEqual([
       'kanban-requirement-clarification-hourly',
@@ -28,6 +30,20 @@ describe('automation templates', () => {
       )
     ).toBe(true)
     expect(advisorTemplates.every((template) => template.prompt.includes('no_change'))).toBe(true)
+  })
+
+  it('configures the Open task template for existing-workspace execution', () => {
+    const template = getAutomationTemplates().find(
+      (entry) => entry.id === 'kanban-open-local-tasks-daily'
+    )
+
+    expect(template).toMatchObject({
+      executionMode: 'open_local_tasks',
+      localTaskScope: 'workspace',
+      preset: 'daily',
+      time: '09:30'
+    })
+    expect(template?.prompt).toContain('Open')
   })
 
   it('provides editable schedule defaults for the existing automation draft', () => {

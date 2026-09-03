@@ -18,12 +18,14 @@ function StepStatus({ status }: { status: Subtask['steps'][number]['status'] }):
 export function LocalTaskSubtaskBlock({
   subtask,
   sessions,
+  projectPath,
   onComplete,
   onEditStep,
   onTaskChanged
 }: {
   subtask: Subtask
   sessions: WorkItem['sessionsList']
+  projectPath?: string
   onComplete: () => void
   onEditStep: (stepId: string) => void
   onTaskChanged: (task: LocalTask) => void
@@ -47,6 +49,7 @@ export function LocalTaskSubtaskBlock({
           <LocalTaskSubtaskSessionSelect
             subtask={subtask}
             sessions={sessions}
+            projectPath={projectPath}
             onTaskChanged={onTaskChanged}
           />
         ) : (

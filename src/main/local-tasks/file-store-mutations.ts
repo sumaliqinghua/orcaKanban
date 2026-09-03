@@ -12,6 +12,7 @@ import { findTaskWithSession } from './file-store-index'
 import { appendRecord, localTaskDirectory, LOCAL_TASK_RECORDS_FILE_NAME } from './file-store-format'
 import { completeTaskReportSession } from './task-report-session-mutation'
 export { updateSessionOutput } from './session-output-mutations'
+export { rebindSessionTab } from './session-tab-mutations'
 export type FileStoreMutationAccess = {
   requireTask: (id: string, projectPath?: string) => LocalTask
   readTask: (path: string) => LocalTask
@@ -28,9 +29,10 @@ const isNonExecutionSession = (session: LocalTaskSession): boolean =>
 export function updateTask(
   store: FileStoreMutationAccess,
   id: string,
-  updates: UpdateLocalTaskArgs
+  updates: UpdateLocalTaskArgs,
+  projectPath?: string
 ): LocalTask {
-  const current = store.requireTask(id)
+  const current = store.requireTask(id, projectPath)
   if (updates.status === 'Done' || updates.status === 'Needs review') {
     throw new Error('This status is controlled by the review lifecycle')
   }
@@ -83,6 +85,7 @@ export function createSession(
   const associationSource = args.associationSource ?? 'task-center'
   const session: LocalTaskSession = {
     id: sessionId,
+    tabId: sessionId,
     taskId: task.id,
     workspaceId: text(args.workspaceId, task.workspaceId),
     title: text(args.title, '自动创建会话'),

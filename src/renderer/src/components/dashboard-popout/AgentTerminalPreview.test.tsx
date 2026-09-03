@@ -235,6 +235,20 @@ describe('AgentTerminalPreview', () => {
     expect(ack).toHaveBeenCalledWith('pty-1', 4, expect.any(String))
   })
 
+  it('refreshes the preview snapshot after input when live output is delayed', async () => {
+    render(<AgentTerminalPreview ptyId="pty-1" />)
+    await waitFor(() => expect(terminalHarness.instances).toHaveLength(1))
+    const terminal = terminalHarness.instances[0]!
+    await waitFor(() => expect(terminal.onDataListener).not.toBeNull())
+
+    act(() => {
+      terminalHarness.userInputListener?.()
+      terminal.onDataListener?.('hi')
+    })
+
+    await waitFor(() => expect(connect).toHaveBeenCalledTimes(2), { timeout: 1_000 })
+  })
+
   it('installs the macOS IME native-text forwarder and lets its claims bypass chord handling', async () => {
     platformState.value = 'darwin'
     render(<AgentTerminalPreview ptyId="pty-1" />)

@@ -50,6 +50,7 @@ function makeRepo(overrides: Partial<Repo> = {}): Repo {
 function HookProbe(props: {
   repo: Repo
   onRefreshReview: () => Promise<void>
+  onMergeSucceeded?: () => Promise<void>
   pullRequest?: PRInfo
 }): null {
   latest = useHostedReviewActions({
@@ -61,7 +62,8 @@ function HookProbe(props: {
     reviewLabel: 'pull request',
     defaultMergeMethod: 'squash',
     autoMergeAction: null,
-    onRefreshReview: props.onRefreshReview
+    onRefreshReview: props.onRefreshReview,
+    onMergeSucceeded: props.onMergeSucceeded
   })
   return null
 }
@@ -69,13 +71,14 @@ function HookProbe(props: {
 async function renderHook(
   repo: Repo,
   onRefreshReview = vi.fn().mockResolvedValue(undefined),
-  pullRequest?: PRInfo
+  pullRequest?: PRInfo,
+  onMergeSucceeded?: () => Promise<void>
 ) {
   const container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
   await act(async () => {
-    root?.render(createElement(HookProbe, { repo, onRefreshReview, pullRequest }))
+    root?.render(createElement(HookProbe, { repo, onRefreshReview, pullRequest, onMergeSucceeded }))
   })
   return { onRefreshReview }
 }
@@ -148,6 +151,36 @@ describe('useHostedReviewActions', () => {
     })
     expect(runtimeRpcMocks.callRuntimeRpc).not.toHaveBeenCalled()
     expect(onRefreshReview).toHaveBeenCalledTimes(1)
+  })
+
+  it('transfers local task ownership only after a successful merge', async () => {
+    const onMergeSucceeded = vi.fn().mockResolvedValue(undefined)
+    const { onRefreshReview } = await renderHook(
+      makeRepo(),
+      vi.fn().mockResolvedValue(undefined),
+      undefined,
+      onMergeSucceeded
+    )
+
+    await act(async () => {
+      await latest?.handleMerge('squash')
+    })
+
+    expect(onMergeSucceeded).toHaveBeenCalledOnce()
+    expect(onRefreshReview).toHaveBeenCalledOnce()
+  })
+
+  it('reports task transfer failure without claiming the merge failed', async () => {
+    const onMergeSucceeded = vi.fn().mockRejectedValue(new Error('target workspace unavailable'))
+    await renderHook(makeRepo(), vi.fn().mockResolvedValue(undefined), undefined, onMergeSucceeded)
+
+    await act(async () => {
+      await latest?.handleMerge('squash')
+    })
+
+    expect(latest?.actionError).toBe(
+      'Merge succeeded, but local task transfer failed: target workspace unavailable'
+    )
   })
 
   it('confirms the downstack merge scope before merging a registered stack', async () => {

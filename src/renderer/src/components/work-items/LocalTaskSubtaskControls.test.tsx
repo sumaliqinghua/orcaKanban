@@ -145,7 +145,8 @@ describe('local task subtask controls', () => {
     )
     expect(localTaskApi.transferSubtask).toHaveBeenCalledWith({
       subtaskId: 'subtask-new',
-      sessionId: 'tab-new'
+      sessionId: 'tab-new',
+      projectPath: '/tmp/project'
     })
     expect(onTaskChanged).toHaveBeenLastCalledWith(boundTask)
     expect(screen.queryByRole('heading', { name: '新增子任务' })).not.toBeInTheDocument()
@@ -244,6 +245,7 @@ describe('local task subtask controls', () => {
           session: 'session-1',
           steps: []
         }}
+        projectPath="/tmp/project"
         sessions={[
           { id: 'session-1', title: '原会话', status: 'working', time: 'now' },
           { id: 'session-2', title: '当前会话', status: 'working', time: 'now' }
@@ -260,6 +262,7 @@ describe('local task subtask controls', () => {
       expect(localTaskApi.transferSubtask).toHaveBeenLastCalledWith({
         subtaskId: 'subtask-1',
         sessionId: 'session-2',
+        projectPath: '/tmp/project',
         force: true
       })
     )
