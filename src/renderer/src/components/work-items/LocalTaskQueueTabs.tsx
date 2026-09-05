@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import type { WorkItem } from './mock-data'
 
-export type LocalTaskQueueView = 'all' | 'inbox' | 'review' | 'archived' | 'ai'
+export type LocalTaskQueueView = 'ready' | 'inbox' | 'review' | 'archived' | 'ai'
 
 export function isLocalTaskInQueue(item: WorkItem, view: LocalTaskQueueView): boolean {
   const archived = item.archivedAt != null
@@ -15,7 +15,7 @@ export function isLocalTaskInQueue(item: WorkItem, view: LocalTaskQueueView): bo
     return false
   }
   return (
-    view === 'all' ||
+    (view === 'ready' && item.intakeState === 'ready') ||
     (view === 'inbox' && item.intakeState === 'inbox') ||
     (view === 'review' && item.status === 'Needs review')
   )
@@ -36,7 +36,7 @@ export function LocalTaskQueueTabs({
     <div className="flex items-center rounded-md border border-border p-0.5">
       {(
         [
-          ['all', '全部'],
+          ['ready', '可执行'],
           ['inbox', '收件箱'],
           ['review', '待审阅'],
           ['archived', '已归档'],

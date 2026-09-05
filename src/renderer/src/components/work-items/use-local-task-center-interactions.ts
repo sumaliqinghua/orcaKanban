@@ -58,7 +58,7 @@ export function useLocalTaskCenterInteractions({
   const openAiRecordTask = useCallback(
     (task: WorkItem): void => {
       setProjectFilter(task.project)
-      setQueueView('all')
+      setQueueView(task.intakeState === 'inbox' ? 'inbox' : 'ready')
       setSelectedId(task.id)
       setDetailOpen(true)
       setQuery('')

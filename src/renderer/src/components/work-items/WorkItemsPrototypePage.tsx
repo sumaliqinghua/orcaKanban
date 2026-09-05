@@ -47,7 +47,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const [tab, setTab] = useState<'work-items' | 'external'>('work-items')
   const [query, setQuery] = useState('')
   const [labelFilter, setLabelFilter] = useState('')
-  const [queueView, setQueueView] = useState<LocalTaskQueueView>('all')
+  const [queueView, setQueueView] = useState<LocalTaskQueueView>('ready')
   const [detailOpen, setDetailOpen] = useState(false)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
   const dashboardSnapshot = useLiveDashboardSnapshot()
