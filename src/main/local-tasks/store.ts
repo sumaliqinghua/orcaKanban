@@ -19,7 +19,6 @@ import type {
   UpdateLocalTaskStepArgs,
   UpdateLocalTaskSubtaskArgs,
   UpdateLocalTaskSessionOutputArgs,
-  TransferLocalTaskSubtaskArgs,
   TransferLocalTaskWorkspaceArgs
 } from '../../shared/local-task-types'
 import { normalizeRuntimePathForComparison } from '../../shared/cross-platform-path'
@@ -37,7 +36,6 @@ import {
 } from './file-store-format'
 import { LocalTaskFileWatchers } from './file-store-watch'
 import * as mutations from './file-store-mutations'
-import { transferSubtask } from './subtask-session-assignment'
 import * as subtaskMutations from './subtask-progress-mutations'
 import * as batchMutations from './file-store-batch-mutations'
 import type { LocalTask as PersistedLocalTask } from '../../shared/local-task-types'
@@ -319,9 +317,6 @@ export class LocalTaskStore {
   }
   updateSubtask(args: UpdateLocalTaskSubtaskArgs & { actorSessionId?: string }): LocalTask {
     return subtaskMutations.updateSubtask(this.access(), args)
-  }
-  transferSubtask(args: TransferLocalTaskSubtaskArgs): LocalTask {
-    return transferSubtask(this.access(), args)
   }
   updateStep(args: UpdateLocalTaskStepArgs & { actorSessionId?: string }): LocalTask {
     return subtaskMutations.updateStep(this.access(), args)

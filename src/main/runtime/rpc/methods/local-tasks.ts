@@ -40,7 +40,6 @@ const RequestReview = Context.extend({
   sessionId: Id,
   question: z.string().trim().min(1).max(20_000)
 })
-const TransferSubtask = Context.extend({ subtaskId: Id, force: z.boolean().optional() })
 
 function getTask(taskId: string, projectPath?: string): LocalTask {
   const task = getLocalTaskStore().get(taskId, projectPath)
@@ -198,22 +197,6 @@ export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
           status: params.status,
           title: params.title,
           actorSessionId: session!.id
-        })
-      )
-    }
-  }),
-  defineMethod({
-    name: 'localTask.transferSubtask',
-    params: TransferSubtask,
-    handler: (params) => {
-      const { task, session } = ensureContext(params)
-      requireSubtask(task, params.subtaskId)
-      return result(
-        getLocalTaskStore().transferSubtask({
-          subtaskId: params.subtaskId,
-          sessionId: session!.id,
-          projectPath: params.projectPath,
-          force: params.force
         })
       )
     }

@@ -18,14 +18,13 @@ const item: WorkItem = {
 }
 
 describe('local task Agent prompt', () => {
-  it('requires step-first refinement and explicit cross-session transfer', () => {
+  it('keeps AI updates within the current subtask', () => {
     const prompt = buildTaskPrompt(item, '增加批量模式')
-    expect(prompt).toContain('优先调整未开始步骤')
-    expect(prompt).toContain('确实是不同功能时才创建新子任务')
-    expect(prompt).toContain('不要修改其他会话负责的子任务')
-    expect(prompt).toContain('subtask-transfer')
-    expect(prompt).toContain('用户明确确认强制移交后才加 `--force`')
-    expect(prompt).toContain('本会话执行摘要')
-    expect(prompt).toContain('只写本会话实际负责的内容')
+    expect(prompt).toContain('只读取和更新当前子任务的描述与步骤')
+    expect(prompt).toContain('不要创建新子任务')
+    expect(prompt).toContain('不要移交其他会话的子任务')
+    expect(prompt).not.toContain('subtask-transfer')
+    expect(prompt).toContain('完整最终回复')
+    expect(prompt).toContain('事实和推测的区别')
   })
 })

@@ -626,49 +626,6 @@ describe('LocalTaskStore file-first persistence', () => {
         actorSessionId: secondSession.id
       })
     ).toThrow('another Agent session')
-    expect(() =>
-      store.transferSubtask({ subtaskId: subtask.id, sessionId: secondSession.id })
-    ).toThrow('force transfer requires confirmation')
-    const transferred = store.transferSubtask({
-      subtaskId: subtask.id,
-      sessionId: secondSession.id,
-      force: true
-    })
-    expect(transferred.subtasks[0]?.sessionId).toBe(secondSession.id)
-    store.close()
-  })
-
-  it('ignores deleted task paths while transferring a subtask', () => {
-    const firstRoot = projectPath()
-    const secondRoot = projectPath()
-    const store = new LocalTaskStore()
-    const first = store.create({
-      projectId: 'orca',
-      projectPath: firstRoot,
-      description: '旧 workspace 任务'
-    })
-    const withSubtask = store.createSubtask({
-      taskId: first.id,
-      projectPath: firstRoot,
-      title: '可移交子任务'
-    })
-    const secondTask = { ...withSubtask, projectPath: secondRoot }
-    const secondDirectory = join(secondRoot, 'orca', secondTask.id)
-    mkdirSync(secondDirectory, { recursive: true })
-    writeFileSync(join(secondDirectory, 'task.json'), `${JSON.stringify(secondTask)}\n`, 'utf8')
-
-    // Prime the in-memory index with the old path, then remove that workspace.
-    store.list('orca', firstRoot)
-    rmSync(firstRoot, { recursive: true, force: true })
-    store.list('orca', secondRoot)
-
-    const transferred = store.transferSubtask({
-      subtaskId: secondTask.subtasks[0]!.id,
-      sessionId: 'session-next'
-    })
-
-    expect(transferred.projectPath).toBe(secondRoot)
-    expect(transferred.subtasks[0]?.sessionId).toBe('session-next')
     store.close()
   })
 

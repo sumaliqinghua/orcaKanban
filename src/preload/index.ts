@@ -586,8 +586,6 @@ const api = {
       ipcRenderer.invoke('localTasks:createSubtask', args),
     updateSubtask: (args: Parameters<LocalTaskApi['updateSubtask']>[0]) =>
       ipcRenderer.invoke('localTasks:updateSubtask', args),
-    transferSubtask: (args: Parameters<LocalTaskApi['transferSubtask']>[0]) =>
-      ipcRenderer.invoke('localTasks:transferSubtask', args),
     editStepTitle: (args: Parameters<LocalTaskApi['editStepTitle']>[0]) =>
       ipcRenderer.invoke('localTasks:editStepTitle', args),
     accept: (args: Parameters<LocalTaskApi['accept']>[0]) =>

@@ -26,7 +26,6 @@ import { buildTaskPrompt } from './local-task-agent-prompt'
 import type { WorkItem } from './mock-data'
 
 const NEW_SESSION = '__new__'
-const UNASSIGNED = '__unassigned__'
 
 export function LocalTaskSubtaskCreateDialog({
   item,
@@ -42,10 +41,7 @@ export function LocalTaskSubtaskCreateDialog({
       ? (state.activeGroupIdByWorktree[worktreeId] ?? state.groupsByWorktree[worktreeId]?.[0]?.id)
       : undefined
   )
-  const availableSessions = item.sessionsList.filter(
-    (session): session is typeof session & { id: string } => Boolean(session.id)
-  )
-  const initialAssignment = availableSessions[0]?.id ?? UNASSIGNED
+  const initialAssignment = NEW_SESSION
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [sessionId, setSessionId] = useState(initialAssignment)
@@ -60,7 +56,7 @@ export function LocalTaskSubtaskCreateDialog({
   }
   const openDialog = (): void => {
     setTitle('')
-    setSessionId(availableSessions[0]?.id ?? UNASSIGNED)
+    setSessionId(NEW_SESSION)
     setError(null)
     setSubmissionState(false)
     setCreatedSubtaskId(null)
@@ -76,25 +72,6 @@ export function LocalTaskSubtaskCreateDialog({
     setCreatedSubtaskId(null)
     setCreatedSessionId(null)
   }
-  const create = async (assignedSessionId: string | null): Promise<void> => {
-    if (submittingRef.current) {
-      return
-    }
-    setSubmissionState(true)
-    try {
-      const task = await window.api.localTasks.createSubtask({
-        taskId: item.id,
-        projectPath: item.projectPath,
-        title: title.trim(),
-        sessionId: assignedSessionId
-      })
-      onTaskChanged(task)
-      close()
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '子任务创建失败')
-      setSubmissionState(false)
-    }
-  }
   const request = `请执行子任务：${title.trim()}`
   const launchPrompt = buildTaskPrompt(item, request)
   const createWithNewSession = async (agent?: TuiAgent): Promise<void> => {
@@ -104,22 +81,6 @@ export function LocalTaskSubtaskCreateDialog({
     setSubmissionState(true)
     try {
       let subtaskId = createdSubtaskId
-      if (!subtaskId) {
-        const taskWithSubtask = await window.api.localTasks.createSubtask({
-          taskId: item.id,
-          projectPath: item.projectPath,
-          title: title.trim(),
-          sessionId: null
-        })
-        const previousIds = new Set(item.subtasks.map((subtask) => subtask.id))
-        const subtask = taskWithSubtask.subtasks.find((candidate) => !previousIds.has(candidate.id))
-        if (!subtask) {
-          throw new Error('子任务已创建，但无法确定新子任务')
-        }
-        subtaskId = subtask.id
-        setCreatedSubtaskId(subtaskId)
-        onTaskChanged(taskWithSubtask)
-      }
       let targetSessionId = createdSessionId
       if (!targetSessionId) {
         if (!agent) {
@@ -157,11 +118,23 @@ export function LocalTaskSubtaskCreateDialog({
         }
         setCreatedSessionId(targetSessionId)
       }
-      const task = await window.api.localTasks.transferSubtask({
-        subtaskId,
-        sessionId: targetSessionId,
-        projectPath: item.projectPath
-      })
+      if (!subtaskId) {
+        const taskWithSubtask = await window.api.localTasks.createSubtask({
+          taskId: item.id,
+          projectPath: item.projectPath,
+          title: title.trim(),
+          sessionId: targetSessionId
+        })
+        const subtask = taskWithSubtask.subtasks.find(
+          (candidate) => candidate.sessionId === targetSessionId
+        )
+        if (!subtask) throw new Error('子任务已创建，但无法确定新子任务')
+        subtaskId = subtask.id
+        setCreatedSubtaskId(subtaskId)
+        onTaskChanged(taskWithSubtask)
+      }
+      const task = await window.api.localTasks.get(item.id, item.projectPath)
+      if (!task) throw new Error('任务已不存在')
       onTaskChanged(task)
       close()
     } catch (cause) {
@@ -208,12 +181,6 @@ export function LocalTaskSubtaskCreateDialog({
             onChange={(event) => setSessionId(event.target.value)}
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
           >
-            {availableSessions.map((session) => (
-              <option key={session.id} value={session.id}>
-                {session.title}
-              </option>
-            ))}
-            {availableSessions.length === 0 ? <option value={UNASSIGNED}>暂不绑定</option> : null}
             <option value={NEW_SESSION}>新建关联会话…</option>
           </select>
         </label>
@@ -246,14 +213,7 @@ export function LocalTaskSubtaskCreateDialog({
                 </DropdownMenuContent>
               </DropdownMenu>
             )
-          ) : (
-            <Button
-              disabled={!title.trim() || submitting}
-              onClick={() => void create(sessionId === UNASSIGNED ? null : sessionId)}
-            >
-              {submitting ? '创建中…' : '创建'}
-            </Button>
-          )}
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

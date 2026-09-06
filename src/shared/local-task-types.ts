@@ -219,13 +219,6 @@ export type UpdateLocalTaskSubtaskArgs = {
   title?: string
 }
 
-export type TransferLocalTaskSubtaskArgs = {
-  subtaskId: string
-  sessionId: string | null
-  projectPath?: string
-  force?: boolean
-}
-
 export type UpdateLocalTaskStepArgs = {
   subtaskId: string
   stepId: string

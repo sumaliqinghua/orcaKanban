@@ -16,8 +16,7 @@ import type {
   UpdateLocalTaskSessionOutputArgs,
   RebindLocalTaskSessionTabArgs,
   UpdateLocalTaskArgs,
-  UpdateLocalTaskSubtaskArgs,
-  TransferLocalTaskSubtaskArgs
+  UpdateLocalTaskSubtaskArgs
 } from '../../shared/local-task-types'
 import type {
   KanbanAiRecord,
@@ -47,7 +46,6 @@ export type LocalTaskApi = {
   updateRun: (args: UpdateLocalTaskRunArgs) => Promise<LocalTask>
   createSubtask: (args: CreateLocalTaskSubtaskArgs) => Promise<LocalTask>
   updateSubtask: (args: UpdateLocalTaskSubtaskArgs) => Promise<LocalTask>
-  transferSubtask: (args: TransferLocalTaskSubtaskArgs) => Promise<LocalTask>
   editStepTitle: (args: EditLocalTaskStepTitleArgs) => Promise<LocalTask>
   accept: (args: AcceptLocalTaskArgs) => Promise<LocalTask>
   archive: (args: ArchiveLocalTaskArgs) => Promise<LocalTask>

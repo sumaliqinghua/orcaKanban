@@ -199,6 +199,11 @@ export function requestReview(
     throw new Error('A review question is required')
   }
   const updatedAt = time()
+  const sessions = task.sessions.map((session) =>
+    session.id === args.sessionId && session.status === 'working'
+      ? { ...session, status: 'idle' as const, updatedAt }
+      : session
+  )
   const activeRun = task.executionRunId
     ? task.runs.find((run) => run.id === task.executionRunId)
     : undefined
@@ -217,6 +222,7 @@ export function requestReview(
     : task.runs
   return store.writeTask({
     ...task,
+    sessions,
     status: task.status === 'Done' ? task.status : 'Needs review',
     executionState: activeRun ? 'needs_review' : task.executionState,
     reviewKind: 'needs_input',

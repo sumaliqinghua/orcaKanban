@@ -120,6 +120,14 @@ describe('local task Agent RPC', () => {
       subtaskId: subtask.id,
       status: 'done'
     })
+    call('localTask.updateSubtask', {
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: session.id,
+      worktreeId: 'wt-1',
+      subtaskId: created.task.subtasks[1]!.id,
+      status: 'done'
+    })
     const completed = call('localTask.reportCompleted', {
       taskId: task.id,
       projectPath: rootOf(store),
@@ -258,23 +266,5 @@ describe('local task Agent RPC', () => {
         status: 'doing'
       })
     ).toThrow('another Agent session')
-    expect(() =>
-      call('localTask.transferSubtask', {
-        taskId: task.id,
-        projectPath: rootOf(store),
-        sessionId: 'next-session',
-        worktreeId: 'wt-1',
-        subtaskId: subtask.id
-      })
-    ).toThrow('force transfer requires confirmation')
-    const transferred = call('localTask.transferSubtask', {
-      taskId: task.id,
-      projectPath: rootOf(store),
-      sessionId: 'next-session',
-      worktreeId: 'wt-1',
-      subtaskId: subtask.id,
-      force: true
-    }) as { task: typeof task }
-    expect(transferred.task.subtasks[0]?.sessionId).toBe('next-session')
   })
 })
