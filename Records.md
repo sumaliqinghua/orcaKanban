@@ -1279,3 +1279,10 @@
 - **What（做了什么）**：运行完整 E2E 构建并再次执行 `tests/e2e/kanban-ai-records.spec.ts`。
 - **结果**：E2E 构建成功，`window.__store` 已正常暴露；测试在任务中心前查找旧的“AI 记录”按钮时失败，说明旧 fixture 与当前 kanban1 页面不匹配。没有把该失败归因于任务数据或状态逻辑。
 - **验证补充**：任务 Store、RPC、任务中心和相关 UI 模块测试共 20 个测试文件、90 项通过；Web 类型检查通过。
+
+## 2026-09-07：补齐当前任务中心 Electron E2E
+
+- **What（做了什么）**：`tests/e2e/kanban-ai-records.spec.ts` 改为当前 kanban1 任务中心流程：通过真实 preload API 创建无 workspace 的收件箱任务，打开任务中心并验证任务元数据可从软件持久化读取；`local-task-project-scope.ts` 将空路径收件箱按项目 ID 纳入范围，页面可显示该任务。
+- **Why（为什么这么做）**：旧测试依赖已删除的 AI 记录入口，无法验证当前产品；空路径收件箱若不纳入范围，真实页面会显示为空。
+- **How（怎么实现的）**：Electron E2E 构建（开启 `VITE_EXPOSE_STORE`）→ 创建收件箱任务 → 进入任务中心 → API 列表验证持久化 → 页面范围筛选验证任务可见。
+- **验证**：`SKIP_BUILD=1 pnpm exec playwright test tests/e2e/kanban-ai-records.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1` 通过 1 项；E2E 构建此前已成功。

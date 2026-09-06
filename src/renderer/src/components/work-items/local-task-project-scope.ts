@@ -157,6 +157,7 @@ export function isLocalTaskInProjectScope<T extends { projectId: string; project
 ): boolean {
   return (
     roots.length === 0 ||
+    (task.projectPath === '' && roots.some((root) => root.projectId === task.projectId)) ||
     roots.some((root) => root.projectId === task.projectId && root.projectPath === task.projectPath)
   )
 }

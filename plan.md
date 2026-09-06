@@ -24,8 +24,8 @@
 
 - [ ] 将文件 Store 测试迁移到 Orca profile fixture 后删除旧文件格式、目录监听和扫描分支。
 - [ ] 将收件箱整理从当前打开 workspace 扩展为复用现有 workspace 选择器的显式选择对话框。
-- [~] 使用 Electron + Playwright 完成真实任务中心流程验证；当前已完成模块测试与 Web 类型检查。
-  - 结果：重建 E2E 产物后，`window.__store` 初始化已通过；现有 `tests/e2e/kanban-ai-records.spec.ts` 在查找旧的“AI 记录”按钮时失败，未进入任务中心断言。该测试 fixture 与当前 UI 不一致，不能作为任务流程通过证据。
+- [x] 使用 Electron + Playwright 完成真实任务中心流程验证；当前已完成模块测试与 Web 类型检查。
+  - 结果：更新 `tests/e2e/kanban-ai-records.spec.ts` 为当前任务中心流程，验证 E2E 构建、软件持久化创建收件箱任务、任务中心重新加载和收件箱详情入口，1 项通过。
 
 ## 以下为历史计划（不作为当前实施依据）
 
