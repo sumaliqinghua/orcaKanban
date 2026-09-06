@@ -23,7 +23,7 @@
 ### 当前剩余清理项
 
 - [x] 删除只验证旧文件格式、目录监听和扫描的历史 Store 测试；核心生命周期已由 profile fixture、RPC 和 UI 测试覆盖。
-- [~] 删除 `LocalTaskStore` 的无 profile 文件分支及其 `task.json` schema、目录监听模块；当前仍保留路径辅助代码供上下文文件和 AI 记录使用。
+- [~] 删除 `LocalTaskStore` 的无 profile 文件分支及其 `task.json` schema、目录监听模块；当前仍保留路径辅助代码供上下文文件和 AI 记录使用，RPC 单元测试通过显式临时 Store 注入。
 - [ ] 将收件箱整理从当前打开 workspace 扩展为复用现有 workspace 选择器的显式选择对话框。
 - [x] 使用 Electron + Playwright 完成真实任务中心流程验证；当前已完成模块测试与 Web 类型检查。
   - 结果：更新 `tests/e2e/kanban-ai-records.spec.ts` 为当前任务中心流程，验证 E2E 构建、软件持久化创建收件箱任务、任务中心重新加载和收件箱详情入口，1 项通过。

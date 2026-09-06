@@ -1329,3 +1329,9 @@
 - **How（怎么实现的）**：移除旧测试 → 运行剩余任务测试 → 以 profile fixture 验证创建、会话、状态、收件箱和重启恢复。
 - **验证**：任务 Store、RPC、任务中心和相关 UI 测试 19 个文件、58 项通过。
 - **已知限制**：`file-store-format.ts` 和 `file-store-watch.ts` 仍被 `LocalTaskStore` 的无 profile 过渡分支使用，下一阶段删除。
+
+## 2026-09-07：旧测试清理后的最终回归
+
+- **What（做了什么）**：删除旧 `store.test.ts` 后重新运行任务 Store、RPC、任务中心和相关 UI 测试，确认 profile 持久化、状态聚合、会话绑定、收件箱和页面行为仍有覆盖。
+- **验证**：19 个测试文件、58 项通过；Web 类型检查通过；工作区干净。
+- **当前边界**：唯一仍直接构造无 profile `LocalTaskStore` 的是 RPC 单元测试，它通过测试专用 setter 注入临时实例，不代表生产回退路径。
