@@ -53,6 +53,8 @@ describe('LocalTaskStore profile persistence', () => {
   })
 
   it('restores task metadata in a new store instance', () => {
+    const root = mkdtempSync(join(tmpdir(), 'orca-local-task-restart-'))
+    roots.push(root)
     let saved: LocalTask[] = []
     const persistence: LocalTaskProfilePersistence = {
       getLocalTasks: () => saved,
@@ -65,7 +67,7 @@ describe('LocalTaskStore profile persistence', () => {
       }
     }
     const first = new LocalTaskStore(persistence)
-    const created = first.create({ projectId: 'orca', description: '重启恢复' })
+    const created = first.create({ projectId: 'orca', projectPath: root, description: '重启恢复' })
     first.close()
     const second = new LocalTaskStore(persistence)
     expect(second.get(created.id)?.subtasks[0]?.title).toBe('实现：重启恢复')
@@ -93,6 +95,19 @@ describe('LocalTaskStore profile persistence', () => {
       intakeState: 'inbox'
     })
     expect(store.list('orca', root)).toEqual([task])
+    store.close()
+  })
+
+  it('rejects a ready task without a project workspace', () => {
+    const persistence: LocalTaskProfilePersistence = {
+      getLocalTasks: () => [],
+      saveLocalTask: (task) => task,
+      deleteLocalTask: () => {}
+    }
+    const store = new LocalTaskStore(persistence)
+    expect(() => store.create({ projectId: 'orca', description: '缺少归属' })).toThrow(
+      /bound to a project workspace/
+    )
     store.close()
   })
 })

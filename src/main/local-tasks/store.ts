@@ -140,6 +140,9 @@ export class LocalTaskStore {
 
   create(args: CreateLocalTaskArgs): LocalTask {
     const description = args.description.trim()
+    if (args.intakeState !== 'inbox' && !args.projectPath?.trim()) {
+      throw new Error('A ready local task must be bound to a project workspace')
+    }
     const time = timestamp()
     const task: LocalTask = {
       schemaVersion: 1,

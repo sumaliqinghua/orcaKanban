@@ -1300,3 +1300,10 @@
 - **Why（为什么这么做）**：任务元数据已由软件持久化，生产模式监听项目 `task.json` 没有业务意义，还会保留旧文件 Store 的副作用。
 - **How（怎么实现的）**：`LocalTaskStore(profilePersistence)` → watcher 为 `null` → 任务读写只走 profile；无 profile 的历史测试模式继续保持原行为。
 - **验证**：任务 Store 与 RPC 测试 51 项通过；旧文件 Store 仍因测试需要保留。
+
+## 2026-09-07：限制可执行任务必须有 workspace
+
+- **What（做了什么）**：`LocalTaskStore.create` 拒绝没有项目路径的 `ready` 任务；`inbox` 任务仍允许空路径；新增 profile persistence 回归测试覆盖该边界。
+- **Why（为什么这么做）**：没有项目/workspace 的任务无法启动 AI 会话，必须先作为收件箱暂存，避免出现状态为可执行但没有执行位置的任务。
+- **How（怎么实现的）**：创建请求 → 判断 intake 状态 → `ready` 无路径立即报错，`inbox` 写入 profile → 整理时再绑定 workspace。
+- **验证**：本地任务测试 47 项通过；Web 类型检查此前已通过。
