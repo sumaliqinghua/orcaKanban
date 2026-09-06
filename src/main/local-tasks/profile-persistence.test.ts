@@ -51,4 +51,28 @@ describe('LocalTaskStore profile persistence', () => {
     )
     store.close()
   })
+
+  it('keeps inbox tasks visible when a project path filter is applied', () => {
+    const root = mkdtempSync(join(tmpdir(), 'orca-local-task-inbox-'))
+    roots.push(root)
+    let saved: LocalTask[] = []
+    const persistence: LocalTaskProfilePersistence = {
+      getLocalTasks: () => saved,
+      saveLocalTask: (task) => {
+        saved = [...saved.filter((entry) => entry.id !== task.id), task]
+        return task
+      },
+      deleteLocalTask: (id) => {
+        saved = saved.filter((entry) => entry.id !== id)
+      }
+    }
+    const store = new LocalTaskStore(persistence)
+    const task = store.create({
+      projectId: 'orca',
+      description: '暂存事项',
+      intakeState: 'inbox'
+    })
+    expect(store.list('orca', root)).toEqual([task])
+    store.close()
+  })
 })

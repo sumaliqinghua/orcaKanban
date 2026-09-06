@@ -9,6 +9,7 @@
 - 一对一子任务/会话已完成；旧的子任务移交 CLI、RPC、preload 和详情选择器已删除。收件箱脱离 workspace 文件、旧文件 Store 清理和真实 Electron 验收仍在进行。
 - PR 合并成功后不再自动迁移任务 workspace；任务验收与代码合入保持两个明确步骤。
 - `transferWorkspace` 生产接口及旧迁移辅助文件已删除，任务 workspace 归属不会因 PR 合并自动变化。
+- 空路径收件箱任务现在会在项目筛选下继续显示，直到用户将其整理到具体 workspace。
 - 下方诊断是历史背景，与当前目标冲突处以 `TASK_REDESIGN_IMPLEMENTATION.md` 顶部基线为准。
 
 ## 最新诊断：2026-09-05

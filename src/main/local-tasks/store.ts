@@ -81,6 +81,7 @@ export class LocalTaskStore {
         .filter(
           (task) =>
             !projectPath ||
+            (task.intakeState === 'inbox' && task.projectPath === '') ||
             normalizeRuntimePathForComparison(task.projectPath) ===
               normalizeRuntimePathForComparison(resolve(projectPath))
         )
