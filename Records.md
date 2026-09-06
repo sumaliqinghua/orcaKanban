@@ -1293,3 +1293,10 @@
 - **Why（为什么这么做）**：任务元数据的关键要求是脱离 workspace 文件并在软件重启后继续存在；单实例读写测试不足以证明这一点。
 - **How（怎么实现的）**：Store 实例 A 写入 profile → 关闭 → Store 实例 B 从同一 profile 读取 → 校验任务和默认子任务。
 - **验证**：profile persistence 测试 3 项通过。
+
+## 2026-09-07：profile 模式停用文件监听
+
+- **What（做了什么）**：`LocalTaskStore` 在注入 Orca profile persistence 时不再创建 `LocalTaskFileWatchers`，所有 workspace 文件监听调用改为可选；只有旧文件测试模式仍初始化监听器。
+- **Why（为什么这么做）**：任务元数据已由软件持久化，生产模式监听项目 `task.json` 没有业务意义，还会保留旧文件 Store 的副作用。
+- **How（怎么实现的）**：`LocalTaskStore(profilePersistence)` → watcher 为 `null` → 任务读写只走 profile；无 profile 的历史测试模式继续保持原行为。
+- **验证**：任务 Store 与 RPC 测试 51 项通过；旧文件 Store 仍因测试需要保留。

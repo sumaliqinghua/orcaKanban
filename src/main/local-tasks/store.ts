@@ -54,15 +54,17 @@ const normalizeLabels = (value: string[] | undefined): string[] =>
 
 export class LocalTaskStore {
   private readonly locations = new Map<string, Map<string, string>>()
-  private readonly watchers: LocalTaskFileWatchers
+  private readonly watchers: LocalTaskFileWatchers | null
   private changeListener: ((task: LocalTask) => void) | null = null
 
   constructor(private readonly profilePersistence?: LocalTaskProfilePersistence) {
-    this.watchers = new LocalTaskFileWatchers((path) => this.handleChangedPath(path))
+    this.watchers = profilePersistence
+      ? null
+      : new LocalTaskFileWatchers((path) => this.handleChangedPath(path))
   }
 
   close(): void {
-    this.watchers.close()
+    this.watchers?.close()
   }
 
   setOnChanged(listener: ((task: LocalTask) => void) | null): void {
@@ -95,10 +97,10 @@ export class LocalTaskStore {
         .filter((task): task is LocalTask => task !== null)
     )
     if (projectPath) {
-      this.watchers.watchProject(projectPath)
+      this.watchers?.watchProject(projectPath)
     }
     for (const task of tasks) {
-      this.watchers.watchTask(task)
+      this.watchers?.watchTask(task)
     }
     return tasks
       .filter((task) => !projectId || task.projectId === projectId)
@@ -182,8 +184,8 @@ export class LocalTaskStore {
     }
     this.writeTask(task)
     this.writeContextFiles(task)
-    this.watchers.watchProject(task.projectPath)
-    this.watchers.watchTask(task)
+    this.watchers?.watchProject(task.projectPath)
+    this.watchers?.watchTask(task)
     return task
   }
 
@@ -264,7 +266,7 @@ export class LocalTaskStore {
       ) {
         throw new Error('Refusing to delete a local task outside its workspace task directory')
       }
-      this.watchers.unwatchTask(task)
+      this.watchers?.unwatchTask(task)
       rmSync(directory, { recursive: true, force: true })
     }
     this.profilePersistence?.deleteLocalTask(task.id)
@@ -525,7 +527,7 @@ export class LocalTaskStore {
       if (!task) {
         return
       }
-      this.watchers.watchTask(task)
+      this.watchers?.watchTask(task)
       this.changeListener?.(task)
     } catch {
       // The next explicit load surfaces malformed JSON without replacing it.
