@@ -11,6 +11,7 @@
 - `transferWorkspace` 生产接口及旧迁移辅助文件已删除，任务 workspace 归属不会因 PR 合并自动变化。
 - 空路径收件箱任务现在会在项目筛选下继续显示，直到用户将其整理到具体 workspace。
 - 生产任务 Store 未注入 Orca profile 时会直接报初始化错误，不再静默回退到项目 `task.json`；旧文件 Store 仅剩测试/过渡路径。
+- 收件箱整理现在使用显式 workspace 选择器，确认后才写入项目/workspace 归属；任务卡读取稳定索引，避免 selector 造成无限更新。
 - 下方诊断是历史背景，与当前目标冲突处以 `TASK_REDESIGN_IMPLEMENTATION.md` 顶部基线为准。
 
 ## 最新诊断：2026-09-05

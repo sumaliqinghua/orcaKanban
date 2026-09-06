@@ -17,6 +17,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/store'
+import { getIndexedAllWorktrees } from '@/store/worktree-repo-index'
+import type { Worktree } from '../../../../shared/worktree/types'
 import { joinPath } from '@/lib/path'
 import {
   Dialog,
@@ -26,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { LocalTaskWorkspacePicker } from '@/components/LocalTaskWorkspacePicker'
 import {
   getTaskPerspectiveStatus,
   type Subtask,
@@ -54,10 +58,16 @@ export function LocalTaskActions({
   onArchive: () => void
   onRestore: () => void
   onDelete: () => void
-  onPromote: () => void
+  onPromote: (workspace: Worktree) => void
   onMoveToInbox: () => void
 }): React.JSX.Element {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [promoteDialogOpen, setPromoteDialogOpen] = useState(false)
+  const worktreesByRepo = useAppStore((state) => state.worktreesByRepo)
+  const workspaces = getIndexedAllWorktrees(worktreesByRepo).filter(
+    (workspace) => workspace.repoId === item.project
+  )
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
   const archived = item.archivedAt != null
   const taskDirectory = joinPath(item.projectPath ?? '', `orca/${item.id}`)
   return (
@@ -81,7 +91,13 @@ export function LocalTaskActions({
         ) : (
           <>
             {item.intakeState === 'inbox' ? (
-              <Button className="flex-1 gap-1.5 text-xs" onClick={onPromote}>
+              <Button
+                className="flex-1 gap-1.5 text-xs"
+                onClick={() => {
+                  setSelectedWorkspaceId(workspaces[0]?.id ?? '')
+                  setPromoteDialogOpen(true)
+                }}
+              >
                 整理为可执行
               </Button>
             ) : item.status === 'Needs review' ? (
@@ -136,6 +152,38 @@ export function LocalTaskActions({
             >
               <Trash2 className="size-4" />
               确认永久删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={promoteDialogOpen} onOpenChange={setPromoteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>整理收件箱任务</DialogTitle>
+            <DialogDescription>选择任务后续执行所使用的项目 workspace。</DialogDescription>
+          </DialogHeader>
+          <LocalTaskWorkspacePicker
+            creatingWorkspace={false}
+            workspaces={workspaces}
+            selectedWorkspaceId={selectedWorkspaceId || workspaces[0]?.id || 'local'}
+            onWorkspaceChange={setSelectedWorkspaceId}
+            onBackToExisting={() => {}}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPromoteDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              disabled={!workspaces.some((workspace) => workspace.id === selectedWorkspaceId)}
+              onClick={() => {
+                const workspace = workspaces.find((entry) => entry.id === selectedWorkspaceId)
+                if (workspace) {
+                  onPromote(workspace)
+                  setPromoteDialogOpen(false)
+                }
+              }}
+            >
+              确认整理
             </Button>
           </DialogFooter>
         </DialogContent>

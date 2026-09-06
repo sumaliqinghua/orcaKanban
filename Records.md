@@ -1259,3 +1259,11 @@
 - **How（怎么实现的）**：主 Store → IPC 注册 → LocalTaskStore(profilePersistence)；没有这条链路时立即失败并暴露配置问题，不写旧格式。
 - **验证**：任务 Store 与 RPC 测试 50 项通过；Web 类型检查通过。
 - **已知限制**：旧文件 Store 类仍供测试使用，后续可迁移测试到 profile fixture 后删除。
+
+## 2026-09-07：收件箱使用显式 workspace 选择器
+
+- **What（做了什么）**：`work-item-pieces.tsx` 在“整理为可执行”按钮中复用 `LocalTaskWorkspacePicker`，列出当前项目的全部已登记 workspace；用户确认后才把所选 workspace 传给任务更新操作。workspace 列表通过 `getIndexedAllWorktrees` 从稳定的 `worktreesByRepo` 索引读取，避免在 Zustand selector 中每次返回新数组导致 React 最大更新深度错误。
+- **Why（为什么这么做）**：收件箱任务必须由用户明确选择项目/workspace，不能隐式绑定当前打开 workspace；稳定索引同时避免此前任务页面出现的无限更新问题。
+- **How（怎么实现的）**：打开任务详情 → 点击整理 → 选择 workspace → 确认 → 更新项目路径、workspace ID、显示名称和 `ready` 状态 → 目标目录补齐三份 Markdown。
+- **验证**：任务卡和任务中心交互测试 8 项通过；Web 类型检查和 oxlint 通过。
+- **已知限制**：workspace 列表限定为当前任务项目的已登记 workspace；新建 workspace 仍使用现有任务创建流程。
