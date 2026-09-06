@@ -8,7 +8,12 @@ vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: () => [] }
 }))
 
-import { setLocalTaskStoreForTests, LocalTaskStore } from '../../../local-tasks/store'
+import {
+  setLocalTaskStoreForTests,
+  LocalTaskStore,
+  type LocalTaskProfilePersistence
+} from '../../../local-tasks/store'
+import type { LocalTask } from '../../../../shared/local-task-types'
 import { buildRegistry } from '../core'
 import { LOCAL_TASK_METHODS } from './local-tasks'
 
@@ -19,7 +24,18 @@ const roots = new WeakMap<LocalTaskStore, string>()
 function setupStore(): LocalTaskStore {
   const directory = mkdtempSync(join(tmpdir(), 'orca-local-task-rpc-'))
   directories.push(directory)
-  const store = new LocalTaskStore()
+  let saved: LocalTask[] = []
+  const persistence: LocalTaskProfilePersistence = {
+    getLocalTasks: () => saved,
+    saveLocalTask: (task) => {
+      saved = [...saved.filter((entry) => entry.id !== task.id), task]
+      return task
+    },
+    deleteLocalTask: (id) => {
+      saved = saved.filter((entry) => entry.id !== id)
+    }
+  }
+  const store = new LocalTaskStore(persistence)
   roots.set(store, directory)
   setLocalTaskStoreForTests(store)
   return store
