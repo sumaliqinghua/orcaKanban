@@ -1198,3 +1198,11 @@
 - **Why（为什么这么做）**：产品规则是一会话对应一个子任务，用户通过新建关联会话表达新方向，不修改既有子任务归属。
 - **How（怎么实现的）**：任务数据仍保存稳定会话 ID，详情只做 ID 到会话标题的只读映射；创建子任务和创建会话仍沿用原 kanban1 入口。
 - **已知限制**：旧 CLI/RPC `subtask-transfer` 仍存在，尚未删除其命令协议和历史测试。
+
+## 2026-09-07：删除子任务移交协议
+
+- **What（做了什么）**：删除 `subtask-session-assignment.ts`、子任务会话选择器及其历史 UI 测试；从共享类型、主进程 IPC、RPC 方法、preload API、CLI handler 和 CLI spec 中删除 `TransferLocalTaskSubtaskArgs`、`localTask.transferSubtask` 和 `orca local-task subtask-transfer`；更新任务中心创建流程，创建子任务时直接使用新建会话完成绑定；更新 RPC/Store 测试以覆盖新的默认子任务规则。
+- **Why（为什么这么做）**：已确认子任务与会话一一对应，用户通过新建关联会话表达新方向，移交既有子任务会产生额外心智成本和不明确的责任边界。
+- **How（怎么实现的）**：会话创建 → 默认未绑定子任务绑定，或新增一个绑定当前会话的子任务 → 详情只读显示会话标题。跨会话修改会被现有归属校验拒绝，用户无需再确认“移交”。
+- **验证**：任务 Store、任务 RPC、Agent 提示相关测试共 51 项通过；Web 类型检查通过；源码搜索不再发现移交协议生产引用。
+- **已知限制**：文件 Store 的旧扫描、`task.json` schema 和过渡测试仍保留在 `src/main/local-tasks`，生产 IPC 已注入主 Store；下一阶段可在补齐收件箱和迁移清理后删除整套文件兼容代码。
