@@ -106,9 +106,23 @@ export function createSession(
     !nonExecutionSession && task.sessions.length === 0
       ? task.subtasks.findIndex((subtask) => subtask.sessionId === null)
       : -1
-  const subtasks = task.subtasks.map((subtask, index) =>
+  let subtasks = task.subtasks.map((subtask, index) =>
     index === defaultSubtaskIndex ? { ...subtask, sessionId, updatedAt: createdAt } : subtask
   )
+  if (!nonExecutionSession && defaultSubtaskIndex === -1) {
+    subtasks = [
+      {
+        id: `ltsub_${randomUUID()}`,
+        title: text(args.title, requestedPrompt ?? '关联会话'),
+        status: 'todo' as const,
+        sessionId,
+        steps: [],
+        createdAt,
+        updatedAt: createdAt
+      },
+      ...subtasks
+    ]
+  }
   store.writeTask({
     ...task,
     subtasks,
@@ -150,16 +164,19 @@ export function reportCompleted(
   args: ReportLocalTaskCompletedArgs & { projectPath?: string }
 ): LocalTask {
   const task = store.requireTask(args.taskId, args.projectPath)
-  const currentSession = task.sessions.find((session) => session.id === args.sessionId)
+  const currentSession = task.sessions.find(
+    (session) => session.id === args.sessionId || session.tabId === args.sessionId
+  )
   if (!currentSession) {
     throw new Error('Session is not associated with this local task')
   }
   if (currentSession.associationSource === 'task-report') {
     return completeTaskReportSession(store, task, args, currentSession)
   }
+  const sessionId = currentSession.id
   const unfinished = task.subtasks.some((subtask) => {
     // A session must not block completion on work explicitly owned by another session.
-    if (subtask.sessionId !== null && subtask.sessionId !== args.sessionId) {
+    if (subtask.sessionId !== null && subtask.sessionId !== sessionId) {
       return false
     }
     return (
@@ -169,7 +186,7 @@ export function reportCompleted(
   })
   const updatedAt = time()
   const sessions = task.sessions.map((session) =>
-    session.id === args.sessionId
+    session.id === sessionId
       ? {
           ...session,
           status: unfinished ? ('idle' as const) : ('done' as const),
@@ -183,7 +200,7 @@ export function reportCompleted(
       ? args.titleSuggestion.trim()
       : null
   const shouldKeepAgentOutput =
-    task.latestOutputSource === 'agent-status' && task.latestOutput?.sessionId === args.sessionId
+    task.latestOutputSource === 'agent-status' && task.latestOutput?.sessionId === sessionId
   const activeRun = task.executionRunId
     ? task.runs.find((run) => run.id === task.executionRunId)
     : undefined
@@ -193,7 +210,7 @@ export function reportCompleted(
           ? {
               ...run,
               status: 'needs_review' as const,
-              sessionId: args.sessionId,
+              sessionId,
               output: args.latestOutput ?? run.output,
               finishedAt: updatedAt
             }
@@ -208,7 +225,7 @@ export function reportCompleted(
     reviewKind: activeRun ? 'delivery' : task.reviewKind,
     latestOutput:
       !shouldKeepAgentOutput && args.latestOutput
-        ? { sessionId: args.sessionId, text: args.latestOutput, updatedAt }
+        ? { sessionId, text: args.latestOutput, updatedAt }
         : task.latestOutput,
     latestOutputSource: shouldKeepAgentOutput ? 'agent-status' : 'report',
     description: args.description?.trim() || task.description,

@@ -39,6 +39,16 @@ describe('LocalTaskStore profile persistence', () => {
     expect(existsSync(join(root, 'orca', task.id, 'task.json'))).toBe(false)
     const session = store.createSession({ taskId: task.id, sessionId: 'initial' })
     expect(store.get(task.id)?.subtasks[0]?.sessionId).toBe(session.id)
+    const followup = store.createSession({
+      taskId: task.id,
+      sessionId: 'followup',
+      currentPrompt: '检查另一个方案'
+    })
+    expect(store.get(task.id)?.subtasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sessionId: followup.id, title: '检查另一个方案' })
+      ])
+    )
     store.close()
   })
 })
