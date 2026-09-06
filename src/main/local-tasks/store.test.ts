@@ -760,14 +760,14 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
-  it('enters review when one of multiple agent sessions ends', () => {
+  it('keeps running when one of multiple agent sessions ends', () => {
     const root = projectPath()
     const store = new LocalTaskStore()
     const task = store.create({ projectId: 'orca', projectPath: root, description: '并行任务' })
     const first = store.createSession({ taskId: task.id, projectPath: root, sessionId: 'agent-a' })
     const second = store.createSession({ taskId: task.id, projectPath: root, sessionId: 'agent-b' })
     const reviewed = store.updateSessionOutput({ sessionId: first.id, latestOutput: '第一路完成' })
-    expect(reviewed.status).toBe('Needs review')
+    expect(reviewed.status).toBe('In progress')
     expect(reviewed.sessions.find((session) => session.id === second.id)?.status).toBe('working')
     store.close()
   })

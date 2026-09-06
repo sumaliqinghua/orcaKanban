@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { resolveLocalTaskStatus } from '../../shared/local-task-status'
 import { cpSync, existsSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type {
@@ -166,7 +167,10 @@ export class LocalTaskStore {
 
   accept(id: string, projectPath?: string): LocalTask {
     const task = this.require(id, projectPath)
-    if (task.status !== 'Needs review') {
+    if (
+      task.status !== 'Needs review' ||
+      task.sessions.some((session) => session.status === 'working')
+    ) {
       throw new Error('Only a local task awaiting review can be accepted')
     }
     return this.writeTask({
@@ -340,6 +344,17 @@ export class LocalTaskStore {
   }
 
   private writeTask(task: LocalTask): LocalTask {
+    task = {
+      ...task,
+      status: resolveLocalTaskStatus(
+        task.status,
+        task.sessions.filter(
+          (session) =>
+            session.associationSource !== 'task-report' &&
+            session.associationSource !== 'clarification'
+        )
+      )
+    }
     const path = localTaskFile(task.projectPath, task.id)
     writeJson(path, task)
     const planPath = join(localTaskDirectory(task.projectPath, task.id), LOCAL_TASK_PLAN_FILE_NAME)
@@ -408,7 +423,7 @@ export class LocalTaskStore {
     if (!byProject) {
       return undefined
     }
-    const candidates: Array<{ path: string; updatedAt: number }> = []
+    const candidates: { path: string; updatedAt: number }[] = []
     for (const [projectPath, path] of byProject) {
       try {
         if (!existsSync(path)) {

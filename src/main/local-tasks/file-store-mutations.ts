@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { resolveLocalTaskStatus } from '../../shared/local-task-status'
 import { join } from 'node:path'
 import type {
   CreateLocalTaskSessionArgs,
@@ -100,11 +101,7 @@ export function createSession(
     associationSource
   }
   const nonExecutionSession = isNonExecutionSession(session)
-  const status = nonExecutionSession
-    ? task.status
-    : task.status === 'Done' || task.status === 'Needs review'
-      ? 'In progress'
-      : task.status
+  const status = nonExecutionSession ? task.status : 'In progress'
   const subtasks =
     !nonExecutionSession && task.sessions.length === 0
       ? task.subtasks.map((subtask) =>
@@ -217,7 +214,10 @@ export function reportCompleted(
     title: suggestedTitle ?? task.title,
     titleSource: suggestedTitle ? 'ai-suggestion' : task.titleSource,
     titleSuggestion: suggestedTitle ?? task.titleSuggestion,
-    status: task.status === 'Done' ? task.status : 'Needs review',
+    status: resolveLocalTaskStatus(
+      task.status,
+      sessions.filter((entry) => !isNonExecutionSession(entry))
+    ),
     updatedAt
   }
   const result = store.writeTask(next)

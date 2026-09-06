@@ -1,4 +1,5 @@
 import type { LocalTask, LocalTaskSubtask } from '../../../../shared/local-task-types'
+import { resolveLocalTaskStatus } from '../../../../shared/local-task-status'
 import type { WorkItem, Subtask } from './mock-data'
 
 const SESSION_START_GRACE_MS = 15_000
@@ -19,20 +20,11 @@ function mapSubtask(subtask: LocalTaskSubtask): Subtask {
 export function localTaskToViewModel(task: LocalTask): WorkItem {
   const executionSessions = task.sessions.filter(isExecutionSession)
   const activeSessions = executionSessions.filter((session) => session.status === 'working').length
-  const hasEndedSession = executionSessions.some((session) => session.status !== 'working')
-  const isExecutionActive = task.executionState === 'queued' || task.executionState === 'running'
   return {
     id: task.id,
     title: task.title,
     description: task.description,
-    status:
-      task.status === 'Done'
-        ? 'Done'
-        : hasEndedSession
-          ? 'Needs review'
-          : activeSessions > 0 || isExecutionActive
-            ? 'In progress'
-            : task.status,
+    status: resolveLocalTaskStatus(task.status, executionSessions),
     workspace: task.workspaceLabel,
     workspaceId: task.workspaceId,
     projectPath: task.projectPath,
@@ -99,7 +91,7 @@ export function reconcileWorkItemSessionLiveness(
     }
     const withinStartGrace =
       typeof session.updatedAt === 'number' && now - session.updatedAt < SESSION_START_GRACE_MS
-    return liveSessionIds.has(session.id) || withinStartGrace
+    return liveSessionIds.has(session.tabId ?? session.id) || withinStartGrace
       ? session
       : { ...session, status: 'done' as const }
   })
@@ -108,19 +100,6 @@ export function reconcileWorkItemSessionLiveness(
       session.associationSource !== 'task-report' && session.associationSource !== 'clarification'
   )
   const activeSessions = executionSessions.filter((session) => session.status === 'working').length
-  const hasEndedSession = executionSessions.some((session) => session.status !== 'working')
-  const executionActive = item.executionState === 'queued' || item.executionState === 'running'
-  const status =
-    item.status === 'Done'
-      ? 'Done'
-      : hasEndedSession
-        ? 'Needs review'
-        : activeSessions > 0 || executionActive
-          ? 'In progress'
-          : item.sessions > 0
-            ? 'Needs review'
-            : item.status === 'In progress'
-              ? 'Open'
-              : item.status
+  const status = resolveLocalTaskStatus(item.status, executionSessions)
   return { ...item, status, activeSessions, sessionsList }
 }

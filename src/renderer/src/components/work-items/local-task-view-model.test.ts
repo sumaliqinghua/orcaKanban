@@ -46,6 +46,22 @@ describe('local task live session reconciliation', () => {
     expect(result.activeSessions).toBe(1)
   })
 
+  it('uses the restored terminal tab when reconciling a stable session', () => {
+    const source = item(NOW - 60_000)
+    source.sessionsList[0]!.tabId = 'restored-tab'
+    const result = reconcileWorkItemSessionLiveness(source, new Set(['restored-tab']), NOW)
+    expect(result.status).toBe('In progress')
+    expect(result.activeSessions).toBe(1)
+  })
+
+  it('keeps running while another associated session awaits review', () => {
+    const source = item(NOW - 60_000)
+    source.sessionsList.push({ id: 'ended', title: '已结束', status: 'done', time: 'now' })
+    const result = reconcileWorkItemSessionLiveness(source, new Set(['session-1']), NOW)
+    expect(result.status).toBe('In progress')
+    expect(result.activeSessions).toBe(1)
+  })
+
   it('keeps a newly created session running during its startup grace period', () => {
     const result = reconcileWorkItemSessionLiveness(item(NOW - 1_000), new Set(), NOW)
     expect(result.status).toBe('In progress')

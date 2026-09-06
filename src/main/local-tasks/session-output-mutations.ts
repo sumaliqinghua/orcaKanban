@@ -3,6 +3,7 @@ import type {
   LocalTaskSession,
   UpdateLocalTaskSessionOutputArgs
 } from '../../shared/local-task-types'
+import { resolveLocalTaskStatus } from '../../shared/local-task-status'
 import { findTaskWithSession } from './file-store-index'
 import { appendSessionTurn } from './session-turn-mutations'
 import type { FileStoreMutationAccess } from './file-store-mutations'
@@ -20,14 +21,17 @@ export function updateSessionOutput(
     throw new Error('Session is not associated with any local task')
   }
   const updatedAt = time()
-  const session = task.sessions.find((candidate) => candidate.id === args.sessionId)
+  const session = task.sessions.find(
+    (candidate) => candidate.id === args.sessionId || candidate.tabId === args.sessionId
+  )
   if (!session) {
     throw new Error('Session is not associated with this local task')
   }
   const prompt = args.prompt?.trim() || session.currentPrompt || ''
   const textValue = args.latestOutput?.trim() ?? ''
+  const sessionId = session.id
   const sessions = task.sessions.map((session) =>
-    session.id === args.sessionId
+    session.id === sessionId
       ? {
           ...session,
           currentPrompt: prompt || session.currentPrompt,
@@ -52,11 +56,12 @@ export function updateSessionOutput(
   )
   const nonExecutionSession = isNonExecutionSession(session)
   const executionSessions = sessions.filter((candidate) => !isNonExecutionSession(candidate))
-  const hasEndedSession = executionSessions.some((candidate) => candidate.status !== 'working')
-  const hasWorkingSession = executionSessions.some((candidate) => candidate.status === 'working')
+  const sessionEnded =
+    args.sessionStatus === 'done' ||
+    (args.sessionStatus === undefined && args.manualNotes === undefined)
   const activeRun =
-    !nonExecutionSession && task.executionRunId
-      ? task.runs.find((run) => run.id === task.executionRunId)
+    !nonExecutionSession && sessionEnded && task.executionRunId
+      ? task.runs.find((run) => run.id === task.executionRunId && run.sessionId === sessionId)
       : undefined
   const runs = activeRun
     ? task.runs.map((run) =>
@@ -64,7 +69,7 @@ export function updateSessionOutput(
           ? {
               ...run,
               status: 'needs_review' as const,
-              sessionId: args.sessionId,
+              sessionId,
               output: textValue || run.output,
               finishedAt: updatedAt
             }
@@ -79,16 +84,10 @@ export function updateSessionOutput(
     reviewKind: activeRun ? 'delivery' : task.reviewKind,
     status: nonExecutionSession
       ? task.status
-      : task.status === 'Done'
-        ? 'Done'
-        : hasEndedSession
-          ? 'Needs review'
-          : hasWorkingSession
-            ? 'In progress'
-            : 'Needs review',
+      : resolveLocalTaskStatus(task.status, executionSessions),
     latestOutput:
       !nonExecutionSession && textValue
-        ? { sessionId: args.sessionId, text: textValue, updatedAt }
+        ? { sessionId, text: textValue, updatedAt }
         : task.latestOutput,
     latestOutputSource: nonExecutionSession ? task.latestOutputSource : 'agent-status',
     updatedAt

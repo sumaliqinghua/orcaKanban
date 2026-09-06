@@ -30,7 +30,7 @@ export function findTaskWithSession(
     if (!task) {
       continue
     }
-    if (task.sessions.some((session) => session.id === sessionId)) {
+    if (task.sessions.some((session) => session.id === sessionId || session.tabId === sessionId)) {
       return task
     }
   }
