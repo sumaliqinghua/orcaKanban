@@ -1251,3 +1251,11 @@
 - **Why（为什么这么做）**：收件箱任务尚未落位，项目路径为空，但仍应按创建时记录的项目 ID 出现在任务中心收件箱。
 - **How（怎么实现的）**：项目筛选 → 主 Store 查询 → 同项目已落位任务与空路径收件箱合并 → 原有收件箱队列过滤。
 - **验证**：本地任务测试通过；Web 类型检查此前已通过。
+
+## 2026-09-07：禁止生产回退到文件任务 Store
+
+- **What（做了什么）**：`getLocalTaskStore` 在没有主 Store 持久化适配时不再自动创建文件版任务 Store，而是抛出初始化错误；桌面 IPC 仍通过 `registerLocalTaskHandlers(profileStore)` 注入 Orca profile，测试通过 `setLocalTaskStoreForTests` 注入临时 Store。
+- **Why（为什么这么做）**：任务真相必须是 Orca 软件持久化。静默回退会让初始化顺序问题重新产生 `task.json` 数据，造成任务分裂。
+- **How（怎么实现的）**：主 Store → IPC 注册 → LocalTaskStore(profilePersistence)；没有这条链路时立即失败并暴露配置问题，不写旧格式。
+- **验证**：任务 Store 与 RPC 测试 50 项通过；Web 类型检查通过。
+- **已知限制**：旧文件 Store 类仍供测试使用，后续可迁移测试到 profile fixture 后删除。

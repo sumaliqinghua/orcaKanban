@@ -534,7 +534,16 @@ export class LocalTaskStore {
 }
 
 export const getLocalTaskStore = (persistence?: LocalTaskProfilePersistence): LocalTaskStore =>
-  (singleton ??= new LocalTaskStore(persistence))
+  (() => {
+    if (singleton) {
+      return singleton
+    }
+    if (!persistence) {
+      throw new Error('Local task profile persistence has not been initialized')
+    }
+    singleton = new LocalTaskStore(persistence)
+    return singleton
+  })()
 export const setLocalTaskStoreForTests = (value: LocalTaskStore | null): void => {
   singleton?.close()
   singleton = value
