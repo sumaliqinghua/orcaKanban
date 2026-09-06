@@ -106,7 +106,7 @@ export type LocalTask = {
 
 export type CreateLocalTaskArgs = {
   projectId: string
-  projectPath: string
+  projectPath?: string
   title?: string
   description: string
   labels?: string[]

@@ -34,7 +34,7 @@ export const markKanbanAiRecordReadArgsSchema = kanbanAiRecordListArgsSchema.ext
 export const createLocalTaskArgsSchema = z
   .object({
     projectId: id,
-    projectPath: z.string().trim().min(1).max(4_096),
+    projectPath: z.string().trim().min(1).max(4_096).optional(),
     title: shortText.optional(),
     description: longText,
     labels: z.array(shortText).max(20).optional(),

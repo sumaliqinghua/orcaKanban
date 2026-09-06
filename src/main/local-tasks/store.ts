@@ -143,7 +143,7 @@ export class LocalTaskStore {
       schemaVersion: 1,
       id: `lt_${randomUUID()}`,
       projectId: text(args.projectId, 'local'),
-      projectPath: resolve(args.projectPath),
+      projectPath: args.projectPath ? resolve(args.projectPath) : '',
       title: text(args.title, description.split(/\r?\n/, 1)[0] || '未命名本地任务'),
       description,
       status: 'Open',
@@ -427,6 +427,9 @@ export class LocalTaskStore {
   }
 
   private writeContextFiles(task: LocalTask): void {
+    if (task.intakeState === 'inbox' || !task.projectPath) {
+      return
+    }
     const directory = localTaskDirectory(task.projectPath, task.id)
     const prdPath = join(directory, LOCAL_TASK_PRD_FILE_NAME)
     const planPath = join(directory, LOCAL_TASK_PLAN_FILE_NAME.replace('.json', '.md'))
