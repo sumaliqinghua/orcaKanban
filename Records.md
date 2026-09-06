@@ -1335,3 +1335,11 @@
 - **What（做了什么）**：删除旧 `store.test.ts` 后重新运行任务 Store、RPC、任务中心和相关 UI 测试，确认 profile 持久化、状态聚合、会话绑定、收件箱和页面行为仍有覆盖。
 - **验证**：19 个测试文件、58 项通过；Web 类型检查通过；工作区干净。
 - **当前边界**：唯一仍直接构造无 profile `LocalTaskStore` 的是 RPC 单元测试，它通过测试专用 setter 注入临时实例，不代表生产回退路径。
+
+## 2026-09-07：拆分旧任务文件路径与上下文路径
+
+- **What（做了什么）**：新增 `task-context-paths.ts` 保存 `orca/<task-id>` 和三份 Markdown 的路径常量；新增 `legacy-task-file-paths.ts` 单独保存旧 `task.json` 路径；旧监听改用拆分后的路径模块。
+- **Why（为什么这么做）**：为最终删除旧 `task.json` schema 做依赖切分，避免路径和文件格式继续混在一个模块中。
+- **How（怎么实现的）**：上下文文件路径 → `task-context-paths`；历史 JSON 路径 → `legacy-task-file-paths`；旧监听仅保留历史分支。
+- **验证**：本地任务测试 13 项通过；Web 类型检查通过。
+- **已知限制**：`file-store-format.ts` 仍被旧 Store 读写分支引用，尚未删除。

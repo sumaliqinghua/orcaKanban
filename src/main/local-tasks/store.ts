@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { resolveLocalTaskStatus } from '../../shared/local-task-status'
-import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type {
   CreateLocalTaskArgs,
@@ -23,15 +23,12 @@ import type {
 import { normalizeRuntimePathForComparison } from '../../shared/cross-platform-path'
 import {
   localTaskDirectory,
-  localTaskFile,
-  readLocalTaskFile,
-  taskFiles,
   LOCAL_TASK_PLAN_FILE_NAME,
   LOCAL_TASK_PRD_FILE_NAME,
   LOCAL_TASK_RECORDS_FILE_NAME,
   LOCAL_TASK_ROOT_NAME
-} from './file-store-format'
-import { atomicWrite, writeJson } from './task-context-file-io'
+} from './task-context-paths'
+import { atomicWrite } from './task-context-file-io'
 import { LocalTaskFileWatchers } from './file-store-watch'
 import * as mutations from './file-store-mutations'
 import * as subtaskMutations from './subtask-progress-mutations'

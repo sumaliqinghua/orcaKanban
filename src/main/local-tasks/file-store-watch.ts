@@ -1,7 +1,8 @@
 import { existsSync, watch, type FSWatcher } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { LocalTask } from '../../shared/local-task-types'
-import { localTaskDirectory, localTaskFile, LOCAL_TASK_ROOT_NAME } from './file-store-format'
+import { localTaskDirectory, LOCAL_TASK_ROOT_NAME } from './task-context-paths'
+import { localTaskFile } from './legacy-task-file-paths'
 
 export class LocalTaskFileWatchers {
   private readonly watchers = new Map<string, FSWatcher>()
