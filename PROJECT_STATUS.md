@@ -7,6 +7,7 @@
 - 正在实施状态规则收敛；软件存储和一对一关系尚未完成。见 `plan.md` 顶部实际进度。
 - 状态规则第一阶段已完成；任务元数据已接入 `PersistedState.localTasks`，但文件 Store 兼容路径仍待移除，不能视为最终存储边界。
 - 一对一子任务/会话已完成；旧的子任务移交 CLI、RPC、preload 和详情选择器已删除。收件箱脱离 workspace 文件、旧文件 Store 清理和真实 Electron 验收仍在进行。
+- PR 合并成功后不再自动迁移任务 workspace；任务验收与代码合入保持两个明确步骤。
 - 下方诊断是历史背景，与当前目标冲突处以 `TASK_REDESIGN_IMPLEMENTATION.md` 顶部基线为准。
 
 ## 最新诊断：2026-09-05
