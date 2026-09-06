@@ -10,7 +10,8 @@ import type {
   UpdateLocalTaskArgs
 } from '../../shared/local-task-types'
 import { findTaskWithSession } from './file-store-index'
-import { appendRecord, localTaskDirectory, LOCAL_TASK_RECORDS_FILE_NAME } from './file-store-format'
+import { localTaskDirectory, LOCAL_TASK_RECORDS_FILE_NAME } from './file-store-format'
+import { appendRecord } from './task-context-file-io'
 import { completeTaskReportSession } from './task-report-session-mutation'
 export { updateSessionOutput } from './session-output-mutations'
 export { rebindSessionTab } from './session-tab-mutations'

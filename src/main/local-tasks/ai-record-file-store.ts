@@ -8,7 +8,7 @@ import {
   type ListKanbanAiRecordsArgs,
   type MarkKanbanAiRecordReadArgs
 } from '../../shared/kanban-ai-record'
-import { writeJson } from './file-store-format'
+import { writeJson } from './task-context-file-io'
 
 export const KANBAN_AI_RECORD_ROOT_SEGMENTS = ['assistant', 'results'] as const
 export const MAX_KANBAN_AI_RECORD_FILES = 1_000

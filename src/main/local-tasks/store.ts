@@ -22,17 +22,16 @@ import type {
 } from '../../shared/local-task-types'
 import { normalizeRuntimePathForComparison } from '../../shared/cross-platform-path'
 import {
-  atomicWrite,
   localTaskDirectory,
   localTaskFile,
   readLocalTaskFile,
   taskFiles,
-  writeJson,
   LOCAL_TASK_PLAN_FILE_NAME,
   LOCAL_TASK_PRD_FILE_NAME,
   LOCAL_TASK_RECORDS_FILE_NAME,
   LOCAL_TASK_ROOT_NAME
 } from './file-store-format'
+import { atomicWrite, writeJson } from './task-context-file-io'
 import { LocalTaskFileWatchers } from './file-store-watch'
 import * as mutations from './file-store-mutations'
 import * as subtaskMutations from './subtask-progress-mutations'

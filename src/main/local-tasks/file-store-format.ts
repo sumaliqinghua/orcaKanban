@@ -1,14 +1,5 @@
-import { randomUUID } from 'node:crypto'
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync
-} from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { LOCAL_TASK_STATUSES, type LocalTask } from '../../shared/local-task-types'
 import type { TuiAgent } from '../../shared/tui-agent'
@@ -135,22 +126,6 @@ export function localTaskDirectory(projectPath: string, taskId: string): string 
 
 export function localTaskFile(projectPath: string, taskId: string): string {
   return join(localTaskDirectory(projectPath, taskId), LOCAL_TASK_FILE_NAME)
-}
-
-export function atomicWrite(path: string, content: string): void {
-  mkdirSync(dirname(path), { recursive: true })
-  const temporary = `${path}.tmp-${process.pid}-${randomUUID()}`
-  writeFileSync(temporary, content, 'utf8')
-  renameSync(temporary, path)
-}
-
-export function writeJson(path: string, value: unknown): void {
-  atomicWrite(path, `${JSON.stringify(value, null, 2)}\n`)
-}
-
-export function appendRecord(path: string, content: string): void {
-  mkdirSync(dirname(path), { recursive: true })
-  appendFileSync(path, `\n${content.trim()}\n`, 'utf8')
 }
 
 export function readLocalTaskFile(path: string): LocalTask {
