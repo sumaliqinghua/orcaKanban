@@ -3,7 +3,8 @@ import {
   buildLocalTaskProjectOptions,
   collectLocalTaskProjectRoots,
   loadKanbanAiRecordsForProjectScope,
-  mergeLocalTasksById
+  mergeLocalTasksById,
+  loadLocalTasksForProjectScope
 } from './local-task-project-scope'
 import type { KanbanAiRecord } from '../../../../shared/kanban-ai-record'
 
@@ -103,5 +104,20 @@ describe('local task project scope', () => {
       { id: 'air_duplicate', createdAt: 3 },
       { id: 'air_second', createdAt: 2 }
     ])
+  })
+
+  it('includes an inbox task with no workspace path in a project scope', async () => {
+    const task = {
+      id: 'lt_inbox',
+      projectId: 'orca',
+      projectPath: '',
+      updatedAt: 2
+    } as never
+    const loaded = await loadLocalTasksForProjectScope(
+      [{ projectId: 'orca', projectPath: '/repos/orca' }],
+      'orca',
+      async () => [task]
+    )
+    expect(loaded).toEqual([task])
   })
 })
