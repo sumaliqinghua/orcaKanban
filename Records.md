@@ -1351,3 +1351,11 @@
 - **How（怎么实现的）**：主 Store → profile persistence adapter → `LocalTaskStore`；测试使用内存适配器，生产 IPC 使用 Orca profile。
 - **验证**：本地任务与 RPC 测试 18 项通过；Web 类型检查通过。
 - **已知限制**：旧文件分支代码仍在类内部，下一步可在确认无调用后删除。
+
+## 2026-09-07：删除旧文件 Store 实现
+
+- **What（做了什么）**：删除 `file-store-format.ts`、`file-store-watch.ts` 和 `legacy-task-file-paths.ts`；`LocalTaskStore` 删除无 profile 文件扫描、JSON 写入、路径索引、目录监听和旧格式恢复分支，只保留 Orca profile persistence；所有 RPC/生命周期测试使用显式 profile fixture。
+- **Why（为什么这么做）**：旧文件格式不再是任务真相，继续保留可执行分支会让后续代码误用 `task.json`，并维护两套状态来源。
+- **How（怎么实现的）**：主 Store → profile persistence → `LocalTaskStore` → mutation modules；任务上下文文件通过独立路径和 IO 模块写入，AI 记录不依赖任务 JSON schema。
+- **验证**：本地任务和 RPC 测试 18 项通过；Web 类型检查通过；源码搜索不再发现旧文件 Store 模块引用。主进程全量类型检查仅剩既有 `cdp-print-to-pdf.ts` Electron 类型错误。
+- **已知限制**：保留 `task-context-paths.ts` 与 `task-context-file-io.ts`，它们只负责三份 Markdown 和 AI 记录文件，不保存任务状态。

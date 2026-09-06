@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { resolveLocalTaskStatus } from '../../shared/local-task-status'
+import { normalizeRuntimePathForComparison } from '../../shared/cross-platform-path'
 import { existsSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type {
@@ -20,7 +21,6 @@ import type {
   UpdateLocalTaskSubtaskArgs,
   UpdateLocalTaskSessionOutputArgs
 } from '../../shared/local-task-types'
-import { normalizeRuntimePathForComparison } from '../../shared/cross-platform-path'
 import {
   localTaskDirectory,
   LOCAL_TASK_PLAN_FILE_NAME,
@@ -29,7 +29,6 @@ import {
   LOCAL_TASK_ROOT_NAME
 } from './task-context-paths'
 import { atomicWrite } from './task-context-file-io'
-import { LocalTaskFileWatchers } from './file-store-watch'
 import * as mutations from './file-store-mutations'
 import * as subtaskMutations from './subtask-progress-mutations'
 import * as batchMutations from './file-store-batch-mutations'
@@ -49,19 +48,11 @@ const normalizeLabels = (value: string[] | undefined): string[] =>
   [...new Set((value ?? []).map((label) => label.trim()).filter(Boolean))].slice(0, 20)
 
 export class LocalTaskStore {
-  private readonly locations = new Map<string, Map<string, string>>()
-  private readonly watchers: LocalTaskFileWatchers | null
   private changeListener: ((task: LocalTask) => void) | null = null
 
-  constructor(private readonly profilePersistence: LocalTaskProfilePersistence) {
-    this.watchers = profilePersistence
-      ? null
-      : new LocalTaskFileWatchers((path) => this.handleChangedPath(path))
-  }
+  constructor(private readonly profilePersistence: LocalTaskProfilePersistence) {}
 
-  close(): void {
-    this.watchers?.close()
-  }
+  close(): void {}
 
   setOnChanged(listener: ((task: LocalTask) => void) | null): void {
     this.changeListener = listener
@@ -72,66 +63,27 @@ export class LocalTaskStore {
     projectPath?: string,
     options: { includeArchived?: boolean } = {}
   ): LocalTask[] {
-    if (this.profilePersistence) {
-      return this.profilePersistence
-        .getLocalTasks()
-        .filter((task) => !projectId || task.projectId === projectId)
-        .filter(
-          (task) =>
-            !projectPath ||
-            (task.intakeState === 'inbox' && task.projectPath === '') ||
-            normalizeRuntimePathForComparison(task.projectPath) ===
-              normalizeRuntimePathForComparison(resolve(projectPath))
-        )
-        .filter((task) => options.includeArchived === true || task.archivedAt === null)
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-    }
-    const roots = projectPath ? [resolve(projectPath)] : this.knownProjectPaths()
-    const tasks = roots.flatMap((root) =>
-      taskFiles(root)
-        .map((path) => this.readOwned(path, root))
-        .filter((task): task is LocalTask => task !== null)
-    )
-    if (projectPath) {
-      this.watchers?.watchProject(projectPath)
-    }
-    for (const task of tasks) {
-      this.watchers?.watchTask(task)
-    }
-    return tasks
+    return this.profilePersistence
+      .getLocalTasks()
       .filter((task) => !projectId || task.projectId === projectId)
+      .filter(
+        (task) =>
+          !projectPath ||
+          (task.intakeState === 'inbox' && task.projectPath === '') ||
+          normalizeRuntimePathForComparison(task.projectPath) ===
+            normalizeRuntimePathForComparison(resolve(projectPath))
+      )
       .filter((task) => options.includeArchived === true || task.archivedAt === null)
       .sort((a, b) => b.updatedAt - a.updatedAt)
   }
 
   get(id: string, projectPath?: string): LocalTask | null {
-    if (this.profilePersistence) {
-      return (
-        this.profilePersistence
-          .getLocalTasks()
-          .find(
-            (task) =>
-              task.id === id &&
-              (!projectPath ||
-                normalizeRuntimePathForComparison(task.projectPath) ===
-                  normalizeRuntimePathForComparison(resolve(projectPath)))
-          ) ?? null
-      )
-    }
-    const path = projectPath ? localTaskFile(projectPath, id) : this.latestKnownPath(id)
-    if (!path || !existsSync(path)) {
-      return null
-    }
-    try {
-      return projectPath ? this.readOwned(path, projectPath) : this.readRemembered(path)
-    } catch (error) {
-      // A workspace may be removed between the existence check and the read.
-      if (!existsSync(path)) {
-        this.removeIndexedPath(id, path)
-        return null
-      }
-      throw error
-    }
+    return (
+      this.profilePersistence
+        .getLocalTasks()
+        .find((task) => task.id === id && (!projectPath || task.projectPath === projectPath)) ??
+      null
+    )
   }
 
   create(args: CreateLocalTaskArgs): LocalTask {
@@ -183,8 +135,6 @@ export class LocalTaskStore {
     }
     this.writeTask(task)
     this.writeContextFiles(task)
-    this.watchers?.watchProject(task.projectPath)
-    this.watchers?.watchTask(task)
     return task
   }
 
@@ -265,11 +215,9 @@ export class LocalTaskStore {
       ) {
         throw new Error('Refusing to delete a local task outside its workspace task directory')
       }
-      this.watchers?.unwatchTask(task)
       rmSync(directory, { recursive: true, force: true })
     }
-    this.profilePersistence?.deleteLocalTask(task.id)
-    this.forgetLocation(task.id, task.projectPath)
+    this.profilePersistence.deleteLocalTask(task.id)
     return { taskId: task.id, projectPath: task.projectPath }
   }
 
@@ -322,21 +270,15 @@ export class LocalTaskStore {
   private access(): mutations.FileStoreMutationAccess {
     return {
       requireTask: (id, projectPath) => this.require(id, projectPath),
-      taskPaths: () =>
-        this.profilePersistence
-          ? this.profilePersistence.getLocalTasks().map((task) => `profile:${task.id}`)
-          : this.knownTaskPaths(),
+      taskPaths: () => this.profilePersistence.getLocalTasks().map((task) => `profile:${task.id}`),
       readTask: (path) => {
-        if (this.profilePersistence && path.startsWith('profile:')) {
-          const task = this.profilePersistence
-            .getLocalTasks()
-            .find((entry) => `profile:${entry.id}` === path)
-          if (!task) {
-            throw new Error(`Local task not found: ${path}`)
-          }
-          return task
+        const task = this.profilePersistence
+          .getLocalTasks()
+          .find((entry) => `profile:${entry.id}` === path)
+        if (!task) {
+          throw new Error(`Local task not found: ${path}`)
         }
-        return this.readRemembered(path)
+        return task
       },
       writeTask: (task) => this.writeTask(task)
     }
@@ -362,32 +304,10 @@ export class LocalTaskStore {
         )
       )
     }
-    if (this.profilePersistence) {
-      const result = this.profilePersistence.saveLocalTask(task)
-      this.writeContextFiles(result)
-      return result
-    }
-    const path = localTaskFile(task.projectPath, task.id)
-    writeJson(path, task)
-    const planPath = join(localTaskDirectory(task.projectPath, task.id), LOCAL_TASK_PLAN_FILE_NAME)
-    let plan: Record<string, unknown> = {}
-    try {
-      const parsed: unknown = JSON.parse(readFileSync(planPath, 'utf8'))
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-        plan = parsed as Record<string, unknown>
-      }
-    } catch {
-      // A missing or malformed plan gets a minimal valid document; task.json remains authoritative.
-    }
-    writeJson(planPath, {
-      ...plan,
-      schemaVersion: 1,
-      taskId: task.id,
-      subtasks: task.subtasks
-    })
-    this.rememberLocation(task, path)
-    this.changeListener?.(task)
-    return task
+    const result = this.profilePersistence.saveLocalTask(task)
+    this.writeContextFiles(result)
+    this.changeListener?.(result)
+    return result
   }
 
   private writeContextFiles(task: LocalTask): void {
@@ -406,130 +326,6 @@ export class LocalTaskStore {
     }
     if (!existsSync(recordsPath)) {
       atomicWrite(recordsPath, `# ${task.title} 实现记录\n`)
-    }
-  }
-
-  private readRemembered(path: string): LocalTask {
-    const task = readLocalTaskFile(path)
-    this.rememberLocation(task, path)
-    return task
-  }
-
-  private readOwned(path: string, projectPath: string): LocalTask | null {
-    const task = readLocalTaskFile(path)
-    if (!this.isOwnedBy(task, projectPath)) {
-      return null
-    }
-    this.rememberLocation(task, path)
-    return task
-  }
-
-  private rememberLocation(task: LocalTask, path: string): void {
-    const key = normalizeRuntimePathForComparison(task.projectPath)
-    const byProject = this.locations.get(task.id) ?? new Map<string, string>()
-    byProject.set(key, path)
-    this.locations.set(task.id, byProject)
-  }
-
-  private forgetLocation(id: string, projectPath: string): void {
-    const byProject = this.locations.get(id)
-    if (!byProject) {
-      return
-    }
-    byProject.delete(normalizeRuntimePathForComparison(resolve(projectPath)))
-    if (byProject.size === 0) {
-      this.locations.delete(id)
-    }
-  }
-
-  private isOwnedBy(task: LocalTask, projectPath: string): boolean {
-    return (
-      normalizeRuntimePathForComparison(task.projectPath) ===
-      normalizeRuntimePathForComparison(resolve(projectPath))
-    )
-  }
-
-  private latestKnownPath(id: string): string | undefined {
-    const byProject = this.locations.get(id)
-    if (!byProject) {
-      return undefined
-    }
-    const candidates: { path: string; updatedAt: number }[] = []
-    for (const [projectPath, path] of byProject) {
-      try {
-        if (!existsSync(path)) {
-          byProject.delete(projectPath)
-          continue
-        }
-        candidates.push({ path, updatedAt: readLocalTaskFile(path).updatedAt })
-      } catch (error) {
-        // The workspace can disappear after existsSync but before readFileSync.
-        if (!existsSync(path)) {
-          byProject.delete(projectPath)
-          continue
-        }
-        throw error
-      }
-    }
-    if (byProject.size === 0) {
-      this.locations.delete(id)
-    }
-    return candidates
-      .sort(
-        (left, right) => right.updatedAt - left.updatedAt || left.path.localeCompare(right.path)
-      )
-      .at(0)?.path
-  }
-
-  private removeIndexedPath(id: string, path: string): void {
-    const byProject = this.locations.get(id)
-    if (!byProject) {
-      return
-    }
-    for (const [projectPath, indexedPath] of byProject) {
-      if (indexedPath === path) {
-        byProject.delete(projectPath)
-      }
-    }
-    if (byProject.size === 0) {
-      this.locations.delete(id)
-    }
-  }
-
-  private *knownTaskPaths(): Iterable<string> {
-    for (const [taskId, byProject] of this.locations) {
-      for (const [projectPath, path] of byProject) {
-        if (existsSync(path)) {
-          yield path
-        } else {
-          // External workspace cleanup can race the in-memory index.
-          byProject.delete(projectPath)
-        }
-      }
-      if (byProject.size === 0) {
-        this.locations.delete(taskId)
-      }
-    }
-  }
-
-  private knownProjectPaths(): string[] {
-    return [...new Set([...this.knownTaskPaths()].map((path) => dirname(dirname(dirname(path)))))]
-  }
-
-  private handleChangedPath(path: string): void {
-    if (!existsSync(path)) {
-      return
-    }
-    try {
-      const projectPath = dirname(dirname(dirname(path)))
-      const task = this.readOwned(path, projectPath)
-      if (!task) {
-        return
-      }
-      this.watchers?.watchTask(task)
-      this.changeListener?.(task)
-    } catch {
-      // The next explicit load surfaces malformed JSON without replacing it.
     }
   }
 }
