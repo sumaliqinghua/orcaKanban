@@ -42,6 +42,9 @@ export function updateTask(
   const reopenAfterClarification = organizingInboxTask && current.status === 'Needs review'
   return store.writeTask({
     ...current,
+    projectPath: updates.projectPath?.trim() || current.projectPath,
+    workspaceId: updates.workspaceId?.trim() || current.workspaceId,
+    workspaceLabel: updates.workspaceLabel?.trim() || current.workspaceLabel,
     title: updates.title?.trim() || current.title,
     description: updates.description?.trim() || current.description,
     status: reopenAfterClarification ? 'Open' : nextStatus,

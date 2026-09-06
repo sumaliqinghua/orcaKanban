@@ -1214,3 +1214,11 @@
 - **How（怎么实现的）**：创建任务 → 写入 `PersistedState.localTasks`；仅当任务已有 workspace 且状态为可执行时才补齐三份 Markdown。现有任务转可执行的目标 workspace 选择仍需下一阶段补齐。
 - **验证**：Web 类型检查通过；任务和任务中心相关测试 54 项通过。
 - **已知限制**：转可执行操作尚未携带目标项目/workspace，因此当前 UI 仍不能完整完成收件箱落位。
+
+## 2026-09-07：收件箱整理时绑定当前 workspace
+
+- **What（做了什么）**：`UpdateLocalTaskArgs` 和 IPC 校验支持更新项目路径、workspace ID 与显示名称；任务更新会同步这些归属字段；任务中心“整理为可执行”按钮要求当前存在目标 workspace，并把任务归属写入该 workspace 后再切换为 `ready`。
+- **Why（为什么这么做）**：收件箱任务创建时没有项目/workspace，转为可执行时必须明确落位，不能只修改 intake 状态。
+- **How（怎么实现的）**：用户打开目标 workspace → 点击整理 → UI 读取当前 workspace → IPC 校验 → 主 Store 更新任务归属 → 任务上下文文件在目标目录补齐。
+- **用户须知**：没有打开目标 workspace 时，整理操作会提示用户先打开 workspace；不会把任务写入当前应用目录。
+- **已知限制**：当前目标取自已打开的 workspace，尚未提供整理对话框让用户从所有项目/workspace 中选择；后续可复用现有 workspace 选择器。

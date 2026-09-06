@@ -118,6 +118,9 @@ export type CreateLocalTaskArgs = {
 }
 
 export type UpdateLocalTaskArgs = {
+  projectPath?: string
+  workspaceId?: string
+  workspaceLabel?: string
   title?: string
   description?: string
   status?: LocalTaskStatus

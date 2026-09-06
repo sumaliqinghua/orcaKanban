@@ -52,6 +52,9 @@ export const updateLocalTaskArgsSchema = z
     projectPath: z.string().trim().min(1).max(4_096).optional(),
     updates: z
       .object({
+        projectPath: z.string().trim().min(1).max(4_096).optional(),
+        workspaceId: id.optional(),
+        workspaceLabel: shortText.optional(),
         title: shortText.optional(),
         description: longText.optional(),
         status: taskStatus.optional(),

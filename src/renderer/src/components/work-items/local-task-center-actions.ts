@@ -162,11 +162,25 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     if (!selected || selected.intakeState !== 'inbox') {
       return
     }
+    const activeWorkspaceId = useAppStore.getState().activeWorktreeId
+    const workspace = activeWorkspaceId
+      ? useAppStore.getState().getKnownWorktreeById(activeWorkspaceId)
+      : undefined
+    if (!workspace) {
+      setLoadError('请先打开一个目标 workspace，再整理收件箱任务')
+      return
+    }
     void window.api.localTasks
       .update({
         taskId: selected.id,
         projectPath: selected.projectPath,
-        updates: { intakeState: 'ready', status: 'Open' }
+        updates: {
+          intakeState: 'ready',
+          status: 'Open',
+          projectPath: workspace.path,
+          workspaceId: workspace.id,
+          workspaceLabel: workspace.displayName
+        }
       })
       .then((task) => replaceTask(setItems, task))
       .catch((error: unknown) =>
