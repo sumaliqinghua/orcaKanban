@@ -1343,3 +1343,11 @@
 - **How（怎么实现的）**：上下文文件路径 → `task-context-paths`；历史 JSON 路径 → `legacy-task-file-paths`；旧监听仅保留历史分支。
 - **验证**：本地任务测试 13 项通过；Web 类型检查通过。
 - **已知限制**：`file-store-format.ts` 仍被旧 Store 读写分支引用，尚未删除。
+
+## 2026-09-07：任务 Store 构造必须注入持久化
+
+- **What（做了什么）**：`LocalTaskStore` 构造函数改为必须接收 `LocalTaskProfilePersistence`，所有任务测试和生产单例均显式注入 profile 适配器；不再允许无参数构造。
+- **Why（为什么这么做）**：从类型层面阻止新代码意外创建没有软件持久化的任务 Store，避免未来重新引入旧文件真相。
+- **How（怎么实现的）**：主 Store → profile persistence adapter → `LocalTaskStore`；测试使用内存适配器，生产 IPC 使用 Orca profile。
+- **验证**：本地任务与 RPC 测试 18 项通过；Web 类型检查通过。
+- **已知限制**：旧文件分支代码仍在类内部，下一步可在确认无调用后删除。

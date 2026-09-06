@@ -53,7 +53,7 @@ export class LocalTaskStore {
   private readonly watchers: LocalTaskFileWatchers | null
   private changeListener: ((task: LocalTask) => void) | null = null
 
-  constructor(private readonly profilePersistence?: LocalTaskProfilePersistence) {
+  constructor(private readonly profilePersistence: LocalTaskProfilePersistence) {
     this.watchers = profilePersistence
       ? null
       : new LocalTaskFileWatchers((path) => this.handleChangedPath(path))
