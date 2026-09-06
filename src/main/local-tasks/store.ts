@@ -255,16 +255,18 @@ export class LocalTaskStore {
     if (task.sessions.some((session) => activeIds.has(session.id))) {
       throw new Error('Cannot delete a task with a running Agent session')
     }
-    const directory = localTaskDirectory(task.projectPath, task.id)
-    const expectedParent = join(resolve(task.projectPath), LOCAL_TASK_ROOT_NAME)
-    if (
-      normalizeRuntimePathForComparison(dirname(directory)) !==
-      normalizeRuntimePathForComparison(expectedParent)
-    ) {
-      throw new Error('Refusing to delete a local task outside its workspace task directory')
+    const directory = task.projectPath ? localTaskDirectory(task.projectPath, task.id) : null
+    if (directory) {
+      const expectedParent = join(resolve(task.projectPath), LOCAL_TASK_ROOT_NAME)
+      if (
+        normalizeRuntimePathForComparison(dirname(directory)) !==
+        normalizeRuntimePathForComparison(expectedParent)
+      ) {
+        throw new Error('Refusing to delete a local task outside its workspace task directory')
+      }
+      this.watchers.unwatchTask(task)
+      rmSync(directory, { recursive: true, force: true })
     }
-    this.watchers.unwatchTask(task)
-    rmSync(directory, { recursive: true, force: true })
     this.profilePersistence?.deleteLocalTask(task.id)
     this.forgetLocation(task.id, task.projectPath)
     return { taskId: task.id, projectPath: task.projectPath }
