@@ -1314,3 +1314,10 @@
 - **Why（为什么这么做）**：AI 记录属于独立文件功能，不应依赖包含 `task.json` schema 和任务扫描的旧文件 Store 模块；抽离后可以继续清理旧格式而不影响 AI 记录。
 - **How（怎么实现的）**：AI 记录/任务记录 → `task-context-file-io` → 指定上下文目录；旧任务 JSON 解析只保留给过渡测试。
 - **验证**：本地任务测试 47 项通过；格式检查通过。
+
+## 2026-09-07：迁移生命周期和收件箱测试到 profile fixture
+
+- **What（做了什么）**：`session-lifecycle.test.ts` 和 `store-inbox.test.ts` 不再创建无持久化的文件 Store，改用内存 profile 适配器；`file-store-index.ts` 识别 `profile:<taskId>` 虚拟路径，不再调用文件存在性检查后错误丢弃任务。
+- **Why（为什么这么做）**：核心状态测试应验证 Orca profile 真相，而不是旧 `task.json` 文件；虚拟路径修复保证会话、步骤和收件箱更新在 profile 模式正常工作。
+- **How（怎么实现的）**：测试 profile 适配器保存任务数组 → `LocalTaskStore(profilePersistence)` → mutation index 使用虚拟任务路径 → 状态更新和会话关联。
+- **验证**：会话生命周期 4 项、收件箱 1 项通过；相关任务测试继续通过。

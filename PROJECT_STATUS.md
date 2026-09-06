@@ -15,6 +15,7 @@
 - 当前任务中心 E2E 已验证：E2E 构建、创建无 workspace 收件箱任务、进入任务中心并从 profile 读取任务均通过；完整会话启动/停止和真实验收流程仍未覆盖。
 - 新增 profile persistence 重启回归测试，验证任务元数据可由新 Store 实例恢复。
 - `ready` 任务现在必须有项目/workspace；无归属任务只能先进入 `inbox`。
+- 会话生命周期和收件箱测试已迁移到 profile fixture；剩余旧文件测试集中在 `store.test.ts` 的文件格式/监听覆盖。
 - 下方诊断是历史背景，与当前目标冲突处以 `TASK_REDESIGN_IMPLEMENTATION.md` 顶部基线为准。
 
 ## 最新诊断：2026-09-05

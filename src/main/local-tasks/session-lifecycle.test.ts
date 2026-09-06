@@ -2,14 +2,27 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { LocalTaskStore } from './store'
+import { LocalTaskStore, type LocalTaskProfilePersistence } from './store'
+import type { LocalTask } from '../../shared/local-task-types'
 
 describe('task session lifecycle', () => {
   let root: string
   let store: LocalTaskStore
+  let saved: LocalTask[]
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'orca-task-lifecycle-'))
-    store = new LocalTaskStore()
+    saved = []
+    const persistence: LocalTaskProfilePersistence = {
+      getLocalTasks: () => saved,
+      saveLocalTask: (task) => {
+        saved = [...saved.filter((entry) => entry.id !== task.id), task]
+        return task
+      },
+      deleteLocalTask: (id) => {
+        saved = saved.filter((entry) => entry.id !== id)
+      }
+    }
+    store = new LocalTaskStore(persistence)
   })
   afterEach(() => {
     store.close()

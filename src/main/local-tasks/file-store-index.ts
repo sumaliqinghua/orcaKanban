@@ -6,7 +6,7 @@ import type { LocalTask } from '../../shared/local-task-types'
 type ReadTask = (path: string) => LocalTask
 
 function readPresentTask(path: string, read: ReadTask): LocalTask | null {
-  if (!existsSync(path)) {
+  if (!path.startsWith('profile:') && !existsSync(path)) {
     return null
   }
   try {
