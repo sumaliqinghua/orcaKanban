@@ -14,6 +14,7 @@ import { useAiVaultSessionLaunchActions } from '../right-sidebar/ai-vault-sessio
 import { findWorktreeById } from '@/store/slices/worktree-helpers'
 import type { AiVaultSessionResumeTargetState } from '../right-sidebar/ai-vault-session-resume'
 import { LocalTaskSessionHistory } from './LocalTaskSessionHistory'
+import type { Worktree } from '../../../../shared/worktree/types'
 
 function LocalTaskSessionPreview({
   sessionId,
@@ -56,14 +57,12 @@ function LocalTaskSessionPreview({
     activeWorktreeId ? (findWorktreeById(state.worktreesByRepo, activeWorktreeId) ?? null) : null
   )
   const targetState = useAppStore(
-    useShallow(
-      (state): AiVaultSessionResumeTargetState => ({
-        folderWorkspaces: state.folderWorkspaces,
-        projectGroups: state.projectGroups,
-        repos: state.repos,
-        worktreesByRepo: state.worktreesByRepo
-      })
-    )
+    useShallow((state): AiVaultSessionResumeTargetState => ({
+      folderWorkspaces: state.folderWorkspaces,
+      projectGroups: state.projectGroups,
+      repos: state.repos,
+      worktreesByRepo: state.worktreesByRepo
+    }))
   )
   const { handleResume } = useAiVaultSessionLaunchActions({
     activeWorktree,
@@ -230,7 +229,7 @@ export function LocalTaskDetailAside({
   onArchive: () => void
   onRestore: () => void
   onDelete: () => void
-  onPromote: () => void
+  onPromote: (workspace: Worktree) => void
   onMoveToInbox: () => void
   labelSuggestions: string[]
   onTaskChanged: (task: LocalTask) => void

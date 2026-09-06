@@ -2,6 +2,7 @@ import { useAppStore } from '@/store'
 import type { LocalTask } from '../../../../shared/local-task-types'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import type { DashboardRevealAgentArgs } from '../../../../shared/dashboard-snapshot'
+import type { Worktree } from '../../../../shared/worktree/types'
 import { localTaskToViewModel } from './local-task-view-model'
 import type { WorkItem } from './mock-data'
 import { openLocalTaskWorkspace } from './local-task-workspace-navigation'
@@ -26,7 +27,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   archiveSelected: () => void
   restoreSelected: () => void
   deleteSelected: () => void
-  promoteSelected: () => void
+  promoteSelected: (workspace: Worktree) => void
   moveSelectedToInbox: () => void
   openWorkspace: (request?: string | DashboardRevealAgentArgs) => void
   sessionStarted: (tabId: string, request: string) => void
@@ -158,16 +159,8 @@ export function createLocalTaskCenterActions(context: ActionContext): {
         setLoadError(error instanceof Error ? error.message : '任务永久删除失败')
       )
   }
-  const promoteSelected = (): void => {
+  const promoteSelected = (workspace: Worktree): void => {
     if (!selected || selected.intakeState !== 'inbox') {
-      return
-    }
-    const activeWorkspaceId = useAppStore.getState().activeWorktreeId
-    const workspace = activeWorkspaceId
-      ? useAppStore.getState().getKnownWorktreeById(activeWorkspaceId)
-      : undefined
-    if (!workspace) {
-      setLoadError('请先打开一个目标 workspace，再整理收件箱任务')
       return
     }
     void window.api.localTasks
