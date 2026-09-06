@@ -1365,3 +1365,10 @@
 - **How（怎么实现的）**：主 Store → profile persistence → `LocalTaskStore` → mutation modules；任务上下文文件通过独立路径和 IO 模块写入，AI 记录不依赖任务 JSON schema。
 - **验证**：本地任务和 RPC 测试 18 项通过；Web 类型检查通过；源码搜索不再发现旧文件 Store 模块引用。主进程全量类型检查仅剩既有 `cdp-print-to-pdf.ts` Electron 类型错误。
 - **已知限制**：保留 `task-context-paths.ts` 与 `task-context-file-io.ts`，它们只负责三份 Markdown 和 AI 记录文件，不保存任务状态。
+
+## 2026-09-07：修复任务中心空状态遮蔽收件箱
+
+- **What（做了什么）**：`WorkItemsPrototypePage.tsx` 的空状态判断改为仅在没有任何任务和 AI 记录时显示；当任务存在但当前队列为空时，仍渲染本地任务来源、收件箱和其他队列标签。
+- **Why（为什么这么做）**：收件箱任务不属于默认“可执行”队列，旧判断使用 `selected === null` 直接显示“还没有本地任务”，导致收件箱实际存在却无法进入。
+- **How（怎么实现的）**：任务数据存在 → 保留任务中心导航和队列标签 → 用户切换到收件箱 → 查看任务；只有任务总数为零才显示空状态。
+- **验证**：Electron E2E 构建后，收件箱任务页面测试通过 1 项；任务中心模块测试继续通过。

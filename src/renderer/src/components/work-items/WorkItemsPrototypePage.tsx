@@ -179,7 +179,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
       </div>
     )
   }
-  if (!selected && aiRecordCount === 0) {
+  if (effectiveItems.length === 0 && aiRecordCount === 0) {
     return (
       <LocalTaskCenterEmptyState
         onCreate={openTaskComposer}
