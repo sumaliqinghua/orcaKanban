@@ -1286,3 +1286,10 @@
 - **Why（为什么这么做）**：旧测试依赖已删除的 AI 记录入口，无法验证当前产品；空路径收件箱若不纳入范围，真实页面会显示为空。
 - **How（怎么实现的）**：Electron E2E 构建（开启 `VITE_EXPOSE_STORE`）→ 创建收件箱任务 → 进入任务中心 → API 列表验证持久化 → 页面范围筛选验证任务可见。
 - **验证**：`SKIP_BUILD=1 pnpm exec playwright test tests/e2e/kanban-ai-records.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1` 通过 1 项；E2E 构建此前已成功。
+
+## 2026-09-07：增加 profile 持久化重启回归测试
+
+- **What（做了什么）**：`src/main/local-tasks/profile-persistence.test.ts` 新增测试，使用同一 profile persistence 适配器创建两个 `LocalTaskStore` 实例，验证第二个实例能读取第一个实例保存的任务、默认子任务和会话关系。
+- **Why（为什么这么做）**：任务元数据的关键要求是脱离 workspace 文件并在软件重启后继续存在；单实例读写测试不足以证明这一点。
+- **How（怎么实现的）**：Store 实例 A 写入 profile → 关闭 → Store 实例 B 从同一 profile 读取 → 校验任务和默认子任务。
+- **验证**：profile persistence 测试 3 项通过。

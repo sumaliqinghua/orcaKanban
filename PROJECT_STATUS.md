@@ -13,6 +13,7 @@
 - 生产任务 Store 未注入 Orca profile 时会直接报初始化错误，不再静默回退到项目 `task.json`；旧文件 Store 仅剩测试/过渡路径。
 - 收件箱整理现在使用显式 workspace 选择器，确认后才写入项目/workspace 归属；任务卡读取稳定索引，避免 selector 造成无限更新。
 - 当前任务中心 E2E 已验证：E2E 构建、创建无 workspace 收件箱任务、进入任务中心并从 profile 读取任务均通过；完整会话启动/停止和真实验收流程仍未覆盖。
+- 新增 profile persistence 重启回归测试，验证任务元数据可由新 Store 实例恢复。
 - 下方诊断是历史背景，与当前目标冲突处以 `TASK_REDESIGN_IMPLEMENTATION.md` 顶部基线为准。
 
 ## 最新诊断：2026-09-05

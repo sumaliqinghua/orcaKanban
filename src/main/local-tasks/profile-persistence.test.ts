@@ -52,6 +52,26 @@ describe('LocalTaskStore profile persistence', () => {
     store.close()
   })
 
+  it('restores task metadata in a new store instance', () => {
+    let saved: LocalTask[] = []
+    const persistence: LocalTaskProfilePersistence = {
+      getLocalTasks: () => saved,
+      saveLocalTask: (task) => {
+        saved = [...saved.filter((entry) => entry.id !== task.id), task]
+        return task
+      },
+      deleteLocalTask: (id) => {
+        saved = saved.filter((entry) => entry.id !== id)
+      }
+    }
+    const first = new LocalTaskStore(persistence)
+    const created = first.create({ projectId: 'orca', description: '重启恢复' })
+    first.close()
+    const second = new LocalTaskStore(persistence)
+    expect(second.get(created.id)?.subtasks[0]?.title).toBe('实现：重启恢复')
+    second.close()
+  })
+
   it('keeps inbox tasks visible when a project path filter is applied', () => {
     const root = mkdtempSync(join(tmpdir(), 'orca-local-task-inbox-'))
     roots.push(root)
