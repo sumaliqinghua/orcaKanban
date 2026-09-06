@@ -14,6 +14,7 @@
 - 旧文件 Store、`task.json` schema、目录扫描和监听实现已删除；任务生产路径现在只有 Orca profile persistence。
 - 收件箱整理现在使用显式 workspace 选择器，确认后才写入项目/workspace 归属；任务卡读取稳定索引，避免 selector 造成无限更新。
 - 当前任务中心 E2E 已验证：E2E 构建、创建无 workspace 收件箱任务、进入任务中心并从 profile 读取任务均通过；完整会话启动/停止和真实验收流程仍未覆盖。
+- 当前任务中心 E2E 已覆盖收件箱整理和并行会话状态聚合；完整真实 Agent 启动/恢复仍依赖现有 Orca Agent 流程。
 - 已修复任务存在但默认队列为空时误显示全局空状态的问题，收件箱入口现在不会被遮蔽。
 - 新增 profile persistence 重启回归测试，验证任务元数据可由新 Store 实例恢复。
 - `ready` 任务现在必须有项目/workspace；无归属任务只能先进入 `inbox`。
