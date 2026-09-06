@@ -11,7 +11,6 @@ import type {
   LocalTaskDeletion,
   LocalTaskSession,
   StartLocalTaskBatchArgs,
-  TransferLocalTaskWorkspaceArgs,
   UpdateLocalTaskRunArgs,
   UpdateLocalTaskSessionOutputArgs,
   RebindLocalTaskSessionTabArgs,
@@ -51,7 +50,6 @@ export type LocalTaskApi = {
   archive: (args: ArchiveLocalTaskArgs) => Promise<LocalTask>
   restore: (args: AcceptLocalTaskArgs) => Promise<LocalTask>
   delete: (args: DeleteLocalTaskArgs) => Promise<LocalTaskDeletion>
-  transferWorkspace: (args: TransferLocalTaskWorkspaceArgs) => Promise<LocalTask[]>
   onChanged: (callback: (task: LocalTask) => void) => () => void
   onDeleted: (callback: (deletion: LocalTaskDeletion) => void) => () => void
 }

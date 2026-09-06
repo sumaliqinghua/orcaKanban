@@ -212,51 +212,6 @@ describe('LocalTaskStore file-first persistence', () => {
     store.close()
   })
 
-  it('transfers task ownership and context files to a merged target workspace', () => {
-    const sourceRoot = projectPath()
-    const targetRoot = projectPath()
-    const store = new LocalTaskStore()
-    const task = store.create({
-      projectId: 'orca',
-      projectPath: sourceRoot,
-      description: '合入后继续验收',
-      workspaceId: 'source-workspace',
-      workspaceLabel: 'feature/task'
-    })
-    const session = store.createSession({
-      taskId: task.id,
-      projectPath: sourceRoot,
-      sessionId: 'session-1',
-      workspaceId: task.workspaceId
-    })
-    store.updateSessionOutput({ sessionId: session.id, latestOutput: '等待验收' })
-    writeFileSync(join(sourceRoot, 'orca', task.id, 'prd.md'), '# 合入任务\n', 'utf8')
-
-    const [transferred] = store.transferWorkspace({
-      sourceProjectPath: sourceRoot,
-      targetProjectId: 'orca',
-      targetProjectPath: targetRoot,
-      targetWorkspaceId: 'target-workspace',
-      targetWorkspaceLabel: 'main'
-    })
-
-    expect(transferred).toMatchObject({
-      id: task.id,
-      projectPath: targetRoot,
-      workspaceId: 'target-workspace',
-      workspaceLabel: 'main',
-      status: 'Needs review'
-    })
-    expect(store.list('orca', sourceRoot)).toEqual([])
-    expect(store.list('orca', targetRoot)).toHaveLength(1)
-    expect(readFileSync(join(targetRoot, 'orca', task.id, 'prd.md'), 'utf8')).toBe('# 合入任务\n')
-    const sourceShadow = JSON.parse(
-      readFileSync(join(sourceRoot, 'orca', task.id, 'task.json'), 'utf8')
-    ) as { projectPath: string }
-    expect(sourceShadow.projectPath).toBe(targetRoot)
-    store.close()
-  })
-
   it('does not retain a task after its unmerged workspace directory is deleted', () => {
     const root = projectPath()
     const store = new LocalTaskStore()

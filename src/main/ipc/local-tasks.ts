@@ -20,7 +20,6 @@ import {
   parseLocalTaskIpcArgs,
   reportLocalTaskCompletedArgsSchema,
   startLocalTaskBatchArgsSchema,
-  transferLocalTaskWorkspaceArgsSchema,
   updateLocalTaskRunArgsSchema,
   updateLocalTaskArgsSchema,
   updateLocalTaskStepArgsSchema,
@@ -153,10 +152,6 @@ export function registerLocalTaskHandlers(profileStore: Store): void {
     const deletion = store.deleteTask(parsed.taskId, parsed.projectPath, parsed.activeSessionIds)
     publishLocalTaskDeletion(deletion)
     return deletion
-  })
-  ipcMain.handle('localTasks:transferWorkspace', (_event, args: unknown) => {
-    const parsed = parseLocalTaskIpcArgs(transferLocalTaskWorkspaceArgsSchema, args)
-    return store.transferWorkspace(parsed)
   })
   ipcMain.handle('localTasks:updateStep', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(

@@ -596,8 +596,6 @@ const api = {
       ipcRenderer.invoke('localTasks:restore', args),
     delete: (args: Parameters<LocalTaskApi['delete']>[0]) =>
       ipcRenderer.invoke('localTasks:delete', args),
-    transferWorkspace: (args: Parameters<LocalTaskApi['transferWorkspace']>[0]) =>
-      ipcRenderer.invoke('localTasks:transferWorkspace', args),
     onChanged: (callback: Parameters<LocalTaskApi['onChanged']>[0]): (() => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,

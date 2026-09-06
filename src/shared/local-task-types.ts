@@ -200,14 +200,6 @@ export type DeleteLocalTaskArgs = {
 }
 export type LocalTaskDeletion = { taskId: string; projectPath: string }
 
-export type TransferLocalTaskWorkspaceArgs = {
-  sourceProjectPath: string
-  targetProjectId: string
-  targetProjectPath: string
-  targetWorkspaceId: string
-  targetWorkspaceLabel: string
-}
-
 export type CreateLocalTaskSubtaskArgs = {
   taskId: string
   projectPath?: string

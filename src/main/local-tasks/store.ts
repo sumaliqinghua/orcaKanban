@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { resolveLocalTaskStatus } from '../../shared/local-task-status'
-import { cpSync, existsSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type {
   CreateLocalTaskArgs,
@@ -18,8 +18,7 @@ import type {
   UpdateLocalTaskArgs,
   UpdateLocalTaskStepArgs,
   UpdateLocalTaskSubtaskArgs,
-  UpdateLocalTaskSessionOutputArgs,
-  TransferLocalTaskWorkspaceArgs
+  UpdateLocalTaskSessionOutputArgs
 } from '../../shared/local-task-types'
 import { normalizeRuntimePathForComparison } from '../../shared/cross-platform-path'
 import {
@@ -270,45 +269,6 @@ export class LocalTaskStore {
     this.profilePersistence?.deleteLocalTask(task.id)
     this.forgetLocation(task.id, task.projectPath)
     return { taskId: task.id, projectPath: task.projectPath }
-  }
-
-  transferWorkspace(args: TransferLocalTaskWorkspaceArgs): LocalTask[] {
-    const sourceRoot = resolve(args.sourceProjectPath)
-    const targetRoot = resolve(args.targetProjectPath)
-    if (
-      normalizeRuntimePathForComparison(sourceRoot) ===
-      normalizeRuntimePathForComparison(targetRoot)
-    ) {
-      return []
-    }
-    const sourceTasks = taskFiles(sourceRoot)
-      .map((path) => ({ path, task: readLocalTaskFile(path) }))
-      .filter(({ task }) => this.isOwnedBy(task, sourceRoot))
-    const updatedAt = timestamp()
-    const transferred = sourceTasks.map(({ path, task }) => {
-      const targetDirectory = localTaskDirectory(targetRoot, task.id)
-      cpSync(localTaskDirectory(sourceRoot, task.id), targetDirectory, {
-        recursive: true,
-        force: true
-      })
-      const next: LocalTask = {
-        ...task,
-        projectId: args.targetProjectId,
-        projectPath: targetRoot,
-        workspaceId: args.targetWorkspaceId,
-        workspaceLabel: args.targetWorkspaceLabel,
-        updatedAt
-      }
-      this.writeTask(next)
-      writeJson(path, next)
-      this.forgetLocation(task.id, sourceRoot)
-      return next
-    })
-    this.watchers.watchProject(targetRoot)
-    for (const task of transferred) {
-      this.watchers.watchTask(task)
-    }
-    return transferred
   }
 
   createSession(args: CreateLocalTaskSessionArgs & { projectPath?: string }): LocalTaskSession {
