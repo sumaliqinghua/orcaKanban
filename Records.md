@@ -1377,3 +1377,9 @@
 
 - **What（做了什么）**：扩展 `tests/e2e/kanban-ai-records.spec.ts`，覆盖收件箱标签、任务卡、详情抽屉、“整理为可执行”按钮和 workspace 选择器。
 - **验证**：重建 E2E 产物后测试通过 1 项；页面空状态修复和空路径项目范围规则均在真实 Electron 中生效。
+
+## 2026-09-07：并行会话状态 Electron E2E 通过
+
+- **What（做了什么）**：`tests/e2e/kanban-ai-records.spec.ts` 新增场景，通过真实 preload IPC 创建任务和两个会话，依次停止会话并验收任务。
+- **How（怎么实现的）**：两个会话运行时任务为 `In progress`；停止一路仍为 `In progress`；停止全部后为 `Needs review`；用户验收后为 `Done`。
+- **验证**：该 E2E 文件两项测试均通过；任务模块测试和 Web 类型检查保持通过。
