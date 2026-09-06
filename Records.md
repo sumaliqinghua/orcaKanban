@@ -1321,3 +1321,11 @@
 - **Why（为什么这么做）**：核心状态测试应验证 Orca profile 真相，而不是旧 `task.json` 文件；虚拟路径修复保证会话、步骤和收件箱更新在 profile 模式正常工作。
 - **How（怎么实现的）**：测试 profile 适配器保存任务数组 → `LocalTaskStore(profilePersistence)` → mutation index 使用虚拟任务路径 → 状态更新和会话关联。
 - **验证**：会话生命周期 4 项、收件箱 1 项通过；相关任务测试继续通过。
+
+## 2026-09-07：删除旧文件 Store 历史测试
+
+- **What（做了什么）**：删除 `src/main/local-tasks/store.test.ts`。该文件的测试全部围绕 `task.json`、`plan.json`、跨 workspace 复制、目录监听和旧文件索引，已不再代表当前产品；保留 `profile-persistence.test.ts`、`session-lifecycle.test.ts`、`store-inbox.test.ts` 和 RPC/UI 测试覆盖软件持久化下的核心行为。
+- **Why（为什么这么做）**：旧测试会把已经取消的文件真相和 workspace 跟随关系继续当作验收标准，阻碍删除旧代码并误导后续开发。
+- **How（怎么实现的）**：移除旧测试 → 运行剩余任务测试 → 以 profile fixture 验证创建、会话、状态、收件箱和重启恢复。
+- **验证**：任务 Store、RPC、任务中心和相关 UI 测试 19 个文件、58 项通过。
+- **已知限制**：`file-store-format.ts` 和 `file-store-watch.ts` 仍被 `LocalTaskStore` 的无 profile 过渡分支使用，下一阶段删除。
