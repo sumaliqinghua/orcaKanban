@@ -1336,6 +1336,12 @@
 - **验证**：19 个测试文件、58 项通过；Web 类型检查通过；工作区干净。
 - **当前边界**：唯一仍直接构造无 profile `LocalTaskStore` 的是 RPC 单元测试，它通过测试专用 setter 注入临时实例，不代表生产回退路径。
 
+## 2026-09-07：旧文件 Store 实现删除与验证边界
+
+- **What（做了什么）**：删除 `file-store-format.ts`、`file-store-watch.ts`、`legacy-task-file-paths.ts`；`LocalTaskStore` 只保留 profile persistence 和上下文 Markdown 写入；RPC、生命周期、收件箱测试均使用 profile fixture。
+- **验证**：任务相关测试 5 个文件、18 项通过；Web 类型检查通过；源码不再引用旧文件 Store 模块。
+- **E2E 边界**：Electron E2E 已验证构建、Store 暴露和 profile API 创建收件箱任务；当前页面加载后收件箱队列按钮未稳定出现，完整 UI 整理流程尚未作为通过证据。
+
 ## 2026-09-07：拆分旧任务文件路径与上下文路径
 
 - **What（做了什么）**：新增 `task-context-paths.ts` 保存 `orca/<task-id>` 和三份 Markdown 的路径常量；新增 `legacy-task-file-paths.ts` 单独保存旧 `task.json` 路径；旧监听改用拆分后的路径模块。
