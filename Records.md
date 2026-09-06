@@ -1273,3 +1273,9 @@
 - **What（做了什么）**：运行 `SKIP_BUILD=1 pnpm exec playwright test tests/e2e/kanban-ai-records.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1`，复用现有构建产物执行任务中心相关 E2E。
 - **结果**：测试仓库创建和 Electron 启动完成，但测试初始化等待 `window.__store` 30 秒超时，未进入任务中心场景；因此不能把真实 Electron 流程标记为通过。Playwright 已生成截图和 trace，位于 `test-results/`，未加入 Git。
 - **后续**：需要先修复 E2E 启动时 Store 暴露/构建产物问题，再验证任务中心创建、启动、并行、收件箱整理和验收流程。
+
+## 2026-09-07：重建后 Electron E2E 结果更新
+
+- **What（做了什么）**：运行完整 E2E 构建并再次执行 `tests/e2e/kanban-ai-records.spec.ts`。
+- **结果**：E2E 构建成功，`window.__store` 已正常暴露；测试在任务中心前查找旧的“AI 记录”按钮时失败，说明旧 fixture 与当前 kanban1 页面不匹配。没有把该失败归因于任务数据或状态逻辑。
+- **验证补充**：任务 Store、RPC、任务中心和相关 UI 模块测试共 20 个测试文件、90 项通过；Web 类型检查通过。
