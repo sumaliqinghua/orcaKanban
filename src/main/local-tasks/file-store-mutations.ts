@@ -102,12 +102,13 @@ export function createSession(
   }
   const nonExecutionSession = isNonExecutionSession(session)
   const status = nonExecutionSession ? task.status : 'In progress'
-  const subtasks =
+  const defaultSubtaskIndex =
     !nonExecutionSession && task.sessions.length === 0
-      ? task.subtasks.map((subtask) =>
-          subtask.sessionId === null ? { ...subtask, sessionId, updatedAt: createdAt } : subtask
-        )
-      : task.subtasks
+      ? task.subtasks.findIndex((subtask) => subtask.sessionId === null)
+      : -1
+  const subtasks = task.subtasks.map((subtask, index) =>
+    index === defaultSubtaskIndex ? { ...subtask, sessionId, updatedAt: createdAt } : subtask
+  )
   store.writeTask({
     ...task,
     subtasks,
@@ -142,7 +143,7 @@ export function createSubtask(
     createdAt,
     updatedAt: createdAt
   }
-  return store.writeTask({ ...task, subtasks: [...task.subtasks, subtask], updatedAt: createdAt })
+  return store.writeTask({ ...task, subtasks: [subtask, ...task.subtasks], updatedAt: createdAt })
 }
 export function reportCompleted(
   store: FileStoreMutationAccess,

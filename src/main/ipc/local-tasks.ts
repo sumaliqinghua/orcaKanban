@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { getLocalTaskStore } from '../local-tasks/store'
+import type { Store } from '../persistence'
 import type {
   ReportLocalTaskCompletedArgs,
   UpdateLocalTaskStepArgs
@@ -36,12 +37,12 @@ import { listKanbanAiRecords, markKanbanAiRecordRead } from '../local-tasks/ai-r
 
 let registered = false
 
-export function registerLocalTaskHandlers(): void {
+export function registerLocalTaskHandlers(profileStore: Store): void {
   if (registered) {
     return
   }
   registered = true
-  const store = getLocalTaskStore()
+  const store = getLocalTaskStore(profileStore)
   store.setOnChanged(publishLocalTaskChange)
   ipcMain.handle('localTasks:list', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(localTaskListArgsSchema, args)

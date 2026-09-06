@@ -513,7 +513,7 @@ describe('LocalTaskStore file-first persistence', () => {
     const [firstStep, secondStep] = subtask.steps
     expect(
       JSON.parse(readFileSync(join(root, 'orca', task.id, 'plan.json'), 'utf8')).subtasks
-    ).toHaveLength(1)
+    ).toHaveLength(2)
 
     store.updateStep({ subtaskId: subtask.id, stepId: firstStep.id, status: 'done' })
     expect(() =>
@@ -551,6 +551,7 @@ describe('LocalTaskStore file-first persistence', () => {
       projectPath: root,
       sessionId: 'session-two'
     })
+    store.updateSubtask({ subtaskId: task.subtasks[0]!.id, status: 'done' })
     store.createSubtask({
       taskId: task.id,
       projectPath: root,

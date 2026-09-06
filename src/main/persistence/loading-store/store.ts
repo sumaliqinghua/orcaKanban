@@ -15,6 +15,7 @@ import {
   type StoreDomains
 } from './store-domain-composition'
 import type { PersistedState } from '../../../shared/persisted-state-types'
+import type { LocalTask } from '../../../shared/local-task-types'
 import { scheduleSave } from './write-scheduling'
 import type { WriteSchedulingOperations } from './write-scheduling'
 import type { PrimaryStateWriteOperations } from './primary-state-writes'
@@ -85,6 +86,25 @@ export class Store {
 
   getProfileStorageDirectory(): string {
     return dirname(this.runtime.dataFile)
+  }
+
+  getLocalTasks(): LocalTask[] {
+    return [...this.state.localTasks]
+  }
+
+  saveLocalTask(task: LocalTask): LocalTask {
+    const index = this.state.localTasks.findIndex((entry) => entry.id === task.id)
+    this.state.localTasks =
+      index === -1
+        ? [...this.state.localTasks, task]
+        : this.state.localTasks.map((entry, entryIndex) => (entryIndex === index ? task : entry))
+    scheduleSave(this.domains.scheduling)
+    return task
+  }
+
+  deleteLocalTask(taskId: string): void {
+    this.state.localTasks = this.state.localTasks.filter((task) => task.id !== taskId)
+    scheduleSave(this.domains.scheduling)
   }
 
   freezeWrites(): void {

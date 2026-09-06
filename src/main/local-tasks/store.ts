@@ -40,6 +40,13 @@ import * as mutations from './file-store-mutations'
 import { transferSubtask } from './subtask-session-assignment'
 import * as subtaskMutations from './subtask-progress-mutations'
 import * as batchMutations from './file-store-batch-mutations'
+import type { LocalTask as PersistedLocalTask } from '../../shared/local-task-types'
+
+export type LocalTaskProfilePersistence = {
+  getLocalTasks: () => PersistedLocalTask[]
+  saveLocalTask: (task: PersistedLocalTask) => PersistedLocalTask
+  deleteLocalTask: (taskId: string) => void
+}
 
 let singleton: LocalTaskStore | null = null
 const timestamp = (): number => Date.now()
@@ -53,7 +60,7 @@ export class LocalTaskStore {
   private readonly watchers: LocalTaskFileWatchers
   private changeListener: ((task: LocalTask) => void) | null = null
 
-  constructor() {
+  constructor(private readonly profilePersistence?: LocalTaskProfilePersistence) {
     this.watchers = new LocalTaskFileWatchers((path) => this.handleChangedPath(path))
   }
 
@@ -70,6 +77,19 @@ export class LocalTaskStore {
     projectPath?: string,
     options: { includeArchived?: boolean } = {}
   ): LocalTask[] {
+    if (this.profilePersistence) {
+      return this.profilePersistence
+        .getLocalTasks()
+        .filter((task) => !projectId || task.projectId === projectId)
+        .filter(
+          (task) =>
+            !projectPath ||
+            normalizeRuntimePathForComparison(task.projectPath) ===
+              normalizeRuntimePathForComparison(resolve(projectPath))
+        )
+        .filter((task) => options.includeArchived === true || task.archivedAt === null)
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+    }
     const roots = projectPath ? [resolve(projectPath)] : this.knownProjectPaths()
     const tasks = roots.flatMap((root) =>
       taskFiles(root)
@@ -89,6 +109,19 @@ export class LocalTaskStore {
   }
 
   get(id: string, projectPath?: string): LocalTask | null {
+    if (this.profilePersistence) {
+      return (
+        this.profilePersistence
+          .getLocalTasks()
+          .find(
+            (task) =>
+              task.id === id &&
+              (!projectPath ||
+                normalizeRuntimePathForComparison(task.projectPath) ===
+                  normalizeRuntimePathForComparison(resolve(projectPath)))
+          ) ?? null
+      )
+    }
     const path = projectPath ? localTaskFile(projectPath, id) : this.latestKnownPath(id)
     if (!path || !existsSync(path)) {
       return null
@@ -134,23 +167,23 @@ export class LocalTaskStore {
       clarificationRequested: args.clarificationRequested === true,
       clarificationSessionId: null,
       runs: [],
-      subtasks: [],
+      subtasks: [
+        {
+          id: `ltsub_${randomUUID()}`,
+          title: `实现：${text(args.title, description.split(/\r?\n/, 1)[0] || '未命名本地任务')}`,
+          status: 'todo',
+          sessionId: null,
+          steps: [],
+          createdAt: time,
+          updatedAt: time
+        }
+      ],
       sessions: [],
       latestOutput: null,
       latestOutputSource: 'report'
     }
     this.writeTask(task)
-    const directory = localTaskDirectory(task.projectPath, task.id)
-    writeJson(join(directory, LOCAL_TASK_PLAN_FILE_NAME), {
-      schemaVersion: 1,
-      taskId: task.id,
-      subtasks: []
-    })
-    atomicWrite(
-      join(directory, LOCAL_TASK_PRD_FILE_NAME),
-      `# ${task.title}\n\n${task.description}\n`
-    )
-    atomicWrite(join(directory, LOCAL_TASK_RECORDS_FILE_NAME), `# ${task.title} 实现记录\n`)
+    this.writeContextFiles(task)
     this.watchers.watchProject(task.projectPath)
     this.watchers.watchTask(task)
     return task
@@ -233,7 +266,8 @@ export class LocalTaskStore {
       throw new Error('Refusing to delete a local task outside its workspace task directory')
     }
     this.watchers.unwatchTask(task)
-    rmSync(directory, { recursive: true, force: false })
+    rmSync(directory, { recursive: true, force: true })
+    this.profilePersistence?.deleteLocalTask(task.id)
     this.forgetLocation(task.id, task.projectPath)
     return { taskId: task.id, projectPath: task.projectPath }
   }
@@ -329,8 +363,22 @@ export class LocalTaskStore {
   private access(): mutations.FileStoreMutationAccess {
     return {
       requireTask: (id, projectPath) => this.require(id, projectPath),
-      readTask: (path) => this.readRemembered(path),
-      taskPaths: () => this.knownTaskPaths(),
+      taskPaths: () =>
+        this.profilePersistence
+          ? this.profilePersistence.getLocalTasks().map((task) => `profile:${task.id}`)
+          : this.knownTaskPaths(),
+      readTask: (path) => {
+        if (this.profilePersistence && path.startsWith('profile:')) {
+          const task = this.profilePersistence
+            .getLocalTasks()
+            .find((entry) => `profile:${entry.id}` === path)
+          if (!task) {
+            throw new Error(`Local task not found: ${path}`)
+          }
+          return task
+        }
+        return this.readRemembered(path)
+      },
       writeTask: (task) => this.writeTask(task)
     }
   }
@@ -355,6 +403,11 @@ export class LocalTaskStore {
         )
       )
     }
+    if (this.profilePersistence) {
+      const result = this.profilePersistence.saveLocalTask(task)
+      this.writeContextFiles(result)
+      return result
+    }
     const path = localTaskFile(task.projectPath, task.id)
     writeJson(path, task)
     const planPath = join(localTaskDirectory(task.projectPath, task.id), LOCAL_TASK_PLAN_FILE_NAME)
@@ -376,6 +429,22 @@ export class LocalTaskStore {
     this.rememberLocation(task, path)
     this.changeListener?.(task)
     return task
+  }
+
+  private writeContextFiles(task: LocalTask): void {
+    const directory = localTaskDirectory(task.projectPath, task.id)
+    const prdPath = join(directory, LOCAL_TASK_PRD_FILE_NAME)
+    const planPath = join(directory, LOCAL_TASK_PLAN_FILE_NAME.replace('.json', '.md'))
+    const recordsPath = join(directory, LOCAL_TASK_RECORDS_FILE_NAME)
+    if (!existsSync(prdPath)) {
+      atomicWrite(prdPath, `# ${task.title}\n\n${task.description}\n`)
+    }
+    if (!existsSync(planPath)) {
+      atomicWrite(planPath, `# ${task.title} 计划\n`)
+    }
+    if (!existsSync(recordsPath)) {
+      atomicWrite(recordsPath, `# ${task.title} 实现记录\n`)
+    }
   }
 
   private readRemembered(path: string): LocalTask {
@@ -503,7 +572,8 @@ export class LocalTaskStore {
   }
 }
 
-export const getLocalTaskStore = (): LocalTaskStore => (singleton ??= new LocalTaskStore())
+export const getLocalTaskStore = (persistence?: LocalTaskProfilePersistence): LocalTaskStore =>
+  (singleton ??= new LocalTaskStore(persistence))
 export const setLocalTaskStoreForTests = (value: LocalTaskStore | null): void => {
   singleton?.close()
   singleton = value

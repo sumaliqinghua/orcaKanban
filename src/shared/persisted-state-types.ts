@@ -23,6 +23,7 @@ import type { RetiredNameRegistry } from './worktree/retired-name-registry'
 import type { WorkspaceLineage, WorktreeLineage } from './worktree/lineage-types'
 import type { WorktreeMeta } from './worktree/meta-types'
 import type { WorkspaceSessionState } from './workspace-session-state-types'
+import type { LocalTask } from './local-task-types'
 
 export type LegacyPaneKeyAliasEntry = {
   ptyId: string
@@ -109,6 +110,8 @@ export type PersistedState = {
   legacyPaneKeyAliasEntries: LegacyPaneKeyAliasEntry[]
   automations: Automation[]
   automationRuns: AutomationRun[]
+  /** Task metadata owned by Orca; project workspaces only carry human/agent context markdown. */
+  localTasks: LocalTask[]
   onboarding: OnboardingState
   /** Main-owned telemetry de-dupe marker; never exposed through PersistedUIState. */
   featureInteractionTelemetryBuckets?: FeatureInteractionTelemetryBucketState

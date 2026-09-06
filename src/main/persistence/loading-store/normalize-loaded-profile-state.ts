@@ -91,6 +91,7 @@ export function normalizeLoadedProfileState(
     legacyPaneKeyAliasEntries: normalizeLegacyPaneKeyAliasEntries(parsed.legacyPaneKeyAliasEntries),
     automations: Array.isArray(parsed.automations) ? parsed.automations : [],
     automationRuns: normalizeLoadedAutomationRuns(parsed, markNeedsSave),
+    localTasks: Array.isArray(parsed.localTasks) ? parsed.localTasks : [],
     onboarding: normalizedOnboarding
   }
 }

@@ -206,7 +206,7 @@ export function registerCoreHandlers(
   registerWorkspaceSpaceHandlers(store)
   registerWorkspacePortHandlers(store)
   registerLocalhostWorktreeLabelHandlers(store)
-  registerLocalTaskHandlers()
+  registerLocalTaskHandlers(store)
   if (commitMessageAgentEnv) {
     registerFilesystemHandlers(store, commitMessageAgentEnv)
   } else {
