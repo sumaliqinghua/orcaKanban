@@ -1267,3 +1267,9 @@
 - **How（怎么实现的）**：打开任务详情 → 点击整理 → 选择 workspace → 确认 → 更新项目路径、workspace ID、显示名称和 `ready` 状态 → 目标目录补齐三份 Markdown。
 - **验证**：任务卡和任务中心交互测试 8 项通过；Web 类型检查和 oxlint 通过。
 - **已知限制**：workspace 列表限定为当前任务项目的已登记 workspace；新建 workspace 仍使用现有任务创建流程。
+
+## 2026-09-07：Electron E2E 验证结果
+
+- **What（做了什么）**：运行 `SKIP_BUILD=1 pnpm exec playwright test tests/e2e/kanban-ai-records.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1`，复用现有构建产物执行任务中心相关 E2E。
+- **结果**：测试仓库创建和 Electron 启动完成，但测试初始化等待 `window.__store` 30 秒超时，未进入任务中心场景；因此不能把真实 Electron 流程标记为通过。Playwright 已生成截图和 trace，位于 `test-results/`，未加入 Git。
+- **后续**：需要先修复 E2E 启动时 Store 暴露/构建产物问题，再验证任务中心创建、启动、并行、收件箱整理和验收流程。

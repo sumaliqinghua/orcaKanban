@@ -25,6 +25,7 @@
 - [ ] 将文件 Store 测试迁移到 Orca profile fixture 后删除旧文件格式、目录监听和扫描分支。
 - [ ] 将收件箱整理从当前打开 workspace 扩展为复用现有 workspace 选择器的显式选择对话框。
 - [ ] 使用 Electron + Playwright 完成真实任务中心流程验证；当前已完成模块测试与 Web 类型检查。
+  - 结果：已运行 `tests/e2e/kanban-ai-records.spec.ts`，Electron 启动后 30 秒内未暴露 `window.__store`，在测试初始化阶段超时；未进入任务中心断言。
 
 ## 以下为历史计划（不作为当前实施依据）
 
