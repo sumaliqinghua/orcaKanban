@@ -180,10 +180,8 @@ export function DetailPanel({
                   key={subtask.id}
                   subtask={subtask}
                   sessions={item.sessionsList}
-                  projectPath={item.projectPath}
                   onComplete={() => onCompleteSubtask(subtask.id)}
                   onEditStep={(stepId) => onEditStep(subtask.id, stepId)}
-                  onTaskChanged={onTaskChanged}
                 />
               ))
             ) : (
