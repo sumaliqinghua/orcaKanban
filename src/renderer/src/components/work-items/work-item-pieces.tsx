@@ -90,11 +90,7 @@ export function LocalTaskActions({
               </Button>
             ) : null}
             {item.intakeState !== 'inbox' ? (
-              <Button
-                variant="outline"
-                className="flex-1 gap-1.5 text-xs"
-                onClick={onMoveToInbox}
-              >
+              <Button variant="outline" className="flex-1 gap-1.5 text-xs" onClick={onMoveToInbox}>
                 <Inbox className="size-4" />
                 移至收件箱
               </Button>
@@ -263,6 +259,9 @@ export function WorkItemCard({
             <span className="size-1.5 rounded-full bg-sky-500" />
             {item.activeSessions} 运行中
           </span>
+        ) : null}
+        {item.sessions - item.activeSessions > 0 ? (
+          <span className="text-violet-600">{item.sessions - item.activeSessions} 待查看</span>
         ) : null}
       </div>
     </button>
