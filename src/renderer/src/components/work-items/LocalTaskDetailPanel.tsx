@@ -300,7 +300,7 @@ export function DetailPanel({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>编辑任务标题</DialogTitle>
-            <DialogDescription>修改后会写入当前任务的 task.json。</DialogDescription>
+            <DialogDescription>修改后会保存到 Orca 的任务记录。</DialogDescription>
           </DialogHeader>
           <Input
             value={titleDraft}
@@ -327,7 +327,7 @@ export function DetailPanel({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>编辑任务描述</DialogTitle>
-            <DialogDescription>修改后会写入当前任务的 task.json。</DialogDescription>
+            <DialogDescription>修改后会保存到 Orca 的任务记录。</DialogDescription>
           </DialogHeader>
           <Textarea
             value={descriptionDraft}
