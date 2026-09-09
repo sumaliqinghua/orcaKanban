@@ -4,8 +4,7 @@ import type {
   LocalTask,
   LocalTaskBatch,
   LocalTaskBatchTaskRef,
-  LocalTaskRunStatus,
-  RequestLocalTaskReviewArgs
+  LocalTaskRunStatus
 } from '../../shared/local-task-types'
 import type { FileStoreMutationAccess } from './file-store-mutations'
 import { isOpenLocalTaskBatchCandidate } from '../../shared/local-task-batch-selection'
@@ -110,8 +109,6 @@ export function startBatch(
         executionState: 'queued',
         executionBatchId: batchId,
         executionRunId: runId,
-        reviewKind: null,
-        reviewQuestion: null,
         runs: [run, ...task.runs],
         updatedAt: createdAt
       })
@@ -176,58 +173,6 @@ export function updateRun(
           ? task.status
           : 'Needs review'
         : task.status,
-    reviewKind:
-      args.status === 'needs_review'
-        ? 'delivery'
-        : args.status === 'failed'
-          ? 'execution_failed'
-          : task.reviewKind,
     updatedAt: now
-  })
-}
-
-export function requestReview(
-  store: FileStoreMutationAccess,
-  args: RequestLocalTaskReviewArgs & { projectPath?: string }
-): LocalTask {
-  const task = store.requireTask(args.taskId, args.projectPath)
-  if (!task.sessions.some((session) => session.id === args.sessionId)) {
-    throw new Error('Session is not associated with this local task')
-  }
-  const question = args.question.trim()
-  if (!question) {
-    throw new Error('A review question is required')
-  }
-  const updatedAt = time()
-  const sessions = task.sessions.map((session) =>
-    session.id === args.sessionId && session.status === 'working'
-      ? { ...session, status: 'idle' as const, updatedAt }
-      : session
-  )
-  const activeRun = task.executionRunId
-    ? task.runs.find((run) => run.id === task.executionRunId)
-    : undefined
-  const runs = activeRun
-    ? task.runs.map((run) =>
-        run.id === activeRun.id
-          ? {
-              ...run,
-              status: 'needs_review' as const,
-              sessionId: args.sessionId,
-              output: question,
-              finishedAt: updatedAt
-            }
-          : run
-      )
-    : task.runs
-  return store.writeTask({
-    ...task,
-    sessions,
-    status: task.status === 'Done' ? task.status : 'Needs review',
-    executionState: activeRun ? 'needs_review' : task.executionState,
-    reviewKind: 'needs_input',
-    reviewQuestion: question,
-    runs,
-    updatedAt
   })
 }

@@ -25,7 +25,11 @@ export async function dispatchAutomationRun(input: {
   markDispatchResult: (result: AutomationDispatchResult) => Promise<AutomationRun>
   watchRun: (run: AutomationRun) => void | undefined
 }): Promise<AutomationRun> {
-  const { automation, run, target } = input
+  const { run, target } = input
+  const automation = {
+    ...input.automation,
+    prompt: input.automation.prompt.replaceAll('{{automation.agentId}}', input.automation.agentId)
+  }
   if (!target.ok) {
     return input.runs.updateRun({
       runId: run.id,

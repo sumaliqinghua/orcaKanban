@@ -1409,9 +1409,9 @@ export default function AutomationsPage(): React.JSX.Element {
       executionMode: template.executionMode ?? current.executionMode,
       localTaskScope: template.localTaskScope ?? current.localTaskScope,
       workspaceMode:
-        template.executionMode === 'open_local_tasks' ? 'existing' : current.workspaceMode,
+        template.id.startsWith('kanban-') ? 'existing' : current.workspaceMode,
       reuseSession:
-        template.executionMode === 'open_local_tasks' ? false : current.reuseSession,
+        template.id.startsWith('kanban-') ? false : current.reuseSession,
       time: template.time ?? current.time,
       dayOfWeek: template.dayOfWeek ?? current.dayOfWeek,
       customSchedule: '',

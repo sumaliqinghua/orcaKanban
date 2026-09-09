@@ -22,7 +22,7 @@ import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
 import { useAppStore } from '@/store'
 import type { LocalTask } from '../../../../shared/local-task-types'
 import type { TuiAgent } from '../../../../shared/tui-agent'
-import { buildTaskPrompt } from './local-task-agent-prompt'
+import { buildLocalTaskSubtaskPrompt } from './local-task-agent-prompt'
 import type { WorkItem } from './mock-data'
 
 const NEW_SESSION = '__new__'
@@ -72,8 +72,8 @@ export function LocalTaskSubtaskCreateDialog({
     setCreatedSubtaskId(null)
     setCreatedSessionId(null)
   }
-  const request = `请执行子任务：${title.trim()}`
-  const launchPrompt = buildTaskPrompt(item, request)
+  const request = title.trim()
+  const launchPrompt = buildLocalTaskSubtaskPrompt(request)
   const createWithNewSession = async (agent?: TuiAgent): Promise<void> => {
     if (submittingRef.current || !worktreeId) {
       return
@@ -128,13 +128,17 @@ export function LocalTaskSubtaskCreateDialog({
         const subtask = taskWithSubtask.subtasks.find(
           (candidate) => candidate.sessionId === targetSessionId
         )
-        if (!subtask) throw new Error('子任务已创建，但无法确定新子任务')
+        if (!subtask) {
+          throw new Error('子任务已创建，但无法确定新子任务')
+        }
         subtaskId = subtask.id
         setCreatedSubtaskId(subtaskId)
         onTaskChanged(taskWithSubtask)
       }
       const task = await window.api.localTasks.get(item.id, item.projectPath)
-      if (!task) throw new Error('任务已不存在')
+      if (!task) {
+        throw new Error('任务已不存在')
+      }
       onTaskChanged(task)
       close()
     } catch (cause) {

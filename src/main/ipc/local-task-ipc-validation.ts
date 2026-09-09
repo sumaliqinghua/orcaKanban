@@ -6,6 +6,13 @@ const id = z.string().trim().min(1).max(200)
 const shortText = z.string().trim().min(1).max(500)
 const longText = z.string().trim().min(1).max(100_000)
 const taskStatus = z.enum(LOCAL_TASK_STATUSES)
+const providerSession = z
+  .object({
+    key: z.enum(['session_id', 'conversation_id']),
+    id: z.string().trim().min(1).max(512),
+    transcriptPath: z.string().trim().min(1).max(32_768).optional()
+  })
+  .strict()
 
 export const localTaskListArgsSchema = z
   .object({
@@ -69,6 +76,8 @@ export const updateLocalTaskArgsSchema = z
 
 export const createLocalTaskSessionArgsSchema = z
   .object({
+    tags: z.array(shortText).max(20).optional(),
+    providerSession: providerSession.optional(),
     taskId: id,
     projectPath: z.string().trim().min(1).max(4_096).optional(),
     sessionId: id.optional(),
@@ -84,6 +93,8 @@ export const createLocalTaskSessionArgsSchema = z
 
 export const updateLocalTaskSessionOutputArgsSchema = z
   .object({
+    tags: z.array(shortText).max(20).optional(),
+    providerSession: providerSession.optional(),
     sessionId: id,
     prompt: z.string().trim().max(100_000).optional(),
     sessionStatus: z.enum(['working', 'done']).optional(),

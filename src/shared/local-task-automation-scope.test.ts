@@ -24,8 +24,6 @@ const task = (overrides: Partial<LocalTask> = {}): LocalTask =>
     executionState: 'idle',
     executionBatchId: null,
     executionRunId: null,
-    reviewKind: null,
-    reviewQuestion: null,
     runs: [],
     subtasks: [],
     sessions: [],

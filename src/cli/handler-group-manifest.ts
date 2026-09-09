@@ -20,12 +20,14 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
   {
     name: 'local-tasks',
     keys: [
+      'local-task list',
+      'local-task dispatch',
+      'local-task session-tags',
       'local-task current',
       'local-task update-description',
       'local-task subtask-create',
       'local-task subtask-update',
       'local-task step-update',
-      'local-task request-review',
       'local-task report-completed'
     ],
     load: async () => (await import('./handlers/local-tasks.js')).LOCAL_TASK_HANDLERS

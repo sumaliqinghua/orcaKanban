@@ -1,4 +1,26 @@
 import { RuntimeClientError } from './runtime-client'
+import type { RuntimeClient } from './runtime-client'
+
+export async function resolveLocalTaskContext(
+  client: RuntimeClient
+): Promise<ReturnType<typeof getLocalTaskContext>> {
+  if (process.env.ORCA_LOCAL_TASK_ID?.trim()) {
+    return getLocalTaskContext()
+  }
+  const sessionId =
+    process.env.ORCA_TAB_ID?.trim() || process.env.ORCA_PANE_KEY?.split(':', 1)[0]?.trim()
+  if (!sessionId) {
+    return getLocalTaskContext()
+  }
+  const response = await client.call<ReturnType<typeof getLocalTaskContext>>(
+    'localTask.sessionContext',
+    {
+      sessionId,
+      worktreeId: process.env.ORCA_WORKTREE_ID?.trim() || undefined
+    }
+  )
+  return response.result
+}
 
 export function getLocalTaskContext(): {
   taskId: string

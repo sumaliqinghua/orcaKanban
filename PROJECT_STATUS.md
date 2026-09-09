@@ -1,4 +1,11 @@
-# 项目现状（最后更新：2026-09-06）
+# 项目现状（最后更新：2026-09-09）
+
+## 本轮自动化进展
+
+- 已接通任务派发 CLI/RPC：按任务内标签创建或继续会话，持有原生会话标识时复用运行时恢复；忙碌、缺少身份、Agent 不匹配时不重复创建。
+- 三个任务模板均使用普通提示词自动化，每轮新建调度对话；派发模板保留调度终端。提示词中的 `{{automation.agentId}}` 在派发时替换为配置 Agent。原程序批次模式保留供已有配置使用。
+- 59 项相关测试、全量类型检查、定向代码检查通过；CLI 构建通过。真实 Electron 和真实 Agent 流程未验收；未绑定具体 workspace 的 Inbox 仍无法自动派发。
+- 下方早期实施状态为历史记录；当前任务以 plan.md 顶部进度为准。
 
 ## 当前实施状态
 
@@ -15,6 +22,8 @@
 - 收件箱整理现在使用显式 workspace 选择器，确认后才写入项目/workspace 归属；任务卡读取稳定索引，避免 selector 造成无限更新。
 - 当前任务中心 E2E 已验证：E2E 构建、创建无 workspace 收件箱任务、进入任务中心并从 profile 读取任务均通过；完整会话启动/停止和真实验收流程仍未覆盖。
 - 当前任务中心 E2E 已覆盖收件箱整理和并行会话状态聚合；完整真实 Agent 启动/恢复仍依赖现有 Orca Agent 流程。
+- `orca local-task request-review`、`localTask.requestReview`、`reviewKind` 和 `reviewQuestion` 已直接删除，不保留旧命令或数据兼容；需要用户决策时在原会话提问，会话停止后由状态聚合进入 `Needs review`。
+- 子任务 Agent 启动 Prompt 只注入本轮目标，不再复制父任务标题、ID 和完整描述；`local-task current` 也收窄为任务 ID/标题、当前会话定位信息和该会话负责的子任务。
 - 已修复任务存在但默认队列为空时误显示全局空状态的问题，收件箱入口现在不会被遮蔽。
 - 新增 profile persistence 重启回归测试，验证任务元数据可由新 Store 实例恢复。
 - `ready` 任务现在必须有项目/workspace；无归属任务只能先进入 `inbox`。
@@ -85,7 +94,7 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 
 ## 当前进度
 
-- 已完成：plan.md 阶段 1-6 的本地任务核心链路、session-bound CLI/RPC task bridge 和定向测试；阶段 7 的任务字段、Inbox、批次快照、运行记录、workspace 串行/并行队列和 Agent request-review 桥接。
+- 已完成：plan.md 阶段 1-6 的本地任务核心链路、session-bound CLI/RPC task bridge 和定向测试；任务状态现由会话生命周期统一聚合，不再使用 Agent 主动请求审阅的独立桥接。
 - 进行中：阶段 7 的 AI 批次排序、完整批次进度 UI、重启恢复、集中待审阅细节和端到端验证。
 - 已完成：阶段 8 AI 记录流。结果写入项目内 `assistant/results/YYYY-MM-DD/`，通过严格 schema、`seriesKey` 历史分组、`inputFingerprint` 无变化门禁和 `readAt` 已读状态复用现有任务中心；任务中心新增 AI 记录队列、Markdown 预览和 `projectId + taskId` 任务详情跳转。分析规则与写入脚本位于普通文档目录 `assistant/kanban-advisor/`，不会被普通任务会话作为 Skill 自动加载。
 - 已完成：阶段 9 Kanban Advisor 自动化模板。自动化页面“从模板开始”新增收件箱需求澄清、每周候选任务规划、每日滞留任务简化、每日任务状态汇报四个分析模板，以及每日执行 Open 本地任务模板；后者复用现有 `open_local_tasks` 批次执行模式，默认当前 workspace、每日 09:30，不新增调度器或默认自动化。
@@ -136,3 +145,18 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 - 提示词库定向测试：`pnpm test src/shared/prompt-library.test.ts src/renderer/src/lib/prompt-library-filter.test.ts src/renderer/src/components/prompt-library`；真实窗口验收：`npx playwright test tests/e2e/prompt-library-drawer.spec.ts --config tests/playwright.config.ts --project=electron-headless --workers=1`。
 - 定向测试：`pnpm exec vitest run --config config/vitest.config.ts src/main/local-tasks/store.test.ts src/main/ipc/local-task-ipc-validation.test.ts src/main/runtime/rpc/methods/local-tasks.test.ts`。
 - workspace 所有权定向测试：`pnpm test src/main/local-tasks/store.test.ts src/main/ipc/local-task-ipc-validation.test.ts src/renderer/src/components/work-items/local-task-workspace-transfer.test.ts src/renderer/src/components/right-sidebar/use-hosted-review-actions.test.tsx src/renderer/src/components/work-items/local-task-center-actions.test.ts`。
+
+
+## 2026-09-09 自动化改造进度
+- 已完成：需求与术语文档、任务会话可选标签、按标签选择最近会话的纯函数、本机任务目录 RPC/CLI、定向测试与类型检查。
+- 进行中：三类提示词模板、自动化调度会话创建、Open 任务派发、标签会话恢复、会话标签编辑界面。
+- 已知限制：没有接入完成监控；未使用 `kanban-result.mjs write`。
+
+
+## 2026-09-09 自动化改造续做
+- 已完成：任务会话标签编辑界面；Inbox 需求梳理与长期未 review 解释模板；删除候选任务规划和每日状态汇报模板入口；保留 Open 本地任务程序批次模板。
+- 验证：20 项定向测试通过；Node、CLI、Web 类型检查通过。
+- 已完成：调度提示词调用任务启动接口、同标签会话的运行时恢复和不等待结果的派发组合。
+- 已知问题：现有 runtime 可创建终端和恢复 Agent transcript，但还没有把“查任务→查标签→判断忙碌→创建/恢复→关联任务→返回”的组合接口暴露给调度会话。
+
+- 最终验证：38 项本轮相关测试通过，`pnpm tc`、定向 oxlint 和 `git diff --check` 通过。

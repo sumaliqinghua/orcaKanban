@@ -16,7 +16,7 @@
 - 候选任务只允许 `status === 'Open'`、`intakeState === 'ready'`、未归档、没有 `queued/running` 执行状态。
 - `Done`、`Needs review`、Inbox、归档任务和正在执行的任务必须被排除。
 - 一个自动化 run 可以包含 0 个或多个本地任务；不能假设一个 automation run 只有一个 terminal session。
-- AI 继续使用现有本地任务 Prompt：读取任务上下文、按子任务顺序执行、需要人工决定时调用 `request-review`，完成时调用 `report-completed`。
+- AI 继续使用现有本地任务 Prompt：读取任务上下文、按子任务顺序执行、需要人工决定时在原会话完整提问并等待回复，完成时调用 `report-completed`。
 - 本阶段不增加“用户回复但下次执行”的持久化状态，也不改变 `Needs review` 的人工验收语义。
 - `In progress` 本阶段不进入自动扫描范围；后续如需续跑，另立需求。
 

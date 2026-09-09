@@ -56,8 +56,6 @@ export function updateTask(
     labels: updates.labels === undefined ? current.labels : normalizeLabels(updates.labels),
     intakeState: updates.intakeState ?? current.intakeState,
     clarificationRequested: organizingInboxTask ? false : current.clarificationRequested,
-    reviewKind: reopenAfterClarification ? null : current.reviewKind,
-    reviewQuestion: reopenAfterClarification ? null : current.reviewQuestion,
     agentId: updates.agentId === undefined ? current.agentId : updates.agentId,
     updatedAt: time()
   })
@@ -90,6 +88,8 @@ export function createSession(
   const associationSource = args.associationSource ?? 'task-center'
   const session: LocalTaskSession = {
     id: sessionId,
+    tags: normalizeLabels(args.tags),
+    ...(args.providerSession ? { providerSession: args.providerSession } : {}),
     tabId: sessionId,
     taskId: task.id,
     workspaceId: text(args.workspaceId, task.workspaceId),
@@ -107,7 +107,7 @@ export function createSession(
   const nonExecutionSession = isNonExecutionSession(session)
   const status = nonExecutionSession ? task.status : 'In progress'
   const defaultSubtaskIndex =
-    !nonExecutionSession && task.sessions.length === 0
+    !nonExecutionSession && task.sessions.every(isNonExecutionSession)
       ? task.subtasks.findIndex((subtask) => subtask.sessionId === null)
       : -1
   let subtasks = task.subtasks.map((subtask, index) =>
@@ -226,7 +226,6 @@ export function reportCompleted(
     sessions,
     runs: nextRuns,
     executionState: activeRun ? 'needs_review' : task.executionState,
-    reviewKind: activeRun ? 'delivery' : task.reviewKind,
     latestOutput:
       !shouldKeepAgentOutput && args.latestOutput
         ? { sessionId, text: args.latestOutput, updatedAt }

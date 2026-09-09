@@ -42,14 +42,12 @@ export const getAutomationTemplates = createLocalizedCatalog((): AutomationTempl
       'auto.components.automations.automation.templates.kanbanAdvisor.openLocalTasks.name',
       'Daily Open task execution'
     ),
-    prompt: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.openLocalTasks.prompt',
-      "Execute the current workspace's Open local tasks that are ready and have not started. Process tasks in workspace order, keep execution within the existing workspace, and leave every result in Needs review for human acceptance."
-    ),
+    prompt:
+      '你只负责派发。执行 orca local-task list --scope all-local-projects --json，读取任务和关联会话。对符合条件的任务调用 orca local-task dispatch --task <任务ID> --worktree id:<任务workspaceId> --agent {{automation.agentId}} --purpose execution --tag automation:open-execution --prompt <交给工作Agent的请求> --json。命令负责按任务内标签选择最近会话，忙碌或不可确认时跳过。派发完成就结束，不等待工作结果，不写AI记录，不自行修改代码。仅处理 ready 且 Open 的任务。请求为执行主任务，任务描述由接口附带。',
     preset: 'daily',
     time: '09:30',
-    executionMode: 'open_local_tasks',
-    localTaskScope: 'workspace',
+    executionMode: 'prompt',
+    localTaskScope: 'all_local_projects',
     missedRunGraceMinutes: '180'
   },
   {
@@ -158,108 +156,53 @@ export const getAutomationTemplates = createLocalizedCatalog((): AutomationTempl
     missedRunGraceMinutes: '30'
   },
   {
-    id: 'kanban-requirement-clarification-hourly',
+    id: 'kanban-inbox-clarification-hourly',
     category: translate(
       'auto.components.automations.automation.templates.kanbanAdvisor.requirementClarification.category',
       'Kanban advisor'
     ),
     label: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.requirementClarification.label',
+      'auto.components.automations.automation.templates.taskAssistant.inboxClarification.label',
       'Inbox requirement clarification'
     ),
     description: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.requirementClarification.description',
-      'Review Inbox tasks for missing scope, context, or acceptance details without changing them.'
+      'auto.components.automations.automation.templates.taskAssistant.inboxClarification.description',
+      'Read Inbox tasks and continue tagged requirement conversations to clarify them.'
     ),
     name: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.requirementClarification.name',
+      'auto.components.automations.automation.templates.taskAssistant.inboxClarification.name',
       'Inbox requirement clarification'
     ),
-    prompt: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.requirementClarification.prompt',
-      'Read assistant/kanban-advisor/README.md, assistant/kanban-advisor/references/modes.md, and assistant/kanban-advisor/references/result-contract.md. Follow the requirement_clarification mode. Review Inbox local tasks in this workspace. Read each task description, related session summaries, prior AI records for the same seriesKey, and relevant recent Git changes. Write a new AI record only when a new ambiguity, user answer, code constraint, or materially better description appears. Use node assistant/kanban-advisor/scripts/kanban-result.mjs write for the record. If the task and evidence are unchanged, return no_change and do not write a file. Never modify tasks, mark Inbox tasks ready, start project Agents, or change code.'
-    ),
+    executionMode: 'prompt',
+    prompt:
+      '你只负责派发。执行 orca local-task list --scope all-local-projects --json，读取任务和关联会话。对符合条件的任务调用 orca local-task dispatch --task <任务ID> --worktree id:<任务workspaceId> --agent {{automation.agentId}} --purpose clarification --tag automation:inbox-clarification --prompt <交给工作Agent的请求> --json。命令负责按任务内标签选择最近会话，忙碌或不可确认时跳过。派发完成就结束，不等待工作结果，不写AI记录，不自行修改代码。仅处理Inbox任务。交给工作Agent：使用适用skills阅读代码现状和历史问答，帮助用户梳理需求；等待用户回答，不重复已有问题；建议描述经用户确认后再写回，不改ready状态，不执行代码修改。',
     preset: 'hourly',
     time: '00:05',
     missedRunGraceMinutes: '30'
   },
   {
-    id: 'kanban-candidate-task-weekly',
+    id: 'kanban-stale-task-review-daily',
     category: translate(
       'auto.components.automations.automation.templates.kanbanAdvisor.candidateTask.category',
       'Kanban advisor'
     ),
     label: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.candidateTask.label',
-      'Weekly candidate planning'
+      'auto.components.automations.automation.templates.taskAssistant.staleReview.label',
+      'Stale task explanation'
     ),
     description: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.candidateTask.description',
-      'Suggest a small set of forward-looking tasks from goals, decisions, and recent project work.'
+      'auto.components.automations.automation.templates.taskAssistant.staleReview.description',
+      'Explain long-unreviewed tasks in simpler terms so the next decision is easier.'
     ),
     name: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.candidateTask.name',
-      'Weekly candidate task planning'
+      'auto.components.automations.automation.templates.taskAssistant.staleReview.name',
+      'Daily stale task explanation'
     ),
-    prompt: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.candidateTask.prompt',
-      'Read assistant/kanban-advisor/README.md, assistant/kanban-advisor/references/modes.md, and assistant/kanban-advisor/references/result-contract.md. Follow the candidate_task mode. Read the project goals, confirmed decisions, recently completed work, existing local tasks, prior candidate_task records, and relevant Git changes. Suggest only distinct work that is not already a task or prior proposal. Write one AI record with concrete acceptance criteria when a genuinely new candidate exists. Use node assistant/kanban-advisor/scripts/kanban-result.mjs write. If nothing materially changed or no new candidate is justified, return no_change. Do not create tasks, edit priorities, or start project Agents.'
-    ),
-    preset: 'weekly',
+    executionMode: 'prompt',
+    prompt:
+      '你只负责派发。执行 orca local-task list --scope all-local-projects --json，读取任务和关联会话。对符合条件的任务调用 orca local-task dispatch --task <任务ID> --worktree id:<任务workspaceId> --agent {{automation.agentId}} --purpose task-report --tag automation:stale-review --prompt <交给工作Agent的请求> --json。命令负责按任务内标签选择最近会话，忙碌或不可确认时跳过。派发完成就结束，不等待工作结果，不写AI记录，不自行修改代码。仅处理Needs review且最近相关活动超过7天的任务。交给工作Agent：读取历史会话和代码现状，直白解释已完成内容、剩余问题、最小决策与下一步，不替用户验收，不修改任务状态或代码。',
+    preset: 'daily',
     time: '10:00',
-    dayOfWeek: '1',
-    missedRunGraceMinutes: '720'
-  },
-  {
-    id: 'kanban-task-simplification-daily',
-    category: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.taskSimplification.category',
-      'Kanban advisor'
-    ),
-    label: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.taskSimplification.label',
-      'Stale task simplification'
-    ),
-    description: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.taskSimplification.description',
-      'Turn long-stalled tasks into a smaller question that is easier to decide.'
-    ),
-    name: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.taskSimplification.name',
-      'Daily stale task simplification'
-    ),
-    prompt: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.taskSimplification.prompt',
-      'Read assistant/kanban-advisor/README.md, assistant/kanban-advisor/references/modes.md, and assistant/kanban-advisor/references/result-contract.md. Follow the task_simplification mode. Review stale Open, Inbox, and Needs review local tasks, their latest sessions and outputs, prior task_simplification records, and relevant Git changes. Suggest a smaller next decision with a concrete revised description, but do not edit the original task. Use node assistant/kanban-advisor/scripts/kanban-result.mjs write only when the framing or evidence is materially new. If the task, evidence, and prior simplification are unchanged, return no_change. Do not create tasks, change task status, or start Agents.'
-    ),
-    preset: 'daily',
-    time: '11:00',
-    missedRunGraceMinutes: '180'
-  },
-  {
-    id: 'kanban-status-report-daily',
-    category: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.statusReport.category',
-      'Kanban advisor'
-    ),
-    label: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.statusReport.label',
-      'Daily Kanban status report'
-    ),
-    description: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.statusReport.description',
-      'Summarize completed, active, blocked, failed, and review-needed work.'
-    ),
-    name: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.statusReport.name',
-      'Daily Kanban status report'
-    ),
-    prompt: translate(
-      'auto.components.automations.automation.templates.kanbanAdvisor.statusReport.prompt',
-      'Read assistant/kanban-advisor/README.md, assistant/kanban-advisor/references/modes.md, and assistant/kanban-advisor/references/result-contract.md. Follow the status_report mode. Read local task status changes, recent task runs and failures, Needs review items, project goals, decisions, and relevant Git changes. Write a concise AI record only when at least one reported fact or decision item changed. Use node assistant/kanban-advisor/scripts/kanban-result.mjs write and return no_change otherwise. Do not modify tasks, create work, or start Agents.'
-    ),
-    preset: 'daily',
-    time: '18:00',
     missedRunGraceMinutes: '180'
   }
 ])

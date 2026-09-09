@@ -768,7 +768,7 @@ export function useAutomationDispatchEvents(): void {
             throw new Error('Unable to build an agent launch plan.')
           }
           terminalOwnership = result.terminalOwnership
-          if (automation.reuseSession) {
+          if (automation.reuseSession || automation.prompt.includes('orca local-task dispatch')) {
             // Why: the first fresh launch is the seed for later reuse and must
             // survive completion under the same policy as an already-reused tab.
             releaseTerminalOwnership()

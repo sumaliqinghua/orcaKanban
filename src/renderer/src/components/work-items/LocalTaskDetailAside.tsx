@@ -32,6 +32,7 @@ function LocalTaskSessionPreview({
     status: 'working' | 'idle' | 'done'
     latestOutput?: string | null
     manualNotes?: string | null
+    tags?: string[]
     currentPrompt?: string | null
     turns?: {
       id: string
@@ -57,12 +58,14 @@ function LocalTaskSessionPreview({
     activeWorktreeId ? (findWorktreeById(state.worktreesByRepo, activeWorktreeId) ?? null) : null
   )
   const targetState = useAppStore(
-    useShallow((state): AiVaultSessionResumeTargetState => ({
-      folderWorkspaces: state.folderWorkspaces,
-      projectGroups: state.projectGroups,
-      repos: state.repos,
-      worktreesByRepo: state.worktreesByRepo
-    }))
+    useShallow(
+      (state): AiVaultSessionResumeTargetState => ({
+        folderWorkspaces: state.folderWorkspaces,
+        projectGroups: state.projectGroups,
+        repos: state.repos,
+        worktreesByRepo: state.worktreesByRepo
+      })
+    )
   )
   const { handleResume } = useAiVaultSessionLaunchActions({
     activeWorktree,
@@ -136,6 +139,10 @@ function LocalTaskSessionPreview({
               })
               onTaskChanged(task)
             }}
+            onTagsChange={async (tags) => {
+              const task = await window.api.localTasks.updateSessionOutput({ sessionId, tags })
+              onTaskChanged(task)
+            }}
           />
           <Button
             variant="outline"
@@ -166,6 +173,10 @@ function LocalTaskSessionPreview({
               sessionId,
               manualNotes
             })
+            onTaskChanged(task)
+          }}
+          onTagsChange={async (tags) => {
+            const task = await window.api.localTasks.updateSessionOutput({ sessionId, tags })
             onTaskChanged(task)
           }}
         />

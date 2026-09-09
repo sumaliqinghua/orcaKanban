@@ -1383,3 +1383,78 @@
 - **What（做了什么）**：`tests/e2e/kanban-ai-records.spec.ts` 新增场景，通过真实 preload IPC 创建任务和两个会话，依次停止会话并验收任务。
 - **How（怎么实现的）**：两个会话运行时任务为 `In progress`；停止一路仍为 `In progress`；停止全部后为 `Needs review`；用户验收后为 `Done`。
 - **验证**：该 E2E 文件两项测试均通过；任务模块测试和 Web 类型检查保持通过。
+
+## 2026-09-07：删除本地任务 request-review 链路
+
+- **What（做了什么）**：
+  - `src/cli/specs/local-tasks.ts`、`src/cli/handlers/local-tasks.ts`、`src/cli/handler-group-manifest.ts`：删除 `orca local-task request-review --question` 的命令定义、参数处理和延迟加载注册键；旧命令不再被 CLI 识别。
+  - `src/main/runtime/rpc/methods/local-tasks.ts`、`src/main/local-tasks/store.ts`、`src/main/local-tasks/file-store-batch-mutations.ts`：删除 `localTask.requestReview` RPC、Store 入口及其 mutation，不再由 Agent 主动把会话改为 `idle` 或复制问题。
+  - `src/shared/local-task-types.ts`、`src/main/local-tasks/file-store-mutations.ts`、`src/main/local-tasks/session-output-mutations.ts`：删除 `LocalTaskReviewKind`、`reviewKind`、`reviewQuestion` 和相关写入；正常交付、运行失败仍通过会话、`executionState`、`LocalTaskRun.status` 与 `error` 保留事实。
+  - `local-task-agent-prompt.ts`、`local-task-clarification-prompt.ts`：改为要求 Agent 在原会话直接完整提问并等待，不再额外调用任务命令保存副本。
+  - 同步删除 RPC 请求审阅测试、任务 fixture 中的旧字段，并更新 `PRD.md`、`plan.md`、`ASSUMPTIONS.md`、`PROJECT_STATUS.md` 和自动化计划。
+- **Why（为什么这么做）**：原命令只把会话中已经存在的问题复制到任务字段，并另外维护一套待审阅原因。当前任务模型以原始会话为决策依据，并已能根据会话是否运行聚合 `In progress` 或 `Needs review`，因此不需要第二份问题或状态通道。
+- **How（怎么实现的）**：Agent 在原会话提问→会话运行时任务为 `In progress`→会话停止或结束→`resolveLocalTaskStatus` 将任务聚合为 `Needs review`→用户打开原会话回答或验收。
+- **用户须知**：旧 `request-review` 命令和 RPC 直接失效，没有别名、过渡期或旧字段读取兼容；需要用户决定的内容必须保留在完整会话回复中。
+- **已知限制**：任务中心不再单独标注“等待回答”、“正常交付”或“执行失败”；要了解待处理内容，应打开对应原会话。运行失败的具体错误仍保存在 `LocalTaskRun.error` 中。
+- **关联假设**：`ASSUMPTIONS.md` 中“AI 输出统一进入待审阅”已标记为被本次决策推翻。
+- **验证**：本地任务、Prompt 和 CLI manifest 定向测试 6 个文件、28 项通过；CLI、Web 和 Node 类型检查通过；CLI 构建成功，`local-task --help` 不再列出旧命令，直接调用返回 `Unknown command: local-task request-review`。命令运行时使用 Node 22.21.1，仓库要求 Node 24；该 engine 警告导致 `check:code-quality:changed` 的 JSON 解析脚本失败。直接 oxlint 检查其余 15 个改动源码文件通过；`store.ts` 仅触发 HEAD 已存在的 `max-lines`，本轮已将它从 347 行缩短到 339 行，未添加禁用规则。
+
+## 2026-09-07：收窄子任务 Agent 上下文
+
+- **What（做了什么）**：
+  - `local-task-agent-prompt.ts`：将 `buildTaskPrompt(WorkItem, request)` 收窄为 `buildLocalTaskSubtaskPrompt(request)`；Prompt 只输出一次本轮子任务目标和执行约束，不再嵌入父任务标题、ID 或完整描述。
+  - `LocalTaskAgentPicker.tsx`、`LocalTaskSubtaskCreateDialog.tsx`：启动任务、新建关联会话和新建子任务会话都只把本轮目标传给 Prompt 构造模块；新建子任务不再额外包装“请执行子任务”前缀。
+  - `src/shared/local-task-types.ts`、`src/main/runtime/rpc/methods/local-tasks.ts`：新增收窄的 `LocalTaskCurrentContext` 返回类型。`localTask.current` 只返回父任务 ID/标题、当前会话 ID/标题/状态，以及 `assignedSubtasks`（当前会话负责的子任务列表）。
+  - `src/cli/specs/local-tasks.ts`：命令说明改为“读取当前 Agent 会话负责的子任务上下文”。
+  - `local-task-agent-prompt.test.ts`、`local-tasks.test.ts`：新增断言，确认子任务目标只出现一次，RPC 不返回父任务描述或其他会话的子任务。
+- **Why（为什么这么做）**：父任务是组织和导航容器，其完整描述不一定与每个子任务相关。默认注入会重复文本、浪费上下文，并可能让 Agent 错把父任务全部范围当成本轮任务。
+- **How（怎么实现的）**：用户本轮输入→精简 Prompt→Agent 调用 `local-task current`→RPC 在 Store 内完成会话归属过滤→只返回当前会话负责的子任务。过滤集中在 RPC 模块的接口 seam，调用方无法误取完整父任务。
+- **用户须知**：子任务确实需要父任务某段背景时，应将该段必要信息显式写入本轮请求；不再自动获得父任务全文。
+- **已知限制**：现有数据模型仍允许一个会话关联多个子任务，因此返回字段使用复数 `assignedSubtasks`；它只包含当前会话的内容，不会混入其他会话。
+- **关联假设**：无，本轮按用户确认的上下文边界实施。
+- **验证**：定向 Vitest 7 个文件、31 项通过；Web、CLI、Node 类型检查通过；18 个受影响源码文件的 oxlint 通过；CLI 构建成功，`local-task --help` 显示收窄后的 `current` 说明。
+
+## 2026-09-09 提示词自动化基础能力规划与任务会话标签
+- **What（做了什么）**：
+  - `plan.md` 增加本轮自动化改造 checklist，记录了普通提示词自动化、Open 批次复用、会话标签、CLI 查询和验证依赖。
+  - `PRD.md` 增加确认后的三类自动化边界：Open 自动执行、长期未 review 解释、Inbox 需求梳理；明确每轮新建调度会话、派发后不等待、不写 AI 记录。
+  - `CONTEXT.md` 新增“调度会话”“任务关联会话”“会话标签”“派发完成”四个领域术语定义。
+  - `src/shared/local-task-types.ts` 为本地任务会话增加可选 `tags`；创建和更新会话参数支持标签。
+  - `src/main/local-tasks/file-store-mutations.ts` 在创建会话时规范化标签；`session-output-mutations.ts` 支持只更新标签而不结束会话、不更新消息时间和不改变任务状态。
+  - `src/main/ipc/local-task-ipc-validation.ts` 接受会话标签数组。
+  - `src/shared/local-task-session-tags.ts` 增加按同一任务关联会话的标签和 `updatedAt` 选择最近会话函数。
+  - `src/main/runtime/rpc/methods/local-task-catalog.ts` 增加只读本机项目任务目录查询和任务内会话标签替换 RPC；`local-tasks.ts` 注册这些方法。
+  - `src/cli/specs/local-tasks.ts`、`src/cli/handlers/local-tasks.ts`、`src/cli/handler-group-manifest.ts`、`src/cli/args.ts` 增加 `orca local-task list` 和 `orca local-task session-tags`，支持 JSON 查询和重复 `--tag`。
+  - 新增 `src/main/local-tasks/session-tags.test.ts`，并扩展本地任务 RPC 测试，覆盖标签持久化、清空、跨任务拒绝、仅列本机项目。
+- **Why（为什么这么做）**：标签属于会话而不是任务，能支持用户手动增删和自动化按任务内标签复用；列表查询复用现有 profile Store 和运行时 repo 注册，过滤 SSH 远程项目，避免提示词自行遍历不可靠路径。
+- **How（怎么实现的）**：任务创建/更新 → profile 持久化会话 `tags`；CLI/RPC 查询 → 返回任务及会话；自动化提示词后续使用 `tag + session.updatedAt` 选择会话。标签元数据更新不会触发“会话完成”语义。
+- **用户需要知道的**：CLI 标签命令替换整个标签集合；省略 `--tag` 会清空标签。当前尚未上线三类模板的实际派发和标签编辑界面。
+- **已知限制**：尚未接入从提示词调度会话调用“启动任务 Agent”及已结束会话恢复；当前 `localTask.list` 依赖运行时注册的本机 repo；历史会话没有标签时不会自动猜测用途。
+- **关联假设**：会话标签字符串继续由自动化提示词约定，不固化到源码枚举。
+
+
+## 2026-09-09 自动化模板与标签界面续做
+- **What（做了什么）**：`automation-templates.ts` 将旧收件箱模板改为 Inbox 会话梳理，将候选规划改为长期 Needs review 解释，并移除旧滞留简化和每日状态汇报模板；新提示词约定 `automation:inbox-clarification` 与 `automation:stale-review` 标签，输出留在关联会话，不写 AI 记录。`LocalTaskSessionHistory.tsx`、`LocalTaskDetailAside.tsx` 增加标签输入和失焦保存，视图模型同步标签。
+- **Why（为什么这么做）**：符合用户确认的三个目标和标签由提示词约定的边界。
+- **How（怎么实现的）**：会话详情 → 标签文本 → `updateSessionOutput({ tags })` → profile Store 持久化；模板提示词 → 标签约定 → 任务内最近会话选择。
+- **用户需要知道的**：删除的是模板入口，不删除已有自动化配置和历史会话；旧 ID 的已保存自动化仍可运行。
+- **已知限制**：尚无统一组合 RPC 将查任务、查标签、判断忙碌、创建/恢复、关联和返回串联给调度会话。
+
+## 2026-09-09 任务派发与原会话恢复接口
+
+- **What（做了什么）**：
+  - `src/main/runtime/rpc/methods/local-task-catalog.ts` 新增 `localTask.dispatch`，组合任务查询、标签选择、实时 Agent 状态、创建关联和提交提示词；同一任务并发派发互斥。`localTask.sessionContext` 根据当前终端查回任务关联，供恢复后的会话调用任务工具。
+  - `local-task-host-scope.ts` 复用项目和文件夹工作区的执行主机判定，本机目录查询排除远程任务。
+  - `src/cli/specs/local-tasks.ts`、`handlers/local-tasks.ts`、`handler-group-manifest.ts` 暴露 `local-task dispatch`；`local-task-context.ts` 在没有任务环境变量时查询已保存的会话归属。
+  - `src/shared/local-task-types.ts`、`src/main/ipc/local-task-ipc-validation.ts` 添加可选 `providerSession`，表示 Agent 自身的对话身份；`file-store-mutations.ts` 保存该身份，`session-output-mutations.ts` 更新时保留它；`local-task-agent-turn-persistence.ts` 从 Agent 状态事件中采集身份。恢复复用 `ensureAgentSession`，不根据标题猜测。
+  - `file-store-mutations.ts` 首次执行允许在已有辅助讨论会话时绑定原未绑定主子任务。
+  - `automation-templates.ts` 的三个任务模板均使用普通提示词自动化，明确调用 CLI 派发；`AutomationsPage.tsx` 应用这些模板时选用已有 workspace 和每轮新会话；`dispatch-run.ts` 将 `{{automation.agentId}}` 替换为配置所选 Agent。`useAutomationDispatchEvents.ts` 保留包含任务派发命令的调度终端以供回看。
+  - `LocalTaskSessionHistory.tsx` 分开标签和备注的保存状态，并显示标签保存错误。
+  - `local-task-dispatch.test.ts` 覆盖首次关联后提交、空闲继续、身份恢复、并发去重；自动化 service 测试覆盖 Agent 参数替换。
+- **Why（为什么这么做）**：复用运行时的主机归属、Agent 创建、恢复和输入能力，避免再建立一套启动系统；将模型可能重复发出的请求收敛到任务内的互斥操作。
+- **How（怎么实现的）**：自动化触发 → 新调度会话 → CLI 任务目录 → 派发接口 → 标签匹配 → 检查空闲或按原生身份恢复 → 保存关联 → 发送本轮请求 → 返回。只等待启动就绪和请求送达，不等待工作结束。
+- **用户须知**：`--purpose` 的 `execution` 用于 Open 实现，`clarification` 用于需求讨论，`task-report` 用于解释待验收现状；后两种不会参与任务执行状态聚合。`--tag` 是提示词指定的会话查找标签，不是写死的用途枚举。修改自动化 Agent 后若匹配对话仍属于另一 Agent，派发会跳过。
+- **验证**：37 项核心测试及22项原自动化派发回归通过，全量 `pnpm tc` 和定向 oxlint 通过。CLI 构建成功；全局开发 CLI 链接安装因权限失败，可使用项目内包装器。
+- **已知限制**：真实 Electron 和真实 Agent 端到端未验证；缺少原生身份的旧对话跳过；未绑定具体 workspace 的 Inbox 无法派发，任务仍未完整验收。标签保存后的会话排序使用现有消息更新时间，元数据修改不推进该时间。
+
+- **最终验证补充**：新增本机主工作区路径派发测试；38 项相关测试通过。派发命令等待 Agent 进入可接收输入状态后立即返回，不等待任务完成；所有未定义会话身份或无法确认状态的情况保守跳过。

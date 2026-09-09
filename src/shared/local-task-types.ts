@@ -1,11 +1,11 @@
 import type { TuiAgent } from './tui-agent'
+import type { AgentProviderSessionMetadata } from './agent-session-resume'
 
 export const LOCAL_TASK_STATUSES = ['Open', 'In progress', 'Needs review', 'Done'] as const
 
 export type LocalTaskStatus = (typeof LOCAL_TASK_STATUSES)[number]
 export type LocalTaskIntakeState = 'inbox' | 'ready'
 export type LocalTaskExecutionState = 'idle' | 'queued' | 'running' | 'needs_review' | 'failed'
-export type LocalTaskReviewKind = 'delivery' | 'needs_input' | 'execution_failed'
 export type LocalTaskRunStatus = 'queued' | 'running' | 'needs_review' | 'failed'
 export type LocalTaskSubtaskStatus = 'todo' | 'doing' | 'done'
 export type LocalTaskStepStatus = 'todo' | 'doing' | 'done' | 'canceled'
@@ -29,6 +29,8 @@ export type LocalTaskSubtask = {
 
 export type LocalTaskSession = {
   id: string
+  tags?: string[]
+  providerSession?: AgentProviderSessionMetadata
   /** 当前 Orca Terminal Tab ID；恢复后 Tab 可能因 ID 冲突被重新生成。 */
   tabId?: string
   taskId: string
@@ -93,8 +95,6 @@ export type LocalTask = {
   executionState: LocalTaskExecutionState
   executionBatchId: string | null
   executionRunId: string | null
-  reviewKind: LocalTaskReviewKind | null
-  reviewQuestion: string | null
   clarificationRequested: boolean
   clarificationSessionId: string | null
   runs: LocalTaskRun[]
@@ -102,6 +102,12 @@ export type LocalTask = {
   sessions: LocalTaskSession[]
   latestOutput: { sessionId: string; text: string; updatedAt: number } | null
   latestOutputSource: 'agent-status' | 'report'
+}
+
+export type LocalTaskCurrentContext = {
+  task: Pick<LocalTask, 'id' | 'title'>
+  session: Pick<LocalTaskSession, 'id' | 'title' | 'status'> | null
+  assignedSubtasks: LocalTaskSubtask[]
 }
 
 export type CreateLocalTaskArgs = {
@@ -167,6 +173,8 @@ export type UpdateLocalTaskRunArgs = {
 
 export type CreateLocalTaskSessionArgs = {
   taskId: string
+  tags?: string[]
+  providerSession?: AgentProviderSessionMetadata
   projectPath?: string
   sessionId?: string
   workspaceId?: string
@@ -180,6 +188,8 @@ export type CreateLocalTaskSessionArgs = {
 
 export type UpdateLocalTaskSessionOutputArgs = {
   sessionId: string
+  tags?: string[]
+  providerSession?: AgentProviderSessionMetadata
   prompt?: string
   sessionStatus?: 'working' | 'done'
   latestOutput?: string
@@ -234,13 +244,6 @@ export type ReportLocalTaskCompletedArgs = {
   latestOutput?: string
   titleSuggestion?: string
   description?: string
-}
-
-export type RequestLocalTaskReviewArgs = {
-  taskId: string
-  projectPath?: string
-  sessionId: string
-  question: string
 }
 
 export type LocalTaskToolContext = {

@@ -118,8 +118,6 @@ describe('local task view model status', () => {
       executionState: 'idle',
       executionBatchId: null,
       executionRunId: null,
-      reviewKind: null,
-      reviewQuestion: null,
       clarificationRequested: false,
       clarificationSessionId: null,
       runs: [],

@@ -63,7 +63,7 @@ describe('AutomationService', () => {
     store.addRepo(makeRepo())
     const automation = store.createAutomation({
       name: 'Morning check',
-      prompt: 'Check the repo',
+      prompt: 'Check the repo with {{automation.agentId}}',
       agentId: 'claude',
       projectId: 'r1',
       workspaceMode: 'existing',
@@ -90,6 +90,7 @@ describe('AutomationService', () => {
 
     const [, payload] = send.mock.calls[0]
     expect(payload.automation.id).toBe(automation.id)
+    expect(payload.automation.prompt).toBe('Check the repo with claude')
     expect(payload.run.scheduledFor).toBe(new Date('2026-05-13T09:00:00').getTime())
     expect(store.listAutomationRuns(automation.id)[0]?.status).toBe('dispatching')
     await vi.waitFor(() =>

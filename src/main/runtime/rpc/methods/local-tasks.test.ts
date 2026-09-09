@@ -13,7 +13,7 @@ import {
   LocalTaskStore,
   type LocalTaskProfilePersistence
 } from '../../../local-tasks/store'
-import type { LocalTask } from '../../../../shared/local-task-types'
+import type { LocalTask, LocalTaskCurrentContext } from '../../../../shared/local-task-types'
 import { buildRegistry } from '../core'
 import { LOCAL_TASK_METHODS } from './local-tasks'
 
@@ -59,29 +59,75 @@ afterEach(() => {
 })
 
 describe('local task Agent RPC', () => {
-  it('binds current session lazily and returns the task context', () => {
+  it('rejects tagging a session owned by another task', () => {
+    const store = setupStore()
+    const first = store.create({ projectId: 'orca', intakeState: 'inbox', description: '一' })
+    const second = store.create({ projectId: 'orca', intakeState: 'inbox', description: '二' })
+    const session = store.createSession({ taskId: first.id, associationSource: 'clarification' })
+    expect(() => call('localTask.setSessionTags', {
+      taskId: second.id, sessionId: session.id, tags: ['review']
+    })).toThrow('Session does not belong')
+    call('localTask.setSessionTags', { taskId: first.id, sessionId: session.id, tags: ['review'] })
+    expect(store.get(first.id)?.sessions[0].tags).toEqual(['review'])
+  })
+
+  it('lists only registered local project tasks', () => {
+    const store = setupStore()
+    const local = store.create({ projectId: 'local-project', intakeState: 'inbox', description: '本机' })
+    store.create({ projectId: 'remote-project', intakeState: 'inbox', description: '远程' })
+    store.create({ projectId: 'missing-project', intakeState: 'inbox', description: '已移除' })
+    const method = registry.get('localTask.list')!
+    if ('stream' in method) throw new Error('Expected unary method')
+    const result = method.handler({}, { runtime: {
+      listRepos: () => [
+        { id: 'local-project' },
+        { id: 'remote-project', connectionId: 'ssh-one' }
+      ]
+    } as never })
+    expect(result).toEqual({ tasks: [local] })
+  })
+
+  it('binds the current session lazily and returns only its subtask context', () => {
     const store = setupStore()
     const task = store.create({
       projectId: 'orca',
       projectPath: rootOf(store),
-      description: '分析资源加载差异',
+      title: '资源诊断父任务',
+      description: '不应下发的完整父任务描述',
       workspaceId: 'wt-1'
     })
 
+    call('localTask.current', {
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: 'tab-1',
+      worktreeId: 'wt-1'
+    })
+    store.createSession({
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: 'other-tab',
+      workspaceId: 'wt-1',
+      title: '不相关子任务'
+    })
     const result = call('localTask.current', {
       taskId: task.id,
       projectPath: rootOf(store),
       sessionId: 'tab-1',
       worktreeId: 'wt-1'
-    }) as { task: typeof task; session: { id: string; taskId: string } }
+    }) as LocalTaskCurrentContext
 
-    expect(result.task.id).toBe(task.id)
-    expect(result.session).toMatchObject({
+    expect(result.task).toEqual({ id: task.id, title: '资源诊断父任务' })
+    expect(result.session).toEqual({
       id: 'tab-1',
-      taskId: task.id,
-      associationSource: 'task-center'
+      title: 'Agent 会话',
+      status: 'working'
     })
-    expect(store.get(task.id)?.sessions).toHaveLength(1)
+    expect(result.assignedSubtasks).toHaveLength(1)
+    expect(result.assignedSubtasks[0]?.sessionId).toBe('tab-1')
+    expect(JSON.stringify(result)).not.toContain('不应下发的完整父任务描述')
+    expect(JSON.stringify(result)).not.toContain('不相关子任务')
+    expect(store.get(task.id)?.sessions).toHaveLength(2)
   })
 
   it('updates AI subtasks and enters review after reporting work', () => {
@@ -155,33 +201,6 @@ describe('local task Agent RPC', () => {
     expect(completed.task.status).toBe('Needs review')
     expect(completed.task.latestOutput?.text).toBe('差异已整理完成')
     expect(completed.task.sessions[0]?.status).toBe('done')
-  })
-
-  it('lets an Agent pause for a user decision in Needs review', () => {
-    const store = setupStore()
-    const task = store.create({
-      projectId: 'orca',
-      projectPath: rootOf(store),
-      description: '需要产品决策',
-      workspaceId: 'wt-1'
-    })
-    const session = store.createSession({
-      taskId: task.id,
-      projectPath: rootOf(store),
-      sessionId: 'tab-review',
-      workspaceId: 'wt-1'
-    })
-    const reviewed = call('localTask.requestReview', {
-      taskId: task.id,
-      projectPath: rootOf(store),
-      sessionId: session.id,
-      worktreeId: 'wt-1',
-      question: '请确认是否兼容旧版配置格式。'
-    }) as { task: typeof task }
-
-    expect(reviewed.task.status).toBe('Needs review')
-    expect(reviewed.task.reviewKind).toBe('needs_input')
-    expect(reviewed.task.reviewQuestion).toContain('旧版配置')
   })
 
   it('rejects a session from another workspace and editing a started step', () => {

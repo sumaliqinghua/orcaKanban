@@ -198,7 +198,7 @@ Done > In progress > Needs review > Open
 6. 软件创建默认子任务，例如使用任务标题作为初始标题。
 7. 软件创建 Agent 会话并写入会话索引。
 8. 激活对应 workspace 和 Terminal Tab。
-9. 发送任务上下文和首次用户请求。
+9. 只发送首个子任务目标和执行约束，不重复注入父任务描述。
 10. 会话确认启动后，子任务变为 `doing`，任务聚合为 `In progress`。
 
 ### 5.2 新建关联会话
@@ -211,7 +211,7 @@ Done > In progress > Needs review > Open
 
 ### 5.3 会话处理相近工作
 
-Agent 首先读取当前子任务描述、步骤、`prd.md`、`plan.md` 和 `records.md`。如果新请求仍属于当前子任务：
+Agent 首先通过 `orca local-task current --json` 读取当前会话负责的子任务和步骤。父任务描述、其他子任务和其他会话不默认注入；如果新请求仍属于当前子任务：
 
 - 更新当前子任务描述或步骤。
 - 不创建新子任务。
@@ -373,7 +373,7 @@ ensureContextFiles(taskId, projectPath)
 task.json / plan.json
 LocalTaskRun / batchId / executionState
 latestOutput / session turns summary
-reviewKind / reviewQuestion
+reviewKind / reviewQuestion（已删除）
 associationSource 特殊会话类型
 subtask-transfer / force ownership
 旧任务格式兼容和迁移

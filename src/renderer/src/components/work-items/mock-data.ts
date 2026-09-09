@@ -39,6 +39,7 @@ export type WorkItem = {
     }[]
     latestOutput?: string | null
     manualNotes?: string | null
+    tags?: string[]
     agentId?: string | null
     associationSource?: 'task-center' | 'explicit' | 'automation' | 'clarification' | 'task-report'
     workspaceId?: string
@@ -54,7 +55,6 @@ export type WorkItem = {
   executionState?: 'idle' | 'queued' | 'running' | 'needs_review' | 'failed'
   executionBatchId?: string | null
   executionRunId?: string | null
-  reviewKind?: 'delivery' | 'needs_input' | 'execution_failed' | null
 }
 
 export const STATUS_ORDER: WorkItemStatus[] = ['Open', 'In progress', 'Needs review', 'Done']

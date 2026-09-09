@@ -1,30 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { buildTaskPrompt } from './local-task-agent-prompt'
-import type { WorkItem } from './mock-data'
-
-const item: WorkItem = {
-  id: 'lt-1',
-  title: '图片检查工具',
-  description: '分析并修复 Import Settings',
-  status: 'Open',
-  workspace: 'main',
-  project: 'project',
-  updated: 'now',
-  sessions: 0,
-  activeSessions: 0,
-  subtasks: [],
-  latestOutput: { session: 'none', text: 'none' },
-  sessionsList: []
-}
+import { buildLocalTaskSubtaskPrompt } from './local-task-agent-prompt'
 
 describe('local task Agent prompt', () => {
   it('keeps AI updates within the current subtask', () => {
-    const prompt = buildTaskPrompt(item, '增加批量模式')
-    expect(prompt).toContain('只读取和更新当前子任务的描述与步骤')
+    const prompt = buildLocalTaskSubtaskPrompt('增加批量模式')
+    expect(prompt.match(/增加批量模式/g)).toHaveLength(1)
+    expect(prompt).not.toContain('任务描述：')
+    expect(prompt).not.toContain('任务 ID：')
+    expect(prompt).toContain('确认当前会话绑定的子任务和步骤')
     expect(prompt).toContain('不要创建新子任务')
-    expect(prompt).toContain('不要移交其他会话的子任务')
     expect(prompt).not.toContain('subtask-transfer')
     expect(prompt).toContain('完整最终回复')
-    expect(prompt).toContain('事实和推测的区别')
+    expect(prompt).toContain('验证结果')
   })
 })

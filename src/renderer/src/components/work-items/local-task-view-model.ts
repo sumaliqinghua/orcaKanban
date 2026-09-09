@@ -49,6 +49,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
       turns: session.turns,
       latestOutput: session.latestOutput,
       manualNotes: session.manualNotes,
+      tags: session.tags,
       agentId: session.agentId,
       associationSource: session.associationSource,
       workspaceId: session.workspaceId,
@@ -63,8 +64,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     intakeState: task.intakeState,
     executionState: task.executionState,
     executionBatchId: task.executionBatchId,
-    executionRunId: task.executionRunId,
-    reviewKind: task.reviewKind
+    executionRunId: task.executionRunId
   }
 }
 

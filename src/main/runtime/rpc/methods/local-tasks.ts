@@ -1,7 +1,12 @@
 import { z } from 'zod'
+import { LOCAL_TASK_CATALOG_METHODS } from './local-task-catalog'
 import { getLocalTaskStore } from '../../../local-tasks/store'
 import { publishLocalTaskChange } from '../../../local-tasks/change-notifications'
-import type { LocalTask, LocalTaskSession } from '../../../../shared/local-task-types'
+import type {
+  LocalTask,
+  LocalTaskCurrentContext,
+  LocalTaskSession
+} from '../../../../shared/local-task-types'
 import { defineMethod, InvalidArgumentError, type RpcAnyMethod } from '../core'
 
 const Id = z.string().trim().min(1).max(512)
@@ -35,10 +40,6 @@ const ReportCompleted = Context.extend({
   latestOutput: z.string().trim().max(100_000).optional(),
   titleSuggestion: z.string().trim().min(1).max(1_000).optional(),
   description: Description.optional()
-})
-const RequestReview = Context.extend({
-  sessionId: Id,
-  question: z.string().trim().min(1).max(20_000)
 })
 
 function getTask(taskId: string, projectPath?: string): LocalTask {
@@ -109,30 +110,33 @@ function result(task: LocalTask): { task: LocalTask } {
   return { task }
 }
 
-function subtaskScope(
+function currentContext(
   task: LocalTask,
-  sessionId?: string
-): {
-  assigned: LocalTask['subtasks']
-  unassigned: LocalTask['subtasks']
-  assignedToOtherSessions: LocalTask['subtasks']
-} {
+  session: LocalTaskSession | null
+): LocalTaskCurrentContext {
   return {
-    assigned: sessionId ? task.subtasks.filter((subtask) => subtask.sessionId === sessionId) : [],
-    unassigned: task.subtasks.filter((subtask) => subtask.sessionId === null),
-    assignedToOtherSessions: task.subtasks.filter(
-      (subtask) => subtask.sessionId !== null && subtask.sessionId !== sessionId
-    )
+    task: { id: task.id, title: task.title },
+    session: session
+      ? {
+          id: session.id,
+          title: session.title,
+          status: session.status
+        }
+      : null,
+    assignedSubtasks: session
+      ? task.subtasks.filter((subtask) => subtask.sessionId === session.id)
+      : []
   }
 }
 
 export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
+  ...LOCAL_TASK_CATALOG_METHODS,
   defineMethod({
     name: 'localTask.current',
     params: Context,
     handler: (params) => {
       const { task, session } = ensureContext(params, false)
-      return { task, session, subtaskScope: subtaskScope(task, session?.id) }
+      return currentContext(task, session)
     }
   }),
   defineMethod({
@@ -217,18 +221,5 @@ export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
         })
       )
     }
-  }),
-  defineMethod({
-    name: 'localTask.requestReview',
-    params: RequestReview,
-    handler: (params) =>
-      result(
-        getLocalTaskStore().requestReview({
-          taskId: params.taskId,
-          projectPath: params.projectPath,
-          sessionId: params.sessionId,
-          question: params.question
-        })
-      )
   })
 ]

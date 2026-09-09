@@ -15,7 +15,6 @@ import type {
   LocalTaskBatchTaskRef,
   LocalTaskSession,
   ReportLocalTaskCompletedArgs,
-  RequestLocalTaskReviewArgs,
   UpdateLocalTaskArgs,
   UpdateLocalTaskStepArgs,
   UpdateLocalTaskSubtaskArgs,
@@ -113,8 +112,6 @@ export class LocalTaskStore {
       executionState: 'idle',
       executionBatchId: null,
       executionRunId: null,
-      reviewKind: null,
-      reviewQuestion: null,
       clarificationRequested: args.clarificationRequested === true,
       clarificationSessionId: null,
       runs: [],
@@ -160,8 +157,6 @@ export class LocalTaskStore {
       status: 'Done',
       executionState: 'idle',
       executionRunId: null,
-      reviewKind: null,
-      reviewQuestion: null,
       updatedAt: timestamp()
     })
   }
@@ -262,9 +257,6 @@ export class LocalTaskStore {
   }
   updateRun(args: Parameters<typeof batchMutations.updateRun>[1]): LocalTask {
     return batchMutations.updateRun(this.access(), args)
-  }
-  requestReview(args: RequestLocalTaskReviewArgs & { projectPath?: string }): LocalTask {
-    return batchMutations.requestReview(this.access(), args)
   }
 
   private access(): mutations.FileStoreMutationAccess {

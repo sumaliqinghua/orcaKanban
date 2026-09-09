@@ -1,27 +1,58 @@
 import type { CommandHandler } from '../dispatch'
 import { getRequiredStringFlag, getOptionalStringFlag, getRepeatedStringFlag } from '../flags'
 import { printResult } from '../format'
-import { getLocalTaskContext } from '../local-task-context'
+import { resolveLocalTaskContext } from '../local-task-context'
 
 function formatLocalTask(value: unknown): string {
   return JSON.stringify(value, null, 2)
 }
 
 export const LOCAL_TASK_HANDLERS: Record<string, CommandHandler> = {
+  'local-task dispatch': async ({ client, flags, json }) => {
+    const result = await client.call(
+      'localTask.dispatch',
+      {
+        taskId: getRequiredStringFlag(flags, 'task'),
+        worktree: getRequiredStringFlag(flags, 'worktree'),
+        agent: getRequiredStringFlag(flags, 'agent'),
+        prompt: getRequiredStringFlag(flags, 'prompt'),
+        tag: getOptionalStringFlag(flags, 'tag'),
+        purpose: getOptionalStringFlag(flags, 'purpose') ?? 'execution'
+      },
+      { timeoutMs: 120_000 }
+    )
+    printResult(result, json, formatLocalTask)
+  },
+  'local-task list': async ({ client, flags, json }) => {
+    const result = await client.call('localTask.list', {
+      scope: getOptionalStringFlag(flags, 'scope') ?? 'all-local-projects',
+      projectId: getOptionalStringFlag(flags, 'project-id'),
+      includeArchived: flags.get('include-archived') === true
+    })
+    printResult(result, json, formatLocalTask)
+  },
+  'local-task session-tags': async ({ client, flags, json }) => {
+    const result = await client.call('localTask.setSessionTags', {
+      taskId: getRequiredStringFlag(flags, 'task'),
+      sessionId: getRequiredStringFlag(flags, 'session'),
+      tags: getRepeatedStringFlag(flags, 'tag')
+    })
+    printResult(result, json, formatLocalTask)
+  },
   'local-task current': async ({ client, json }) => {
-    const result = await client.call('localTask.current', getLocalTaskContext())
+    const result = await client.call('localTask.current', await resolveLocalTaskContext(client))
     printResult(result, json, formatLocalTask)
   },
   'local-task update-description': async ({ client, flags, json }) => {
     const result = await client.call('localTask.updateDescription', {
-      ...getLocalTaskContext(),
+      ...(await resolveLocalTaskContext(client)),
       description: getRequiredStringFlag(flags, 'description')
     })
     printResult(result, json, formatLocalTask)
   },
   'local-task subtask-create': async ({ client, flags, json }) => {
     const result = await client.call('localTask.createSubtask', {
-      ...getLocalTaskContext(),
+      ...(await resolveLocalTaskContext(client)),
       title: getRequiredStringFlag(flags, 'title'),
       steps: getRepeatedStringFlag(flags, 'step')
     })
@@ -31,7 +62,7 @@ export const LOCAL_TASK_HANDLERS: Record<string, CommandHandler> = {
     const status = getOptionalStringFlag(flags, 'status')
     const title = getOptionalStringFlag(flags, 'title')
     const result = await client.call('localTask.updateSubtask', {
-      ...getLocalTaskContext(),
+      ...(await resolveLocalTaskContext(client)),
       subtaskId: getRequiredStringFlag(flags, 'subtask'),
       ...(status ? { status } : {}),
       ...(title ? { title } : {})
@@ -42,7 +73,7 @@ export const LOCAL_TASK_HANDLERS: Record<string, CommandHandler> = {
     const status = getOptionalStringFlag(flags, 'status')
     const title = getOptionalStringFlag(flags, 'title')
     const result = await client.call('localTask.updateStep', {
-      ...getLocalTaskContext(),
+      ...(await resolveLocalTaskContext(client)),
       subtaskId: getRequiredStringFlag(flags, 'subtask'),
       stepId: getRequiredStringFlag(flags, 'step'),
       ...(status ? { status } : {}),
@@ -52,17 +83,10 @@ export const LOCAL_TASK_HANDLERS: Record<string, CommandHandler> = {
   },
   'local-task report-completed': async ({ client, flags, json }) => {
     const result = await client.call('localTask.reportCompleted', {
-      ...getLocalTaskContext(),
+      ...(await resolveLocalTaskContext(client)),
       latestOutput: getOptionalStringFlag(flags, 'output'),
       description: getOptionalStringFlag(flags, 'description'),
       titleSuggestion: getOptionalStringFlag(flags, 'title-suggestion')
-    })
-    printResult(result, json, formatLocalTask)
-  },
-  'local-task request-review': async ({ client, flags, json }) => {
-    const result = await client.call('localTask.requestReview', {
-      ...getLocalTaskContext(),
-      question: getRequiredStringFlag(flags, 'question')
     })
     printResult(result, json, formatLocalTask)
   }

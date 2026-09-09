@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { QuickLaunchAgentMenuItems } from '@/components/tab-bar/QuickLaunchButton'
 import { useAppStore } from '@/store'
 import type { WorkItem } from './mock-data'
-import { buildTaskPrompt } from './local-task-agent-prompt'
+import { buildLocalTaskSubtaskPrompt } from './local-task-agent-prompt'
 
 export async function persistLocalTaskSessionAssociation(
   item: WorkItem,
@@ -57,7 +57,7 @@ export function LocalTaskAgentPicker({
   const [request, setRequest] = useState('')
   const hasSessions = item.sessions > 0
   const requestText = hasSessions ? request.trim() : item.description
-  const taskPrompt = buildTaskPrompt(item, requestText)
+  const taskPrompt = buildLocalTaskSubtaskPrompt(requestText)
   const handleStarted = async (tabId: string): Promise<void> => {
     if (!worktreeId) {
       return
