@@ -1,6 +1,3 @@
-/* eslint-disable max-lines -- Why: automation dispatch is a single renderer lifecycle
- * coordinator spanning workspace creation, SSH readiness, terminal launch/reuse,
- * completion bookkeeping, and focus restoration. */
 import { useEffect } from 'react'
 import { launchAgentBackgroundSession } from '@/lib/launch-agent-background-session'
 import { submitPromptToAgentPty } from '@/lib/agent-paste-draft'

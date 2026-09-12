@@ -2,8 +2,7 @@ import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import {
   buildAiVaultResumeCopyCommandForWorktree,
-  buildAiVaultResumeStartupForWorktree,
-  type AiVaultResumeStartup
+  buildAiVaultResumeStartupForWorktree
 } from '@/lib/ai-vault-resume-command'
 import { launchAiVaultSessionInNewTab } from '@/lib/launch-ai-vault-session'
 import {
@@ -29,6 +28,7 @@ import {
 import { prepareAiVaultSessionContinuation } from './ai-vault-session-continuation'
 import type { AgentSessionContinuationRequest } from '@/lib/agent-session-continuation'
 import { findWorktreeById } from '@/store/slices/worktree-helpers'
+import { activateAiVaultStructuredSession } from '@/lib/activate-ai-vault-structured-session'
 
 type ResumeOptions = { tabId?: string; onTabCreated?: (tabId: string) => void }
 

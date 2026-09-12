@@ -1,13 +1,6 @@
-/* eslint-disable max-lines -- Why: preload is the audited renderer/Electron IPC contract; co-locating the surface eases security and type-drift review. */
-import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { preloadE2EConfig } from './e2e-config'
-import { glApi } from './gitlab'
-import type {
-  SkillDeletePlan,
-  SkillDeleteRequest,
-  SkillDeleteResult
-} from '../shared/skill-delete-contract'
+import type { PreloadApi } from './api-types'
 import {
   DOC_PREVIEW_EXTERNAL_LINK_CHANNEL,
   DOC_PREVIEW_LOAD_FAILURE_CHANNEL,
@@ -363,201 +356,19 @@ import {
   registerRendererRestartIpcRelays
 } from './renderer-restart-wiring'
 
-// Why: the sync checkpoint only stages; this joins its durable write so a
-// navigating path can abort instead of losing the staged session.
-async function awaitBeforeUnloadCheckpoint(): Promise<void> {
-  const result = (await ipcRenderer.invoke('app:await-before-unload-checkpoint')) as {
-    ok?: unknown
-  }
-  if (result?.ok !== true) {
-    throw new Error('Failed to persist renderer state before unload.')
-  }
-}
+installNativeFileDropHandlers()
+installBrowserFindListener()
 
-type NativeFileDropCallback = (data: NativeFileDropPayload) => void
+// Custom APIs for renderer. Each domain bridge owns its IPC contract.
+const telemetryTrackApi: PreloadApi['telemetryTrack'] = (name, props) =>
+  ipcRenderer.invoke('telemetry:track', name, props)
+const telemetrySetOptInApi: PreloadApi['telemetrySetOptIn'] = (optedIn) =>
+  ipcRenderer.invoke('telemetry:setOptIn', optedIn)
+const telemetryAcknowledgeBannerApi: PreloadApi['telemetryAcknowledgeBanner'] = () =>
+  ipcRenderer.invoke('telemetry:acknowledgeBanner')
+const telemetryGetConsentStateApi: PreloadApi['telemetryGetConsentState'] = () =>
+  ipcRenderer.invoke('telemetry:getConsentState')
 
-const nativeFileDropCallbacks: NativeFileDropCallback[] = []
-let nativeFileDropListenerRegistered = false
-const updaterQuitAbortRelay = createUpdaterQuitAbortRelay(
-  window,
-  ORCA_UPDATER_QUIT_AND_INSTALL_ABORTED_EVENT
-)
-
-registerRendererRestartIpcRelays(ipcRenderer, window, updaterQuitAbortRelay)
-
-function getLinuxDisplayServer(): 'wayland' | 'x11' | null {
-  if (process.platform !== 'linux') {
-    return null
-  }
-  if (
-    process.env.WAYLAND_DISPLAY ||
-    process.env.XDG_SESSION_TYPE?.toLowerCase() === 'wayland' ||
-    process.env.ELECTRON_OZONE_PLATFORM_HINT?.toLowerCase() === 'wayland'
-  ) {
-    return 'wayland'
-  }
-  return process.env.DISPLAY ? 'x11' : null
-}
-
-const onNativeFileDrop = (_event: Electron.IpcRendererEvent, data: NativeFileDropPayload): void => {
-  for (const callback of Array.from(nativeFileDropCallbacks)) {
-    callback(data)
-  }
-}
-
-function subscribeNativeFileDrop(callback: NativeFileDropCallback): () => void {
-  nativeFileDropCallbacks.push(callback)
-  if (!nativeFileDropListenerRegistered) {
-    // Why: keep one real IPC listener and fan out locally — panes subscribe per split group, which would otherwise trip listener warnings.
-    ipcRenderer.on('terminal:file-drop', onNativeFileDrop)
-    nativeFileDropListenerRegistered = true
-  }
-  return () => {
-    const callbackIndex = nativeFileDropCallbacks.indexOf(callback)
-    if (callbackIndex !== -1) {
-      nativeFileDropCallbacks.splice(callbackIndex, 1)
-    }
-    if (nativeFileDropCallbacks.length === 0 && nativeFileDropListenerRegistered) {
-      ipcRenderer.removeListener('terminal:file-drop', onNativeFileDrop)
-      nativeFileDropListenerRegistered = false
-    }
-  }
-}
-
-// Why: cache one shared Audio + blob URL per sound path so we don't re-read 10MB from disk and re-transfer over IPC on every notification.
-let cachedNotificationSound: {
-  path: string
-  blobUrl: string
-  audio: HTMLAudioElement
-} | null = null
-let isNotificationSoundPlaying = false
-// Why: audio.play() can reject before ended/error fires — cleanup hook prevents leaked listeners on the cached Audio.
-let cleanupNotificationSoundPlayback: (() => void) | null = null
-
-function clearNotificationSoundPlaybackState(): void {
-  cleanupNotificationSoundPlayback?.()
-  cleanupNotificationSoundPlayback = null
-  isNotificationSoundPlaying = false
-}
-
-function disposeCachedNotificationSound(): void {
-  if (cachedNotificationSound) {
-    clearNotificationSoundPlaybackState()
-    cachedNotificationSound.audio.pause()
-    cachedNotificationSound.audio.src = ''
-    URL.revokeObjectURL(cachedNotificationSound.blobUrl)
-    cachedNotificationSound = null
-  }
-}
-
-/**
- * Classify which UI surface the native OS drop landed on, and for file-explorer drops
- * extract the destination directory from `data-native-file-drop-dir`.
- *
- * Why: preload consumes the native `drop` before React can read paths, so it must capture
- * the destination dir now — otherwise the renderer can't tell "root" from "inside this folder".
- */
-function resolveNativeFileDrop(event: DragEvent): NativeDropResolution | null {
-  const pathEntries: NativeFileDropPathEntry[] = []
-  for (const entry of event.composedPath()) {
-    if (entry instanceof HTMLElement) {
-      pathEntries.push({
-        nativeFileDropTarget: entry.dataset.nativeFileDropTarget,
-        nativeFileDropDir: entry.dataset.nativeFileDropDir,
-        terminalTabId: entry.dataset.terminalTabId,
-        terminalPaneLeafId: entry.dataset.terminalPaneLeafId ?? entry.dataset.leafId
-      })
-    }
-  }
-  return resolveNativeFileDropPath(pathEntries)
-}
-
-// File drag-and-drop lives in preload because webUtils (File→path) is only available in the preload/main world, not the renderer's isolated world.
-document.addEventListener(
-  'dragover',
-  (e) => {
-    // Let in-app drags through to React handlers (their own dropEffect); only override for native OS file drops.
-    if (e.dataTransfer && !hasNativeFileDragTypes(e.dataTransfer.types)) {
-      return
-    }
-    e.preventDefault()
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = 'copy'
-    }
-  },
-  true
-)
-
-document.addEventListener(
-  'drop',
-  (e) => {
-    // Let in-app drags (e.g. file explorer → terminal) through to React handlers
-    if (e.dataTransfer?.types.includes(ORCA_INTERNAL_FILE_DRAG_TYPE)) {
-      return
-    }
-
-    e.preventDefault()
-    e.stopPropagation()
-    const files = e.dataTransfer?.files
-    if (!files || files.length === 0) {
-      return
-    }
-    const resolution = resolveNativeFileDrop(e)
-
-    // Why: reject oversized gestures by count before resolving every File object (path resolution is synchronous here).
-    if (files.length > NATIVE_FILE_DROP_MAX_PATHS) {
-      ipcRenderer.send(
-        'terminal:file-dropped-from-preload',
-        createRejectedNativeFileDropPayload({
-          byteLength: 0,
-          pathCount: files.length,
-          reason: 'too-many-paths',
-          status: 'rejected'
-        })
-      )
-      return
-    }
-
-    const paths: string[] = []
-    for (let i = 0; i < files.length; i++) {
-      // webUtils.getPathForFile is the Electron 28+ replacement for File.path
-      const filePath = webUtils.getPathForFile(files[i])
-      if (filePath) {
-        paths.push(filePath)
-      }
-    }
-
-    if (paths.length === 0) {
-      return
-    }
-
-    // Why: explorer marker present but no destination dir resolved → reject entirely, no editor fallback (fail-closed, design §7.1).
-    if (resolution?.target === 'rejected') {
-      return
-    }
-
-    const payload = createNativeFileDropPayload(resolution, paths)
-    if (!payload) {
-      return
-    }
-    // Why: emit exactly one native-drop event per gesture (the shared planner rejects oversized payloads without leaking path contents).
-    ipcRenderer.send('terminal:file-dropped-from-preload', payload)
-  },
-  true
-)
-
-const startupDiagnosticsEnabled = process.env.ORCA_STARTUP_DIAGNOSTICS === '1'
-const browserFindSubscriptions = createBrowserFindSubscriptions()
-const browserClientPageRendererRequests = createBrowserClientPageRendererRequests({
-  ipc: ipcRenderer,
-  isTopFrame: () => window.top === window
-})
-
-ipcRenderer.on('ui:findInBrowserPage', (_event, source: unknown) => {
-  browserFindSubscriptions.dispatch(source)
-})
-
-// Custom APIs for renderer
 const api = {
   localTasks: {
     list: (args?: { projectId?: string; projectPath?: string }) =>
@@ -5332,6 +5143,5 @@ if (process.contextIsolated) {
   }
 } else {
   window.electron = electronAPI
-  // @ts-expect-error (define in dts)
   window.api = api
 }

@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import { normalizeRightSidebarRoute } from '../right-sidebar-route'

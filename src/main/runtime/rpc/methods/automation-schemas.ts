@@ -139,7 +139,9 @@ export const AutomationId = z.object({
 
 export const AutomationRuns = z.object({
   automationId: OptionalString,
-  expectedOwner: ExpectedOwner
+  expectedOwner: ExpectedOwner,
+  limit: OptionalPositiveInt,
+  cursor: OptionalString
 })
 
 export const AutomationCreate = z.object({

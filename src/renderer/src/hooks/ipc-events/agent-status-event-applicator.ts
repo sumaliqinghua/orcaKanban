@@ -18,11 +18,10 @@ import {
   hasRuntimeBackedWorktreeAttribution,
   isAgentStatusForRecentlyClosedTab,
   resolveHookPayloadAgentType,
-  resolvePaneKey,
-  resolveWorktreeConnection,
   shouldApplyResolvedAgentTerminalTitleToTab
 } from './agent-status-routing'
 import {
+  createAgentStatusPaneRoutingIndex,
   resolvePaneKeyFromRoutingIndex,
   resolveWorktreeConnectionFromRoutingIndex
 } from './agent-status-pane-routing-index'
@@ -61,6 +60,9 @@ export function createAgentStatusEventApplicator(args: {
     if (!payload) {
       return 'dropped'
     }
+    // Why: the memoized index answers the leading edge with the same first-match ownership the
+    // standalone resolver produced, without its worktree x tab rescan per event.
+    const routingIndex = options?.batch?.routingIndex ?? createAgentStatusPaneRoutingIndex(store)
     let {
       exists,
       title,
@@ -69,9 +71,7 @@ export function createAgentStatusEventApplicator(args: {
       repoConnectionResolved,
       owningWorktreeId,
       titleUsesTabTitle
-    } = options?.batch
-      ? resolvePaneKeyFromRoutingIndex(options.batch.routingIndex, paneKey)
-      : resolvePaneKey(store, paneKey)
+    } = resolvePaneKeyFromRoutingIndex(routingIndex, paneKey)
     const projectedTitles =
       titleUsesTabTitle && ownerTabId
         ? options?.batch?.projectedTitlesByTabId.get(ownerTabId)
@@ -81,9 +81,10 @@ export function createAgentStatusEventApplicator(args: {
       identityTitle = projectedTitles.identityTitle
     }
     if (!exists && data.worktreeId && hasRuntimeBackedWorktreeAttribution(data)) {
-      const fallbackOwnership = options?.batch
-        ? resolveWorktreeConnectionFromRoutingIndex(options.batch.routingIndex, data.worktreeId)
-        : resolveWorktreeConnection(store, data.worktreeId)
+      const fallbackOwnership = resolveWorktreeConnectionFromRoutingIndex(
+        routingIndex,
+        data.worktreeId
+      )
       if (fallbackOwnership.worktreeExists) {
         owningWorktreeId = data.worktreeId
         repoConnectionId = fallbackOwnership.repoConnectionId
@@ -226,6 +227,9 @@ export function createAgentStatusEventApplicator(args: {
       terminalTitle,
       timing: {
         updatedAt: data.receivedAt,
+        ...(data.evidenceObservedAt !== undefined
+          ? { evidenceObservedAt: data.evidenceObservedAt }
+          : {}),
         stateStartedAt: data.stateStartedAt
       },
       routing: {

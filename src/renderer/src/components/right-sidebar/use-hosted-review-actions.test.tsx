@@ -12,7 +12,8 @@ const confirmationMocks = vi.hoisted(() => ({
 }))
 
 const runtimeRpcMocks = vi.hoisted(() => ({
-  callRuntimeRpc: vi.fn()
+  callRuntimeRpc: vi.fn(),
+  assertRuntimeEnvironmentCapability: vi.fn()
 }))
 
 vi.mock('@/components/confirmation-dialog-context', () => ({
@@ -20,7 +21,8 @@ vi.mock('@/components/confirmation-dialog-context', () => ({
 }))
 
 vi.mock('@/runtime/runtime-rpc-client', () => ({
-  callRuntimeRpc: runtimeRpcMocks.callRuntimeRpc
+  callRuntimeRpc: runtimeRpcMocks.callRuntimeRpc,
+  assertRuntimeEnvironmentCapability: runtimeRpcMocks.assertRuntimeEnvironmentCapability
 }))
 
 const prRepo = { host: 'github.com', owner: 'stablyai', repo: 'orca-sta1015-sandbox' }
@@ -52,12 +54,13 @@ function HookProbe(props: {
   onRefreshReview: () => Promise<void>
   onMergeSucceeded?: () => Promise<void>
   pullRequest?: PRInfo
+  isGitLab?: boolean
 }): null {
   latest = useHostedReviewActions({
     review,
     githubPR: props.pullRequest ?? githubPR,
     repo: props.repo,
-    isGitLab: false,
+    isGitLab: props.isGitLab ?? false,
     shortLabel: 'PR',
     reviewLabel: 'pull request',
     defaultMergeMethod: 'squash',
@@ -87,18 +90,21 @@ describe('useHostedReviewActions', () => {
   beforeEach(() => {
     confirmationMocks.confirm.mockReset().mockResolvedValue(true)
     runtimeRpcMocks.callRuntimeRpc.mockReset().mockResolvedValue({ ok: true })
+    runtimeRpcMocks.assertRuntimeEnvironmentCapability.mockReset().mockResolvedValue(undefined)
     latest = null
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test-only window.api shim
     ;(window as any).api = {
       gh: {
         mergePR: vi.fn().mockResolvedValue({ ok: true }),
         setPRAutoMerge: vi.fn().mockResolvedValue({ ok: true }),
-        updatePRState: vi.fn().mockResolvedValue({ ok: true })
+        updatePRState: vi.fn().mockResolvedValue({ ok: true }),
+        markPRReadyForReview: vi.fn().mockResolvedValue({ ok: true })
       },
       gl: {
         mergeMR: vi.fn().mockResolvedValue({ ok: true }),
         closeMR: vi.fn().mockResolvedValue({ ok: true }),
-        reopenMR: vi.fn().mockResolvedValue({ ok: true })
+        reopenMR: vi.fn().mockResolvedValue({ ok: true }),
+        updateMR: vi.fn().mockResolvedValue({ ok: true })
       }
     }
   })
