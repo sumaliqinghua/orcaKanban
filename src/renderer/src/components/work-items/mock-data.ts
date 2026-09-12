@@ -28,6 +28,8 @@ export type WorkItem = {
   sessionsList: {
     id?: string
     tabId?: string
+    providerSession?: AgentProviderSessionMetadata
+    livenessUnverifiable?: boolean
     title: string
     currentPrompt?: string | null
     turns?: {
@@ -220,3 +222,4 @@ export const MOCK_ITEMS: WorkItem[] = [
     ]
   }
 ]
+import type { AgentProviderSessionMetadata } from '../../../../shared/agent-session-resume'

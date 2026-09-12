@@ -1,6 +1,7 @@
 import type { LocalTask, LocalTaskSubtask } from '../../../../shared/local-task-types'
 import { resolveLocalTaskStatus } from '../../../../shared/local-task-status'
 import type { WorkItem, Subtask } from './mock-data'
+import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
 
 const SESSION_START_GRACE_MS = 15_000
 const isExecutionSession = (session: LocalTask['sessions'][number]): boolean =>
@@ -44,6 +45,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     sessionsList: task.sessions.map((session) => ({
       id: session.id,
       tabId: session.tabId,
+      providerSession: session.providerSession,
       title: session.title,
       currentPrompt: session.currentPrompt,
       turns: session.turns,
@@ -69,31 +71,56 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
 }
 
 export function collectLiveTaskSessionIds(
-  dashboardCards: readonly { tabId: string }[],
-  ptyIdsByTabId: Readonly<Record<string, readonly string[]>>
+  dashboardCards: readonly Pick<DashboardCard, 'tabId' | 'dotState'>[]
 ): ReadonlySet<string> {
-  return new Set([
-    ...dashboardCards.map((card) => card.tabId),
-    ...Object.entries(ptyIdsByTabId)
-      .filter(([, ptyIds]) => ptyIds.length > 0)
-      .map(([tabId]) => tabId)
-  ])
+  return new Set(
+    dashboardCards.filter((card) => card.dotState === 'working').map((card) => card.tabId)
+  )
 }
 
 export function reconcileWorkItemSessionLiveness(
   item: WorkItem,
   liveSessionIds: ReadonlySet<string>,
-  now = Date.now()
+  now = Date.now(),
+  options: {
+    dashboardCards?: readonly (Pick<DashboardCard, 'tabId' | 'dotState'> &
+      Partial<Pick<DashboardCard, 'paneKey'>>)[]
+    unverifiable?: boolean
+    matchesSession?: (session: WorkItem['sessionsList'][number], paneKey?: string) => boolean
+  } = {}
 ): WorkItem {
   const sessionsList = item.sessionsList.map((session) => {
-    if (session.status !== 'working' || !session.id) {
+    if (!session.id) {
       return session
     }
     const withinStartGrace =
       typeof session.updatedAt === 'number' && now - session.updatedAt < SESSION_START_GRACE_MS
-    return liveSessionIds.has(session.tabId ?? session.id) || withinStartGrace
-      ? session
-      : { ...session, status: 'done' as const }
+    const tabId = session.tabId ?? session.id
+    const matchesSession = options.matchesSession?.(session) ?? true
+    const cards = options.dashboardCards?.filter(
+      (candidate) =>
+        candidate.tabId === tabId && (options.matchesSession?.(session, candidate.paneKey) ?? true)
+    )
+    const working = cards
+      ? cards.some((card) => card.dotState === 'working')
+      : matchesSession && liveSessionIds.has(tabId)
+    if (working) {
+      return { ...session, status: 'working' as const }
+    }
+    const card = cards?.find((candidate) => candidate.dotState !== 'done') ?? cards?.[0]
+    if (card) {
+      return {
+        ...session,
+        status: card.dotState === 'done' ? ('done' as const) : ('idle' as const)
+      }
+    }
+    if (session.status !== 'working' || withinStartGrace) {
+      return session
+    }
+    if (options.unverifiable) {
+      return { ...session, status: 'idle' as const, livenessUnverifiable: true }
+    }
+    return { ...session, status: 'done' as const }
   })
   const executionSessions = sessionsList.filter(
     (session) =>

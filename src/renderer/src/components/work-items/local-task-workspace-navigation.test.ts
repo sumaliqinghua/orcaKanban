@@ -1,0 +1,51 @@
+import { beforeEach, expect, it, vi } from 'vitest'
+import { openLocalTaskWorkspace } from './local-task-workspace-navigation'
+import type { WorkItem } from './mock-data'
+
+const mocks = vi.hoisted(() => ({ getState: vi.fn(), activate: vi.fn(), focus: vi.fn() }))
+vi.mock('@/store', () => ({ useAppStore: { getState: mocks.getState } }))
+vi.mock('@/lib/sidebar-worktree-activation', () => ({
+  activateWorktreeFromSidebar: mocks.activate
+}))
+vi.mock('@/lib/activate-tab-and-focus-pane', () => ({ activateTabAndFocusPane: mocks.focus }))
+
+const item = {
+  workspaceId: 'workspace',
+  sessionsList: [{ id: 'original', tabId: 'restored', workspaceId: 'workspace' }]
+} as WorkItem
+
+beforeEach(() => vi.resetAllMocks())
+
+it('focuses the mapped session instead of the workspace active terminal', async () => {
+  const closeWorkItemsPage = vi.fn()
+  mocks.getState.mockReturnValue({
+    getKnownWorktreeById: () => ({ id: 'workspace' }),
+    tabsByWorktree: { workspace: [{ id: 'other' }, { id: 'restored' }] },
+    closeWorkItemsPage
+  })
+  mocks.activate.mockResolvedValue(true)
+  openLocalTaskWorkspace({ item, request: 'original', setLoadError: vi.fn() })
+  await Promise.resolve()
+  expect(mocks.focus).toHaveBeenCalledWith('restored', null)
+  expect(closeWorkItemsPage).toHaveBeenCalledOnce()
+})
+
+it('does not bind a newly seeded unrelated terminal to missing session history', async () => {
+  const closeWorkItemsPage = vi.fn()
+  const setLoadError = vi.fn()
+  const state = {
+    getKnownWorktreeById: () => ({ id: 'workspace' }),
+    tabsByWorktree: { workspace: [] as { id: string }[] },
+    closeWorkItemsPage
+  }
+  mocks.getState.mockReturnValue(state)
+  mocks.activate.mockImplementation(async () => {
+    state.tabsByWorktree.workspace = [{ id: 'unrelated' }]
+    return true
+  })
+  openLocalTaskWorkspace({ item, request: 'original', setLoadError })
+  await Promise.resolve()
+  expect(mocks.focus).not.toHaveBeenCalled()
+  expect(closeWorkItemsPage).not.toHaveBeenCalled()
+  expect(setLoadError).toHaveBeenCalled()
+})

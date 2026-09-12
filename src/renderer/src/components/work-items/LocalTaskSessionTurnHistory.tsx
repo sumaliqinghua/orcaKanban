@@ -28,7 +28,7 @@ export function LocalTaskSessionTurnHistory({
       {currentPrompt ? (
         <div className="rounded-md border border-sky-500/25 bg-sky-500/10 p-2.5">
           <div className="mb-1 text-[10px] font-medium text-sky-700 dark:text-sky-300">
-            当前正在解决
+            最近请求
           </div>
           <div className="whitespace-pre-wrap leading-relaxed text-foreground">{currentPrompt}</div>
         </div>

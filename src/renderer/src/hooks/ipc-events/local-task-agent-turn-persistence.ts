@@ -4,7 +4,8 @@ export function persistLocalTaskAgentTurn(
   ownerTabId: string | undefined,
   data: AgentStatusIpcPayload
 ): void {
-  if (!ownerTabId || (data.state !== 'done' && !data.prompt?.trim() && !data.providerSession)) {
+  const hasLifecycleState = data.state === 'working' || data.state === 'done'
+  if (!ownerTabId || (!hasLifecycleState && !data.prompt?.trim() && !data.providerSession)) {
     return
   }
   const updateSessionOutput = window.api.localTasks?.updateSessionOutput
@@ -14,7 +15,7 @@ export function persistLocalTaskAgentTurn(
   void updateSessionOutput({
     sessionId: ownerTabId,
     ...(data.providerSession ? { providerSession: data.providerSession } : {}),
-    ...(data.prompt?.trim() || data.state === 'done'
+    ...(data.prompt?.trim() || hasLifecycleState
       ? { sessionStatus: data.state === 'done' ? ('done' as const) : ('working' as const) }
       : {}),
     ...(data.prompt?.trim() ? { prompt: data.prompt.trim() } : {}),

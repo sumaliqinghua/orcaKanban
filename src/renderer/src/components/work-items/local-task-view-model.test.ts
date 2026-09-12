@@ -35,9 +35,66 @@ function item(updatedAt: number): WorkItem {
 }
 
 describe('local task live session reconciliation', () => {
-  it('keeps PTY-backed task tabs live even without a dashboard card', () => {
-    const result = collectLiveTaskSessionIds([], { 'session-1': ['pty-1'], 'session-2': [] })
-    expect(result).toEqual(new Set(['session-1']))
+  it('does not classify an idle shell or a completed dashboard card as working', () => {
+    const cards = [{ tabId: 'session-1', dotState: 'done' as const }]
+    const ids = collectLiveTaskSessionIds(cards)
+    expect(ids.has('session-1')).toBe(false)
+    expect(ids.has('shell')).toBe(false)
+  })
+  it('requires agent activity rather than terminal existence', () => {
+    expect(collectLiveTaskSessionIds([])).toEqual(new Set())
+    expect(
+      collectLiveTaskSessionIds([
+        { tabId: 'working', dotState: 'working' },
+        { tabId: 'idle', dotState: 'idle' }
+      ])
+    ).toEqual(new Set(['working']))
+  })
+
+  it('keeps missing remote evidence unverifiable rather than declaring completion', () => {
+    const result = reconcileWorkItemSessionLiveness(item(NOW - 60_000), new Set(), NOW, {
+      unverifiable: true
+    })
+    expect(result.sessionsList[0]).toMatchObject({ status: 'idle', livenessUnverifiable: true })
+    expect(result.activeSessions).toBe(0)
+  })
+
+  it('lets an explicit completed card override the startup grace period', () => {
+    const result = reconcileWorkItemSessionLiveness(item(NOW - 1_000), new Set(), NOW, {
+      dashboardCards: [{ tabId: 'session-1', dotState: 'done' }]
+    })
+    expect(result.sessionsList[0]?.status).toBe('done')
+  })
+
+  it('reflects new work even when persisted history still says done', () => {
+    const source = item(NOW - 60_000)
+    source.status = 'Needs review'
+    source.activeSessions = 0
+    source.sessionsList[0]!.status = 'done'
+    const result = reconcileWorkItemSessionLiveness(source, new Set(['session-1']), NOW, {
+      dashboardCards: [{ tabId: 'session-1', dotState: 'working' }]
+    })
+    expect(result.sessionsList[0]?.status).toBe('working')
+    expect(result.status).toBe('In progress')
+    expect(result.activeSessions).toBe(1)
+    const completed = reconcileWorkItemSessionLiveness(result, new Set(), NOW + 1_000, {
+      dashboardCards: [{ tabId: 'session-1', dotState: 'done' }]
+    })
+    expect(completed.status).toBe('Needs review')
+    expect(completed.activeSessions).toBe(0)
+  })
+
+  it('does not borrow working status from another conversation in the same tab', () => {
+    const result = reconcileWorkItemSessionLiveness(
+      item(NOW - 60_000),
+      new Set(['session-1']),
+      NOW,
+      {
+        dashboardCards: [{ tabId: 'session-1', dotState: 'working', paneKey: 'other' }],
+        matchesSession: (_session, paneKey) => !paneKey
+      }
+    )
+    expect(result.sessionsList[0]?.status).toBe('done')
   })
 
   it('keeps a dashboard-visible session running', () => {

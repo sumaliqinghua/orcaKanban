@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { useShallow } from 'zustand/react/shallow'
 import { PanelRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store'
@@ -10,39 +9,21 @@ import { DetailPanel } from './LocalTaskDetailPanel'
 import { LocalTaskActions, StatusBadge } from './work-item-pieces'
 import { AgentTerminalPanel, type AgentRevealArgs } from '../dashboard-popout/AgentTerminalDialog'
 import { useLiveDashboardSnapshot } from '../dashboard/useLiveDashboardSnapshot'
-import { useAiVaultSessionLaunchActions } from '../right-sidebar/ai-vault-session-launch-actions'
-import { findWorktreeById } from '@/store/slices/worktree-helpers'
-import type { AiVaultSessionResumeTargetState } from '../right-sidebar/ai-vault-session-resume'
+import { resumeLocalTaskSession } from './local-task-session-resume'
+import { localTaskSessionMatchesTab } from './local-task-session-identity'
 import { LocalTaskSessionHistory } from './LocalTaskSessionHistory'
 import type { Worktree } from '../../../../shared/worktree/types'
 
 function LocalTaskSessionPreview({
   sessionId,
   session,
-  projectPath,
   workspaceId,
   onClose,
   onOpenWorkspace,
   onTaskChanged
 }: {
   sessionId: string
-  session: {
-    tabId?: string
-    title: string
-    status: 'working' | 'idle' | 'done'
-    latestOutput?: string | null
-    manualNotes?: string | null
-    tags?: string[]
-    currentPrompt?: string | null
-    turns?: {
-      id: string
-      prompt: string
-      summary: string | null
-      createdAt: number
-      updatedAt: number
-    }[]
-  }
-  projectPath: string
+  session: WorkItem['sessionsList'][number]
   workspaceId: string
   onClose: () => void
   onOpenWorkspace: (request?: string | AgentRevealArgs) => void
@@ -50,77 +31,45 @@ function LocalTaskSessionPreview({
 }): React.JSX.Element {
   const snapshot = useLiveDashboardSnapshot()
   const tabId = session.tabId ?? sessionId
-  const card = snapshot.cards.find((candidate) => candidate.tabId === tabId) ?? null
+  const matchesTab = localTaskSessionMatchesTab(session, useAppStore.getState())
+  const card =
+    snapshot.cards.find(
+      (candidate) =>
+        candidate.tabId === tabId &&
+        localTaskSessionMatchesTab(session, useAppStore.getState(), candidate.paneKey)
+    ) ?? null
   const ptyIdsByTabId = useAppStore((state) => state.ptyIdsByTabId)
-  const hasLiveTerminal = (ptyIdsByTabId[tabId]?.length ?? 0) > 0
-  const activeWorktreeId = useAppStore((state) => state.activeWorktreeId)
-  const activeWorktree = useAppStore((state) =>
-    activeWorktreeId ? (findWorktreeById(state.worktreesByRepo, activeWorktreeId) ?? null) : null
-  )
-  const targetState = useAppStore(
-    useShallow(
-      (state): AiVaultSessionResumeTargetState => ({
-        folderWorkspaces: state.folderWorkspaces,
-        projectGroups: state.projectGroups,
-        repos: state.repos,
-        worktreesByRepo: state.worktreesByRepo
-      })
-    )
-  )
-  const { handleResume } = useAiVaultSessionLaunchActions({
-    activeWorktree,
-    activeWorktreeId,
-    targetState
-  })
+  const hasLiveTerminal = matchesTab && (ptyIdsByTabId[tabId]?.length ?? 0) > 0
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const restorePending = useRef(false)
   const restoreFromHistory = async (): Promise<void> => {
-    if (session.status === 'working' || hasLiveTerminal) {
+    if (hasLiveTerminal) {
       onOpenWorkspace(sessionId)
       return
     }
+    if (restorePending.current) {
+      return
+    }
+    restorePending.current = true
     setHistoryLoading(true)
+    setHistoryError(null)
     try {
-      const result = await window.api.aiVault.listSessions({
-        scopePaths: [projectPath],
-        limit: 200,
-        force: true
+      const target = await resumeLocalTaskSession({
+        sessionId,
+        session,
+        workspaceId,
+        onTaskChanged
       })
-      const matching = result.sessions.find((candidate) => {
-        const prompt = candidate.firstUserPrompt ?? candidate.lastUserPrompt ?? ''
-        const requestedPrompt = session.currentPrompt?.trim()
-        if (requestedPrompt) {
-          return prompt.includes(requestedPrompt)
-        }
-        return candidate.cwd === projectPath && candidate.title === session.title
-      })
-      if (matching) {
-        handleResume(
-          matching,
-          workspaceId === 'local' ? (activeWorktreeId ?? undefined) : workspaceId,
-          {
-            tabId: sessionId,
-            onTabCreated: (tabId) => {
-              if (tabId === sessionId) {
-                return
-              }
-              void window.api.localTasks
-                .rebindSessionTab({ sessionId, tabId })
-                .then(onTaskChanged)
-                .catch(() => {})
-            }
-          }
-        )
-        onOpenWorkspace()
-      } else {
-        onOpenWorkspace()
-      }
-    } catch {
-      onOpenWorkspace()
+      onOpenWorkspace(target)
+    } catch (error) {
+      setHistoryError(error instanceof Error ? error.message : '原会话恢复失败')
     } finally {
+      restorePending.current = false
       setHistoryLoading(false)
     }
   }
-  if (!card) {
+  if (!card?.ptyId) {
     return (
       <section className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-border bg-muted/10">
         <div className="flex items-center gap-2 border-b border-border px-3 py-3 text-xs font-medium">
@@ -150,15 +99,20 @@ function LocalTaskSessionPreview({
             onClick={() => void restoreFromHistory()}
             disabled={historyLoading}
           >
-            {session.status === 'working' || hasLiveTerminal
-              ? '打开工作树查看会话'
-              : '在工作树中恢复'}
+            {hasLiveTerminal ? '打开工作树查看会话' : '在工作树中恢复'}
           </Button>
           <p>
-            {session.status === 'working' || hasLiveTerminal
-              ? '会话正在运行，不会重复恢复；请打开工作树查看当前会话。'
-              : '当前会话没有可显示的实时终端，可能已经结束或尚未挂载。'}
+            {hasLiveTerminal
+              ? '原会话终端仍可打开；终端存在不代表智能体正在执行。'
+              : session.livenessUnverifiable
+                ? '暂时无法确认执行主机上的会话状态。恢复时将由执行主机核对原会话。'
+                : '当前会话没有可显示的实时终端。'}
           </p>
+          {historyError ? (
+            <p role="alert" className="text-destructive">
+              {historyError}
+            </p>
+          ) : null}
         </div>
       </section>
     )
@@ -365,13 +319,14 @@ export function LocalTaskDetailAside({
             />
             <div className="flex min-h-0 min-w-0 shrink-0" style={{ width: `${previewWidth}px` }}>
               <LocalTaskSessionPreview
+                key={embeddedSessionId}
                 sessionId={embeddedSessionId}
-                projectPath={item.projectPath ?? ''}
                 workspaceId={item.workspaceId ?? 'local'}
                 session={
                   item.sessionsList.find((candidate) => candidate.id === embeddedSessionId) ?? {
                     title: '关联会话',
                     status: 'done',
+                    time: '',
                     currentPrompt: null,
                     turns: []
                   }

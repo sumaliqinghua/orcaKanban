@@ -225,6 +225,16 @@ export function DetailPanel({
                               : '手动'}
                       </span>
                       <span
+                        role="img"
+                        aria-label={
+                          session.livenessUnverifiable
+                            ? '会话状态无法确认'
+                            : session.status === 'working'
+                              ? '会话运行中'
+                              : session.status === 'done'
+                                ? '会话已结束'
+                                : '会话空闲'
+                        }
                         className={cn(
                           'size-1.5 rounded-full',
                           session.status === 'working'

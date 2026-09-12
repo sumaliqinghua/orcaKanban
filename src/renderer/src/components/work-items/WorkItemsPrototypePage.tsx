@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocalTaskSessionLiveness } from './use-local-task-session-liveness'
 import { RefreshCw, Search, Sparkles, SquareArrowOutUpRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,18 +10,13 @@ import { LocalTaskCenterEmptyState } from './LocalTaskCenterEmptyState'
 import { LocalTaskCenterDetail } from './LocalTaskCenterDetail'
 import { createLocalTaskCenterActions } from './local-task-center-actions'
 import { BoardView, ListView, SubtaskBoardView, SubtaskListView } from './work-item-views'
-import {
-  collectLiveTaskSessionIds,
-  localTaskToViewModel,
-  reconcileWorkItemSessionLiveness
-} from './local-task-view-model'
+import { localTaskToViewModel } from './local-task-view-model'
 import { useLocalTaskBatchController } from './use-local-task-batch-controller'
 import {
   isLocalTaskInQueue,
   LocalTaskQueueTabs,
   type LocalTaskQueueView
 } from './LocalTaskQueueTabs'
-import { useLiveDashboardSnapshot } from '@/components/dashboard/useLiveDashboardSnapshot'
 import {
   isLocalTaskInProjectScope,
   loadLocalTasksForProjectScope
@@ -50,16 +46,7 @@ export default function WorkItemsPrototypePage(): React.JSX.Element {
   const [queueView, setQueueView] = useState<LocalTaskQueueView>('ready')
   const [detailOpen, setDetailOpen] = useState(false)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
-  const dashboardSnapshot = useLiveDashboardSnapshot()
-  const ptyIdsByTabId = useAppStore((state) => state.ptyIdsByTabId)
-  const liveSessionIds = useMemo(
-    () => collectLiveTaskSessionIds(dashboardSnapshot.cards, ptyIdsByTabId),
-    [dashboardSnapshot.cards, ptyIdsByTabId]
-  )
-  const effectiveItems = useMemo(
-    () => items.map((item) => reconcileWorkItemSessionLiveness(item, liveSessionIds)),
-    [items, liveSessionIds]
-  )
+  const effectiveItems = useLocalTaskSessionLiveness(items)
   const loadTasks = useCallback(async (): Promise<void> => {
     setLoading(true)
     try {

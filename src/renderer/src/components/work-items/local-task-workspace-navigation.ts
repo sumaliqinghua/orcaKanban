@@ -4,17 +4,18 @@ import { useAppStore } from '@/store'
 import type { DashboardRevealAgentArgs } from '../../../../shared/dashboard-snapshot'
 import { parseWorkspaceKey } from '../../../../shared/workspace-scope'
 import type { WorkItem } from './mock-data'
+import { localTaskSessionMatchesTab } from './local-task-session-identity'
 
 export function openLocalTaskWorkspace(args: {
   item: WorkItem
   request?: string | DashboardRevealAgentArgs
   setLoadError: (message: string) => void
-  rebindSessionTab: (sessionId: string, tabId: string) => void
 }): void {
   const state = useAppStore.getState()
   const sessionId = typeof args.request === 'string' ? args.request : undefined
+  const session = args.item.sessionsList.find((row) => row.id === sessionId)
   const reveal = typeof args.request === 'object' && args.request ? args.request : undefined
-  const requestedId = reveal?.worktreeId ?? args.item.workspaceId
+  const requestedId = reveal?.worktreeId ?? session?.workspaceId ?? args.item.workspaceId
   const knownWorkspace = requestedId ? state.getKnownWorktreeById(requestedId) : undefined
   const workspaceByPath = args.item.projectPath
     ? state.allWorktrees().find((worktree) => worktree.path === args.item.projectPath)
@@ -29,7 +30,6 @@ export function openLocalTaskWorkspace(args: {
     args.setLoadError('当前任务没有可激活的 workspace')
     return
   }
-  const beforeTabIds = new Set((state.tabsByWorktree?.[target] ?? []).map((tab) => tab.id))
   const activation = reveal?.executionHostId
     ? activateWorktreeFromSidebar(target, reveal.executionHostId)
     : activateWorktreeFromSidebar(target)
@@ -41,11 +41,15 @@ export function openLocalTaskWorkspace(args: {
       }
       if (sessionId) {
         const currentTabs = useAppStore.getState().tabsByWorktree?.[target] ?? []
-        const newTabIds = currentTabs.map((tab) => tab.id).filter((id) => !beforeTabIds.has(id))
-        const actualTabId = newTabIds.length === 1 ? newTabIds[0] : null
-        if (actualTabId && actualTabId !== sessionId) {
-          args.rebindSessionTab(sessionId, actualTabId)
+        const tabId = session?.tabId ?? sessionId
+        if (
+          !currentTabs.some((tab) => tab.id === tabId) ||
+          (session && !localTaskSessionMatchesTab(session, useAppStore.getState()))
+        ) {
+          args.setLoadError('原会话终端已不可用，请从会话历史恢复原会话。')
+          return
         }
+        activateTabAndFocusPane(tabId, null)
       }
       if (reveal) {
         activateTabAndFocusPane(reveal.tabId, reveal.leafId)

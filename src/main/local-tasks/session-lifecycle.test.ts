@@ -57,6 +57,17 @@ describe('task session lifecycle', () => {
     const updated = store.updateSessionOutput({ sessionId: 'restored', sessionStatus: 'done' })
     expect(updated.status).toBe('Needs review')
     expect(updated.sessions[0]).toMatchObject({ id: 'original', tabId: 'restored', status: 'done' })
+    const resumed = store.updateSessionOutput({ sessionId: 'restored', sessionStatus: 'working' })
+    expect(resumed.status).toBe('In progress')
+    expect(resumed.sessions[0]).toMatchObject({
+      id: 'original',
+      tabId: 'restored',
+      status: 'working'
+    })
+    expect(store.get(task.id)?.status).toBe('In progress')
+    expect(store.updateSessionOutput({ sessionId: 'restored', sessionStatus: 'done' }).status).toBe(
+      'Needs review'
+    )
   })
 
   it('does not finish a batch on working events or manual notes', () => {

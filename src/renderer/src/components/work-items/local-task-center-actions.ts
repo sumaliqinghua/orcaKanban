@@ -35,6 +35,13 @@ export function createLocalTaskCenterActions(context: ActionContext): {
   editStep: (subtaskId: string, stepId: string) => void
 } {
   const { selected, setItems, setSelectedId, setLoadError } = context
+  const closeTaskSessionTabs = (sessions: WorkItem['sessionsList']): void => {
+    const closeTab = useAppStore.getState().closeTab
+    const tabIds = new Set(sessions.flatMap((session) => (session.tabId ? [session.tabId] : [])))
+    for (const tabId of tabIds) {
+      closeTab(tabId, { reason: 'cleanup' })
+    }
+  }
   const editTitle = (title: string): void => {
     if (!selected) {
       return
@@ -90,7 +97,10 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     }
     void window.api.localTasks
       .accept({ taskId: selected.id, projectPath: selected.projectPath })
-      .then((task) => replaceTask(setItems, task))
+      .then((task) => {
+        replaceTask(setItems, task)
+        closeTaskSessionTabs(selected.sessionsList)
+      })
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : '任务验收失败')
       )
@@ -109,6 +119,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       })
       .then((task) => {
         replaceTask(setItems, task)
+        closeTaskSessionTabs(selected.sessionsList)
         setSelectedId(null)
       })
       .catch((error: unknown) => {
@@ -129,6 +140,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
       .restore({ taskId: selected.id, projectPath: selected.projectPath })
       .then((task) => {
         replaceTask(setItems, task)
+        closeTaskSessionTabs(selected.sessionsList)
         setSelectedId(null)
       })
       .catch((error: unknown) =>
@@ -202,13 +214,7 @@ export function createLocalTaskCenterActions(context: ActionContext): {
     openLocalTaskWorkspace({
       item: selected,
       request,
-      setLoadError,
-      rebindSessionTab: (sessionId, tabId) => {
-        void window.api.localTasks
-          .rebindSessionTab({ sessionId, tabId })
-          .then((task) => replaceTask(setItems, task))
-          .catch(() => {})
-      }
+      setLoadError
     })
   }
   const sessionStarted = (): void => {
