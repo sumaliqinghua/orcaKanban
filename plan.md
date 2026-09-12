@@ -595,3 +595,15 @@
   - **执行步骤**：运行任务队列定向 Vitest、`pnpm tc:web`、changed-file 代码质量检查和 `git diff --check`；更新 `Records.md` 与 `PROJECT_STATUS.md`，逐项勾选本阶段计划；最后使用“飞书会话总结发送器”发送完成通知。
   - **验收标准**：定向测试、Web 类型检查、变更文件质量检查和差异检查通过；文档明确区分“已整理的可执行队列”和“当前可加入批量执行的 Open 候选”；飞书通知成功或记录明确失败原因。
   - **依赖**：依赖 11.8.2。
+
+## 阶段 11.9：修复旧 Orca Dev runtime 与 local-task CLI 版本错位
+
+- [x] 11.9.1 定位并复现 `localTask.sessionContext` 未注册
+  - **执行步骤**：对照 CLI 调用方、RPC 总清单、当前 Electron 进程启动时间和 Git 提交时间；使用只读 CLI 探针确认旧 runtime 返回 `method_not_found`。
+  - **验收标准**：确认源码已注册方法但运行中的旧进程未加载新清单，并区分 `runtime_unavailable` 与方法缺失两类故障。
+- [x] 11.9.2 增加 CLI 兼容性恢复提示
+  - **执行步骤**：在 `resolveLocalTaskContext` 捕获仅针对 `localTask.sessionContext` 的旧 runtime 错误，转换为带重启 `pnpm dev`、等待 ready、重新创建 Agent 会话步骤的 `runtime_compatibility` 错误；开发 CLI 的 runtime 不可用提示指向 `pnpm dev`。
+  - **验收标准**：旧 runtime 不再向 Agent 暴露无法行动的原始未知方法错误；其他 runtime 错误保持原错误码和消息。
+- [x] 11.9.3 回归测试、类型检查和文档
+  - **执行步骤**：新增 local-task context 测试，运行定向 Vitest、CLI 类型检查、定向 oxlint 和 `git diff --check`；更新 Records、PROJECT_STATUS 和假设记录。
+  - **验收标准**：7 项定向测试通过，CLI 类型检查、lint 和差异检查通过；文档说明旧进程仍需重启，未执行进程杀除或任务数据修改。

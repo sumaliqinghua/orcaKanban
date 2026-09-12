@@ -106,6 +106,8 @@ Orca 是 Electron 多 agent 研发工作台。当前已完成任务中心核心�
 
 ## 已知问题与技术债
 
+- 旧 Electron Dev 进程可能在源码更新后继续使用旧 RPC 清单。`local-task` CLI 现在会把精确的 `localTask.sessionContext` 缺失转换为 `runtime_compatibility`，提示重启目标仓库的 `pnpm dev` 并新建 Agent 会话；不会自动终止进程或修改任务数据。
+
 - Agent CLI 依赖从任务中心启动的终端环境变量；任务详情启动器现在会在 tab 创建后、页面关闭前先持久化关联会话。直接从 workspace 启动的会话不会自动归属本地任务，仍需从任务中心显式关联。后台澄清和批次启动已由启动器统一注入任务 ID 与项目根目录。
 - 任务恢复保护：活动 PTY 是避免重复恢复的最终事实；对仍有活动写入者的 Codex 会话不能再次执行 `codex resume`，否则会触发 `thread already has an active writer`。恢复新建 Tab 后通过任务会话的 `tabId` 映射更新详情预览，不改变 Codex provider session。
 - 事项中心详情抽屉左边缘可拖拽调整宽度；顶部“执行当前任务”是批量执行入口，会对可执行 Open 任务按 workspace 串行启动所选 Agent；自动/定时执行尚未完成。

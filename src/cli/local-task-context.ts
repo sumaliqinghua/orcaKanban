@@ -12,14 +12,37 @@ export async function resolveLocalTaskContext(
   if (!sessionId) {
     return getLocalTaskContext()
   }
-  const response = await client.call<ReturnType<typeof getLocalTaskContext>>(
-    'localTask.sessionContext',
-    {
+  const response = await client
+    .call<ReturnType<typeof getLocalTaskContext>>('localTask.sessionContext', {
       sessionId,
       worktreeId: process.env.ORCA_WORKTREE_ID?.trim() || undefined
-    }
-  )
+    })
+    .catch((error: unknown) => {
+      if (isMissingSessionContextMethod(error)) {
+        throw new RuntimeClientError(
+          'runtime_compatibility',
+          'The connected Orca runtime is older than this local-task CLI and does not provide localTask.sessionContext. Restart the development runtime with `pnpm dev`, then start a new Agent session from the task center.',
+          {
+            nextSteps: [
+              'Stop the old Orca Dev process for this repository.',
+              'Run `pnpm dev` from the repository root and wait for the runtime to become ready.',
+              'Start a new Agent session from the task center so it receives the refreshed runtime and CLI context.'
+            ]
+          }
+        )
+      }
+      throw error
+    })
   return response.result
+}
+
+function isMissingSessionContextMethod(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+  const code = (error as { code?: unknown }).code
+  const message = error instanceof Error ? error.message : ''
+  return code === 'method_not_found' && message.includes('localTask.sessionContext')
 }
 
 export function getLocalTaskContext(): {

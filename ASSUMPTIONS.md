@@ -1,5 +1,13 @@
 # 假设记录
 
+## [2026-09-10] 旧 runtime 版本错位采用显式恢复提示
+
+- **背景**：新 CLI 调用 `localTask.sessionContext` 时，旧 Electron Dev runtime 可能返回 `method_not_found`；CLI 无法安全地替用户重启进程。
+- **假设**：只将精确匹配该方法名的未知方法错误转换为 `runtime_compatibility`，提示用户重启 `pnpm dev` 并新建 Agent 会话；不自动杀进程、不删除 profile、不猜任务 ID。
+- **理由**：避免把真实任务不存在、参数错误或连接失败误报成版本问题，同时保留用户数据和其他会话安全边界。
+- **影响范围**：仅影响没有 `ORCA_LOCAL_TASK_ID`、需要通过会话 ID 查询归属的 local-task CLI 命令；已注入任务 ID 的路径和新 runtime 不受影响。
+- **状态**：待确认
+
 ## [2026-08-22] 原型先作为独立顶层视图
 
 - **背景**：现有 Tasks 页已经承担 GitHub、GitLab、Linear、Jira 外部工单浏览，直接改造会混入真实数据和既有复杂逻辑。

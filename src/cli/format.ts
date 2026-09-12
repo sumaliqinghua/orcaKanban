@@ -89,7 +89,7 @@ export function formatCliError(error: unknown, context: CliErrorContext = {}): s
     if (hasOrchestrationRequestId(error.data)) {
       return message
     }
-    return `${message}\nOrca is not running. Run 'orca open' first.`
+    return `${message}\n${isDevCliEnvironment() ? "Orca Dev is not running. Run 'pnpm dev' from the repository root first." : "Orca is not running. Run 'orca open' first."}`
   }
   // Why: error-specific recovery must win over the generic computer fallback.
   // Classified from the whole error, not just `.code`: a hop that flattens the class leaves only the token.
@@ -113,12 +113,16 @@ export function formatCliError(error: unknown, context: CliErrorContext = {}): s
     error instanceof RuntimeRpcFailureError &&
     error.response.error.code === 'runtime_unavailable'
   ) {
-    return `${message}\nOrca is not running. Run 'orca open' first.`
+    return `${message}\n${isDevCliEnvironment() ? "Orca Dev is not running. Run 'pnpm dev' from the repository root first." : "Orca is not running. Run 'orca open' first."}`
   }
   if (error instanceof RuntimeRpcFailureError) {
     return formatMessageWithNextSteps(message, nextStepsFromData(error.response.error.data))
   }
   return message
+}
+
+function isDevCliEnvironment(): boolean {
+  return process.env.ORCA_DEV_CLI_INVOCATION === '1' || Boolean(process.env.ORCA_DEV_REPO_ROOT)
 }
 
 function hasOrchestrationRequestId(data: unknown): boolean {

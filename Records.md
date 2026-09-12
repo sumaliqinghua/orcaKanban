@@ -1458,3 +1458,17 @@
 - **已知限制**：真实 Electron 和真实 Agent 端到端未验证；缺少原生身份的旧对话跳过；未绑定具体 workspace 的 Inbox 无法派发，任务仍未完整验收。标签保存后的会话排序使用现有消息更新时间，元数据修改不推进该时间。
 
 - **最终验证补充**：新增本机主工作区路径派发测试；38 项相关测试通过。派发命令等待 Agent 进入可接收输入状态后立即返回，不等待任务完成；所有未定义会话身份或无法确认状态的情况保守跳过。
+
+## 2026-09-10：修复旧 Orca Dev runtime 与 local-task CLI 版本错位
+
+- **What（做了什么）**：
+  - `src/cli/local-task-context.ts`：`resolveLocalTaskContext` 调用 `localTask.sessionContext` 时，仅对返回 `method_not_found` 且消息明确包含该方法名的旧 runtime 错误做兼容转换，抛出 `runtime_compatibility`，并附带停止旧进程、运行 `pnpm dev`、等待 runtime ready、重新创建 Agent 会话三步恢复建议；其他错误原样继续抛出。
+  - `src/cli/format.ts`：开发 CLI（`ORCA_DEV_CLI_INVOCATION=1` 或存在 `ORCA_DEV_REPO_ROOT`）遇到 `runtime_unavailable` 时提示从仓库根目录运行 `pnpm dev`；生产 CLI 仍提示 `orca open`。
+  - `src/cli/local-task-context.test.ts`：新增旧 runtime 方法缺失和无关 runtime 错误透传测试。
+  - `plan.md`：新增并完成阶段 11.9 checklist。
+- **Why（为什么这么做）**：源码已注册 `localTask.sessionContext`，但长时间运行的 Electron Dev 进程可能仍使用旧 RPC 清单；直接显示 `Unknown method` 无法告诉 Agent 如何恢复。兼容层只匹配精确方法名，避免吞掉真正的参数、任务或连接错误，也不猜测任务 ID、不写任务数据。
+- **How（怎么实现的）**：Agent CLI → `resolveLocalTaskContext` → 旧 runtime 返回 `method_not_found` → 精确识别 → `runtime_compatibility` + 恢复步骤；runtime 不可达 → 根据 dev/production 环境输出对应启动命令。新 runtime 和带 `ORCA_LOCAL_TASK_ID` 的会话路径不改变。
+- **用户须知**：代码修复不会自动杀掉旧 Electron 进程或删除 profile；遇到兼容提示时必须重启目标仓库的 `pnpm dev`，并新建 Agent 会话以获得新 runtime/CLI 环境。`runtime_compatibility` 是 CLI 本地恢复错误码，表示版本能力不匹配，不代表任务不存在。
+- **已知限制**：当前兼容层只能提示恢复，不能从 CLI 安全地重启用户的 Electron 进程；已有终端可能继续携带旧环境变量，仍需新建会话。
+- **关联假设**：沿用 `ASSUMPTIONS.md` 中“旧的已运行生产 Orca 进程可能仍使用不含 `local-task` 的 CLI；重启新的 `pnpm dev` 后会先构建 CLI”的现有记录。
+- **验证**：`src/cli/local-task-context.test.ts` 与 `src/cli/format-recovery.test.ts` 共 7 项通过；`pnpm run tc:cli`、定向 `oxlint`、`git diff --check` 通过。验证环境 Node 22.21.1，项目声明 Node 24，因此命令输出保留 engine warning。
