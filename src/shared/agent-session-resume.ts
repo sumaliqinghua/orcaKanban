@@ -16,7 +16,8 @@ export const RESUMABLE_TUI_AGENTS = [
   'omp',
   'prime-agent',
   'copilot',
-  'kimi'
+  'kimi',
+  'cursor'
 ] as const satisfies readonly TuiAgent[]
 
 export type ResumableTuiAgent = (typeof RESUMABLE_TUI_AGENTS)[number]
@@ -202,6 +203,11 @@ export function extractAgentProviderSession(
       const id = readSessionId(payload, ['session_id'])
       return id ? { key: 'session_id', id } : null
     }
+    case 'cursor': {
+      // Cursor 的 conversation_id 标识持久对话，session_id 仅标识本次进程。
+      const id = readSessionId(payload, ['conversation_id'])
+      return id ? { key: 'conversation_id', id } : null
+    }
     case 'antigravity': {
       const id = readSessionId(payload, ['conversationId'])
       return id ? { key: 'conversation_id', id } : null
@@ -239,7 +245,6 @@ export function extractAgentProviderSession(
       return id ? { key: 'session_id', id } : null
     }
     case 'amp':
-    case 'cursor':
     case 'command-code':
     case 'hermes':
       return null
@@ -257,6 +262,8 @@ export function getAgentResumeArgv(
       return providerSession.key === 'session_id' ? ['claude', '--resume', id] : null
     case 'codex':
       return providerSession.key === 'session_id' ? ['codex', 'resume', id] : null
+    case 'cursor':
+      return providerSession.key === 'conversation_id' ? ['cursor-agent', '--resume', id] : null
     case 'gemini':
       return providerSession.key === 'session_id' ? ['gemini', '--resume', id] : null
     case 'antigravity':

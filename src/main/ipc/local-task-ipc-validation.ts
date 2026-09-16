@@ -93,6 +93,7 @@ export const createLocalTaskSessionArgsSchema = z
 
 export const updateLocalTaskSessionOutputArgsSchema = z
   .object({
+    agentId: z.string().refine(isTuiAgent, 'Unsupported Agent').optional(),
     tags: z.array(shortText).max(20).optional(),
     providerSession: providerSession.optional(),
     sessionId: id,

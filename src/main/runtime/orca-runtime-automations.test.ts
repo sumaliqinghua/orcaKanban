@@ -71,6 +71,39 @@ const existingAutomation = {
 } satisfies Automation
 
 describe('OrcaRuntimeService automation methods', () => {
+  it.each([
+    { eventTrigger: { eventType: 'local_task.intake_changed' as const } },
+    {
+      eventTrigger: {
+        eventType: 'local_task.status_changed' as const,
+        status: 'Done' as const,
+        projectId: 'repo-1',
+        workspaceId: 'wt-1'
+      }
+    },
+    { eventTrigger: null }
+  ])('preserves an explicit event trigger update: %j', async (patch) => {
+    const store = makeStore([existingAutomation])
+    const runtime = new OrcaRuntimeService(store as never)
+    const updated = await runtime.updateAutomation('auto-1', patch)
+    expect(store.updateAutomation).toHaveBeenCalledWith('auto-1', patch, undefined)
+    expect(updated.eventTrigger).toEqual(patch.eventTrigger)
+  })
+
+  it('keeps the saved event trigger when the update omits it or passes undefined', async () => {
+    const eventTrigger = { eventType: 'local_task.intake_changed' as const }
+    const store = makeStore([{ ...existingAutomation, eventTrigger }])
+    const runtime = new OrcaRuntimeService(store as never)
+    for (const patch of [{ enabled: false }, { enabled: false, eventTrigger: undefined }]) {
+      const updated = await runtime.updateAutomation('auto-1', patch)
+      expect(store.updateAutomation).toHaveBeenLastCalledWith(
+        'auto-1',
+        { enabled: false },
+        undefined
+      )
+      expect(updated.eventTrigger).toEqual(eventTrigger)
+    }
+  })
   it('creates repo-scoped automations through the shared store', async () => {
     const store = makeStore()
     const runtime = new OrcaRuntimeService(store as never)
@@ -78,6 +111,7 @@ describe('OrcaRuntimeService automation methods', () => {
     const automation = await runtime.createAutomation({
       name: 'Daily review',
       prompt: 'Review changes',
+      eventTrigger: { eventType: 'local_task.intake_changed' },
       precheck: { command: 'test -f ready', timeoutSeconds: 30 },
       agentId: 'codex',
       repo: 'repo-1',
@@ -91,6 +125,7 @@ describe('OrcaRuntimeService automation methods', () => {
       expect.objectContaining({
         name: 'Daily review',
         prompt: 'Review changes',
+        eventTrigger: { eventType: 'local_task.intake_changed' },
         precheck: { command: 'test -f ready', timeoutSeconds: 30 },
         agentId: 'codex',
         projectId: 'repo-1',

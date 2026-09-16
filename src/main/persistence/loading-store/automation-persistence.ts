@@ -157,13 +157,15 @@ export class AutomationPersistence {
   createAutomationRun(
     automation: Automation,
     scheduledFor: number,
-    trigger: AutomationRunTrigger = 'scheduled'
+    trigger: AutomationRunTrigger = 'scheduled',
+    eventId?: string
   ): AutomationRun {
     return createAutomationRunOperation(
       getAutomationRunOperations(this),
       automation,
       scheduledFor,
-      trigger
+      trigger,
+      eventId
     )
   }
 

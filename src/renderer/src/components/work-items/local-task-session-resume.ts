@@ -5,7 +5,10 @@ import { toRuntimeWorktreeSelector } from '@/runtime/runtime-worktree-selector'
 import { getAiVaultResumeWorkspaceExecutionHostId } from '@/lib/ai-vault-resume-target'
 import { isResumableTuiAgent } from '../../../../shared/agent-session-resume'
 import { parseExecutionHostId } from '../../../../shared/execution-host'
-import type { RuntimeEnsureAgentSessionResult } from '../../../../shared/agent-session-host-authority'
+import type {
+  RuntimeEnsureAgentSessionRequest,
+  RuntimeEnsureAgentSessionResult
+} from '../../../../shared/agent-session-host-authority'
 import type { DashboardRevealAgentArgs } from '../../../../shared/dashboard-snapshot'
 import type { LocalTask } from '../../../../shared/local-task-types'
 import type { WorkItem } from './mock-data'
@@ -37,8 +40,8 @@ export async function resumeLocalTaskSession(args: {
       worktree: toRuntimeWorktreeSelector(workspaceId),
       agent: session.agentId,
       providerSession: session.providerSession,
-      presentation: host.kind === 'runtime' ? 'background' : 'visible'
-    },
+      presentation: host.kind === 'runtime' ? 'background' : 'focused'
+    } satisfies RuntimeEnsureAgentSessionRequest,
     { timeoutMs: 30_000 }
   )
   const tabId = result.terminal.tabId

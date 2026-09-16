@@ -1,5 +1,6 @@
 import type { TuiAgent } from './tui-agent'
 import type { AgentProviderSessionMetadata } from './agent-session-resume'
+import type { LocalTaskSessionRetry } from './local-task-session-retry'
 
 export const LOCAL_TASK_STATUSES = ['Open', 'In progress', 'Needs review', 'Done'] as const
 
@@ -28,6 +29,7 @@ export type LocalTaskSubtask = {
 }
 
 export type LocalTaskSession = {
+  retry?: LocalTaskSessionRetry | null
   id: string
   tags?: string[]
   providerSession?: AgentProviderSessionMetadata
@@ -184,14 +186,16 @@ export type CreateLocalTaskSessionArgs = {
   /** Backward-compatible alias used by older task-center callers. */
   initialPrompt?: string
   associationSource?: 'task-center' | 'explicit' | 'automation' | 'clarification' | 'task-report'
+  initialStatus?: LocalTaskSession['status']
 }
 
 export type UpdateLocalTaskSessionOutputArgs = {
+  agentId?: TuiAgent
   sessionId: string
   tags?: string[]
   providerSession?: AgentProviderSessionMetadata
   prompt?: string
-  sessionStatus?: 'working' | 'done'
+  sessionStatus?: 'working' | 'idle' | 'done'
   latestOutput?: string
   manualNotes?: string | null
 }

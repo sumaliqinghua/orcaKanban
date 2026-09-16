@@ -45,7 +45,9 @@ export function buildAutomationEditDraft(automation: Automation): AutomationDraf
     scheduleWarning:
       schedule || hasCustomSchedule
         ? null
-        : 'This automation has an unsupported saved schedule. Pick a supported schedule before saving changes.'
+        : 'This automation has an unsupported saved schedule. Pick a supported schedule before saving changes.',
+    eventType: automation.eventTrigger?.eventType ?? null,
+    eventStatus: automation.eventTrigger?.status ?? 'Needs review'
   }
 }
 

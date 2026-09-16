@@ -135,7 +135,7 @@ export function computeLapsedManualUnreadProtections(
   activePaneKeys: ReadonlySet<string>
 ): string[] {
   const lapsed: string[] = []
-  for (const [paneKey, turnTimestamp] of Object.entries(state.manuallyUnreadTurnsByPaneKey)) {
+  for (const [paneKey, turnTimestamp] of Object.entries(state.manuallyUnreadTurnsByPaneKey ?? {})) {
     if (!activePaneKeys.has(paneKey)) {
       lapsed.push(paneKey)
       continue
@@ -311,7 +311,7 @@ export function useAutoAckViewedAgent(floatingPanelVisible: boolean): void {
         const activeLeafId = resolveActiveLeafId(current, tabId)
         const toAck = computeAutoAckTargets(current, tabId, activeLeafId).filter(
           (paneKey) =>
-            current.manuallyUnreadTurnsByPaneKey[paneKey] !==
+            (current.manuallyUnreadTurnsByPaneKey ?? {})[paneKey] !==
             getAgentTurnTimestamp(current, paneKey)
         )
         const activePaneKey = computeViewedAgentCompletionPaneKey(current, tabId, activeLeafId)

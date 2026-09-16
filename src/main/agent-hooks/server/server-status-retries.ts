@@ -1,3 +1,4 @@
+import { createCodexTurnFailureProbe, reconcileCodexTurnFailure, type CodexTurnFailureProbe } from '../../../shared/codex-turn-failure-probe'
 import { hasCodexTranscriptSubagents } from '../../../shared/agent-hook-listener/providers/codex-state'
 import { normalizeHookPayload } from '../../../shared/agent-hook-listener'
 import {
@@ -15,6 +16,7 @@ import {
 import { AgentHookServerStatusUpdate } from './server-status-update'
 
 type CodexSubagentPoll = {
+  failureProbe?: CodexTurnFailureProbe
   source: AgentHookSource
   body: unknown
   original: EnrichedAgentHookEventPayload
@@ -46,17 +48,18 @@ export abstract class AgentHookServerStatusRetries extends AgentHookServerStatus
   protected scheduleCodexSubagentPoll(
     source: AgentHookSource,
     body: unknown,
-    original: EnrichedAgentHookEventPayload
+    original: EnrichedAgentHookEventPayload,
+    failureProbe = createCodexTurnFailureProbe(original)
   ): void {
     // Why: a nested non-codex CLI inherits ORCA_PANE_KEY, so clearing here would silently end a live codex poll.
     if (source !== 'codex') {
       return
     }
     this.codexSubagentPollScheduler.clear(original.paneKey)
-    if (!hasCodexTranscriptSubagents(this.state, original.paneKey)) {
+    if (!hasCodexTranscriptSubagents(this.state, original.paneKey) && (!failureProbe || failureProbe.settled || original.payload.state === 'done')) {
       return
     }
-    this.codexSubagentPollScheduler.schedule(original.paneKey, { source, body, original })
+    this.codexSubagentPollScheduler.schedule(original.paneKey, { source, body, original, failureProbe })
   }
 
   private runCodexSubagentPoll(paneKey: string, poll: CodexSubagentPoll): void {
@@ -70,14 +73,15 @@ export abstract class AgentHookServerStatusRetries extends AgentHookServerStatus
     ) {
       return
     }
-    const normalized = normalizeHookPayload(this.state, source, body, this.env)
+    const event = normalizeHookPayload(this.state, source, body, this.env)
+    const normalized = event && reconcileCodexTurnFailure(poll.failureProbe, this.state, event)
     if (!normalized) {
       return
     }
     const subagentsChanged =
-      JSON.stringify(normalized.payload.subagents) !== JSON.stringify(original.payload.subagents)
+      JSON.stringify(normalized.payload.subagents) !== JSON.stringify(original.payload.subagents) || normalized.payload.state !== original.payload.state
     const next = subagentsChanged ? this.applyNormalizedStatus(normalized) : original
-    this.scheduleCodexSubagentPoll(source, body, next)
+    this.scheduleCodexSubagentPoll(source, body, next, poll.failureProbe)
   }
 
   protected scheduleAssistantMessageRetry(

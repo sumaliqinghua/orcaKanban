@@ -1,6 +1,17 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webFrame } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { PreloadApi } from './api-types'
+import {
+  awaitBeforeUnloadCheckpoint,
+  browserClientPageRendererRequests,
+  browserFindSubscriptions,
+  getLinuxDisplayServer,
+  installBrowserFindListener,
+  installNativeFileDropHandlers,
+  startupDiagnosticsEnabled,
+  subscribeNativeFileDrop,
+  updaterQuitAbortRelay
+} from './preload-runtime-support'
 import {
   DOC_PREVIEW_EXTERNAL_LINK_CHANNEL,
   DOC_PREVIEW_LOAD_FAILURE_CHANNEL,
@@ -278,6 +289,8 @@ import {
 } from '../shared/keyboard-layout-events'
 import { createBrowserFindSubscriptions } from './browser-find-subscriptions'
 import { createBrowserClientPageRendererRequests } from './browser-client-page-renderer-requests'
+import { glApiBridge } from './api/gl-bridge'
+import { e2eApi } from './api/e2e-bridge'
 import { readBrowserClientHostIdArgument } from '../shared/browser-client-host-id-argument'
 import { createUsageProviderApi } from './usage-provider-api'
 import type { AppStarSource } from '../shared/gh-star-source'
@@ -371,6 +384,7 @@ const telemetryGetConsentStateApi: PreloadApi['telemetryGetConsentState'] = () =
 
 const api = {
   localTasks: {
+    stopSessionRetry: (sessionId: string) => ipcRenderer.invoke('localTasks:stopSessionRetry', sessionId),
     list: (args?: { projectId?: string; projectPath?: string }) =>
       ipcRenderer.invoke('localTasks:list', args),
     listAiRecords: (args: Parameters<LocalTaskApi['listAiRecords']>[0]) =>
@@ -460,6 +474,10 @@ const api = {
     },
     awaitFirstWindowStartupServices: (): Promise<void> =>
       ipcRenderer.invoke('app:awaitFirstWindowStartupServices'),
+    awaitGitEnvironmentStartupBarrier: (): Promise<void> =>
+      ipcRenderer.invoke('app:awaitGitEnvironmentStartupBarrier'),
+    prepareTerminalStartupRestoration: (): Promise<void> =>
+      ipcRenderer.invoke('app:prepareTerminalStartupRestoration'),
     recoverLegacyWorkerTerminalsForRendererStartup: (): Promise<void> =>
       ipcRenderer.invoke('app:recoverLegacyWorkerTerminalsForRendererStartup'),
     startupDiagnostic: (event: string, details?: Record<string, unknown>): Promise<void> =>
@@ -1705,7 +1723,7 @@ const api = {
   },
 
   // Why: GitLab bindings live in `./gitlab` so `gl.*` changes don't conflict on every upstream sync of this central file.
-  gl: glApi,
+  gl: glApiBridge,
 
   bitbucket: {
     connect: (args: {
@@ -4885,7 +4903,7 @@ const api = {
   },
 
   e2e: {
-    getConfig: () => preloadE2EConfig
+    ...e2eApi
   },
 
   mobile: {

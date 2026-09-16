@@ -43,6 +43,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
         }
       : { session: '暂无会话', text: '尚未开始。' },
     sessionsList: task.sessions.map((session) => ({
+      retry: session.retry,
       id: session.id,
       tabId: session.tabId,
       providerSession: session.providerSession,
@@ -90,6 +91,12 @@ export function reconcileWorkItemSessionLiveness(
   } = {}
 ): WorkItem {
   const sessionsList = item.sessionsList.map((session) => {
+    if (session.retry) {
+      return {
+        ...session,
+        status: session.retry.phase === 'running' ? ('working' as const) : ('idle' as const)
+      }
+    }
     if (!session.id) {
       return session
     }

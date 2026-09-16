@@ -1,3 +1,4 @@
+import { createCodexTurnFailureProbe, reconcileCodexTurnFailure, type CodexTurnFailureProbe } from '../shared/codex-turn-failure-probe'
 // Deferred re-normalization timers for late-arriving agent results: the transcript hadn't caught up
 // when the hook fired, so re-read the same body on a timer and re-apply only if it changed. Both
 // timer families live in one owner so pane teardown and server stop tear both down in one ordered
@@ -18,6 +19,7 @@ const ASSISTANT_MESSAGE_RETRY_MS = 50
 const CODEX_SUBAGENT_POLL_MS = 1_000
 
 type CodexSubagentPoll = {
+  failureProbe?: CodexTurnFailureProbe
   source: AgentHookSource
   body: unknown
   original: AgentHookEventPayload
@@ -77,14 +79,15 @@ export class AgentHookResultRetryScheduler {
     body: unknown,
     original: AgentHookEventPayload,
     env?: string,
-    version?: string
+    version?: string,
+    failureProbe = createCodexTurnFailureProbe(original)
   ): void {
     // Why: a nested non-codex CLI inherits ORCA_PANE_KEY, so clearing here would silently end a live codex poll.
     if (source !== 'codex') {
       return
     }
     this.codexSubagentPollScheduler.clear(original.paneKey)
-    if (!hasCodexTranscriptSubagents(this.host.state, original.paneKey)) {
+    if (!hasCodexTranscriptSubagents(this.host.state, original.paneKey) && (!failureProbe || failureProbe.settled || original.payload.state === 'done')) {
       return
     }
     this.codexSubagentPollScheduler.schedule(original.paneKey, {
@@ -92,7 +95,8 @@ export class AgentHookResultRetryScheduler {
       body,
       original,
       env,
-      version
+      version,
+      failureProbe
     })
   }
 
@@ -107,17 +111,18 @@ export class AgentHookResultRetryScheduler {
     ) {
       return
     }
-    const event = normalizeHookPayload(this.host.state, source, body, this.host.env)
+    const normalized = normalizeHookPayload(this.host.state, source, body, this.host.env)
+    const event = normalized && reconcileCodexTurnFailure(poll.failureProbe, this.host.state, normalized)
     if (!event) {
       return
     }
     const subagentsChanged =
-      JSON.stringify(event.payload.subagents) !== JSON.stringify(original.payload.subagents)
+      JSON.stringify(event.payload.subagents) !== JSON.stringify(original.payload.subagents) || event.payload.state !== original.payload.state
     const next = subagentsChanged ? event : original
     if (subagentsChanged) {
       this.host.applyEvent(event, source, env, version)
     }
-    this.scheduleCodexSubagentPoll(source, body, next, env, version)
+    this.scheduleCodexSubagentPoll(source, body, next, env, version, poll.failureProbe)
   }
 
   scheduleAssistantMessageRetry(

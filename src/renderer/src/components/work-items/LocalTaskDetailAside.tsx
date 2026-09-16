@@ -12,6 +12,8 @@ import { useLiveDashboardSnapshot } from '../dashboard/useLiveDashboardSnapshot'
 import { resumeLocalTaskSession } from './local-task-session-resume'
 import { localTaskSessionMatchesTab } from './local-task-session-identity'
 import { LocalTaskSessionHistory } from './LocalTaskSessionHistory'
+import { LocalTaskSessionSplit } from './LocalTaskSessionSplit'
+import { LocalTaskSessionRetryNotice } from './LocalTaskSessionRetryNotice'
 import type { Worktree } from '../../../../shared/worktree/types'
 
 function LocalTaskSessionPreview({
@@ -79,6 +81,9 @@ function LocalTaskSessionPreview({
           </Button>
         </div>
         <div className="scrollbar-sleek flex flex-1 flex-col gap-3 overflow-y-auto p-4 text-xs text-muted-foreground">
+          {session.retry ? (
+            <LocalTaskSessionRetryNotice sessionId={sessionId} retry={session.retry} />
+          ) : null}
           <LocalTaskSessionHistory
             session={session}
             onManualNotesChange={async (manualNotes) => {
@@ -119,41 +124,49 @@ function LocalTaskSessionPreview({
   }
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-border">
-      <div className="scrollbar-sleek max-h-56 shrink-0 overflow-y-auto p-3">
-        <LocalTaskSessionHistory
-          session={session}
-          onManualNotesChange={async (manualNotes) => {
-            const task = await window.api.localTasks.updateSessionOutput({
-              sessionId,
-              manualNotes
-            })
-            onTaskChanged(task)
+      <LocalTaskSessionSplit
+        history={
+          <>
+            {session.retry ? (
+              <LocalTaskSessionRetryNotice sessionId={sessionId} retry={session.retry} />
+            ) : null}
+            <LocalTaskSessionHistory
+              session={session}
+              onManualNotesChange={async (manualNotes) => {
+                const task = await window.api.localTasks.updateSessionOutput({
+                  sessionId,
+                  manualNotes
+                })
+                onTaskChanged(task)
+              }}
+              onTagsChange={async (tags) => {
+                const task = await window.api.localTasks.updateSessionOutput({ sessionId, tags })
+                onTaskChanged(task)
+              }}
+            />
+          </>
+        }
+      >
+        <AgentTerminalPanel
+          card={card}
+          className="m-0 min-h-0 flex-1 rounded-none border-0 border-t shadow-none"
+          onOpenChange={(open) => {
+            if (!open) {
+              onClose()
+            }
           }}
-          onTagsChange={async (tags) => {
-            const task = await window.api.localTasks.updateSessionOutput({ sessionId, tags })
-            onTaskChanged(task)
+          onReveal={() => {
+            onOpenWorkspace({
+              repoId: card.repoId,
+              worktreeId: card.worktreeId,
+              executionHostId: card.executionHostId,
+              tabId: card.tabId,
+              leafId: card.leafId
+            })
+            onClose()
           }}
         />
-      </div>
-      <AgentTerminalPanel
-        card={card}
-        className="m-0 min-h-0 flex-1 rounded-none border-0 border-t shadow-none"
-        onOpenChange={(open) => {
-          if (!open) {
-            onClose()
-          }
-        }}
-        onReveal={() => {
-          onOpenWorkspace({
-            repoId: card.repoId,
-            worktreeId: card.worktreeId,
-            executionHostId: card.executionHostId,
-            tabId: card.tabId,
-            leafId: card.leafId
-          })
-          onClose()
-        }}
-      />
+      </LocalTaskSessionSplit>
     </section>
   )
 }

@@ -1,6 +1,10 @@
-import { ipcMain } from 'electron'
+import { startAutomationSessionRetryMonitor } from '../automations/session-retry-monitor'
+import { app, ipcMain } from 'electron'
+import type { OrcaRuntimeService } from '../runtime/orca-runtime'
+import { startLocalTaskSessionRetryMonitor } from '../local-tasks/session-retry-monitor'
 import { getLocalTaskStore } from '../local-tasks/store'
 import type { Store } from '../persistence'
+import type { AutomationService } from '../automations/service'
 import type {
   ReportLocalTaskCompletedArgs,
   UpdateLocalTaskStepArgs
@@ -35,13 +39,39 @@ import { listKanbanAiRecords, markKanbanAiRecordRead } from '../local-tasks/ai-r
 
 let registered = false
 
-export function registerLocalTaskHandlers(profileStore: Store): void {
+export function registerLocalTaskHandlers(
+  profileStore: Store,
+  runtime: OrcaRuntimeService,
+  automations?: AutomationService
+): void {
   if (registered) {
     return
   }
   registered = true
   const store = getLocalTaskStore(profileStore)
   store.setOnChanged(publishLocalTaskChange)
+  store.setOnEvent((event) => {
+    void automations?.triggerEvent({
+      eventType: event.eventType,
+      eventId: event.eventId,
+      projectId: event.task.projectId,
+      workspaceId: event.task.workspaceId,
+      taskId: event.task.id,
+      status: event.task.status
+    })
+  })
+  const retries = startLocalTaskSessionRetryMonitor(profileStore, runtime)
+  const automationRetries = startAutomationSessionRetryMonitor(profileStore, runtime)
+  if (typeof app.once === 'function') {
+    app.once('before-quit', () => { retries.dispose(); automationRetries.dispose() })
+  }
+  ipcMain.handle('localTasks:stopSessionRetry', (_event, sessionId: unknown) => {
+    const parsed = parseLocalTaskIpcArgs(rebindLocalTaskSessionTabArgsSchema, {
+      sessionId,
+      tabId: 'unused'
+    })
+    return retries.stopSession(parsed.sessionId)
+  })
   ipcMain.handle('localTasks:list', (_event, args: unknown) => {
     const parsed = parseLocalTaskIpcArgs(localTaskListArgsSchema, args)
     return store.list(parsed?.projectId, parsed?.projectPath, {

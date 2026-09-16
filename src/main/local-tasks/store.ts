@@ -32,12 +32,17 @@ import * as mutations from './file-store-mutations'
 import * as subtaskMutations from './subtask-progress-mutations'
 import * as batchMutations from './file-store-batch-mutations'
 import type { LocalTask as PersistedLocalTask } from '../../shared/local-task-types'
+import type { LocalTaskChangeEvent } from './event-detection'
+import { detectLocalTaskEvents } from './event-detection'
+import type { LocalTaskSessionRetry } from '../../shared/local-task-session-retry'
 
 export type LocalTaskProfilePersistence = {
   getLocalTasks: () => PersistedLocalTask[]
   saveLocalTask: (task: PersistedLocalTask) => PersistedLocalTask
   deleteLocalTask: (taskId: string) => void
 }
+
+export type { LocalTaskChangeEvent } from './event-detection'
 
 let singleton: LocalTaskStore | null = null
 const timestamp = (): number => Date.now()
@@ -48,6 +53,7 @@ const normalizeLabels = (value: string[] | undefined): string[] =>
 
 export class LocalTaskStore {
   private changeListener: ((task: LocalTask) => void) | null = null
+  private eventListener: ((event: LocalTaskChangeEvent) => void) | null = null
 
   constructor(private readonly profilePersistence: LocalTaskProfilePersistence) {}
 
@@ -55,6 +61,10 @@ export class LocalTaskStore {
 
   setOnChanged(listener: ((task: LocalTask) => void) | null): void {
     this.changeListener = listener
+  }
+
+  setOnEvent(listener: ((event: LocalTaskChangeEvent) => void) | null): void {
+    this.eventListener = listener
   }
 
   list(
@@ -219,6 +229,33 @@ export class LocalTaskStore {
   createSession(args: CreateLocalTaskSessionArgs & { projectPath?: string }): LocalTaskSession {
     return mutations.createSession(this.access(), args)
   }
+  setSessionRetry(
+    taskId: string,
+    sessionId: string,
+    retry: LocalTaskSessionRetry | null,
+    working: boolean
+  ): LocalTask {
+    const task = this.require(taskId)
+    const sessions = task.sessions.map((session) =>
+      session.id === sessionId
+        ? { ...session, retry, status: working ? ('working' as const) : ('idle' as const) }
+        : session
+    )
+    return this.writeTask({
+      ...task,
+      sessions,
+      updatedAt: timestamp(),
+      status:
+        task.archivedAt !== null || task.status === 'Done'
+          ? task.status
+          : resolveLocalTaskStatus(
+              task.status,
+              sessions.filter(
+                (session) => !['clarification', 'task-report'].includes(session.associationSource)
+              )
+            )
+    })
+  }
   createSubtask(args: CreateLocalTaskSubtaskArgs & { projectPath?: string }): LocalTask {
     return mutations.createSubtask(this.access(), args)
   }
@@ -285,6 +322,7 @@ export class LocalTaskStore {
   }
 
   private writeTask(task: LocalTask): LocalTask {
+    const previous = this.profilePersistence.getLocalTasks().find((entry) => entry.id === task.id)
     task = {
       ...task,
       status: resolveLocalTaskStatus(
@@ -299,6 +337,9 @@ export class LocalTaskStore {
     const result = this.profilePersistence.saveLocalTask(task)
     this.writeContextFiles(result)
     this.changeListener?.(result)
+    for (const event of detectLocalTaskEvents(result, previous)) {
+      this.eventListener?.(event)
+    }
     return result
   }
 

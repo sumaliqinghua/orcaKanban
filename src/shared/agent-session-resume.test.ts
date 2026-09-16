@@ -29,6 +29,11 @@ describe('agent session resume metadata', () => {
   })
 
   it.each([
+    [
+      'cursor',
+      { conversation_id: 'cursor-chat', session_id: 'process-id' },
+      { key: 'conversation_id', id: 'cursor-chat' }
+    ],
     ['claude', { session_id: 'claude-session' }, { key: 'session_id', id: 'claude-session' }],
     ['codex', { session_id: 'codex-session' }, { key: 'session_id', id: 'codex-session' }],
     ['gemini', { session_id: 'gemini-session' }, { key: 'session_id', id: 'gemini-session' }],
@@ -71,6 +76,7 @@ describe('agent session resume metadata', () => {
   it.each([
     ['claude', { key: 'session_id', id: 's1' }, ['claude', '--resume', 's1']],
     ['codex', { key: 'session_id', id: 's1' }, ['codex', 'resume', 's1']],
+    ['cursor', { key: 'conversation_id', id: 's1' }, ['cursor-agent', '--resume', 's1']],
     ['gemini', { key: 'session_id', id: 's1' }, ['gemini', '--resume', 's1']],
     ['antigravity', { key: 'conversation_id', id: 's1' }, ['agy', '--conversation', 's1']],
     ['opencode', { key: 'session_id', id: 's1' }, ['opencode', '--session', 's1']],
@@ -99,8 +105,14 @@ describe('agent session resume metadata', () => {
     expect(getAgentResumeArgv(agent, providerSession)).toEqual(expected)
   })
 
+  it('拒绝 Cursor 使用不匹配的会话编号类型恢复', () => {
+    expect(getAgentResumeArgv('cursor', { key: 'session_id', id: 's1' })).toBeNull()
+  })
+
   it('rejects unsupported sources and unsafe ids', () => {
     expect(extractAgentProviderSession('cursor', { session_id: 'cursor-session' })).toBeNull()
+    expect(extractAgentProviderSession('cursor', { conversation_id: '--last' })).toBeNull()
+    expect(extractAgentProviderSession('cursor', { conversation_id: 'bad\nid' })).toBeNull()
     expect(normalizeAgentProviderSession({ key: 'session_id', id: 'bad\nid' })).toBeNull()
     expect(normalizeAgentProviderSession({ key: 'session_id', id: '--last' })).toBeNull()
     expect(extractAgentProviderSession('codex', { session_id: '--last' })).toBeNull()

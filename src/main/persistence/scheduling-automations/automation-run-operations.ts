@@ -68,7 +68,8 @@ export function createAutomationRun(
   operations: AutomationRunOperations,
   automation: Automation,
   scheduledFor: number,
-  trigger: AutomationRunTrigger = 'scheduled'
+  trigger: AutomationRunTrigger = 'scheduled',
+  eventId?: string
 ): AutomationRun {
   const existing = (operations.state.automationRuns ?? []).find(
     (run) => run.automationId === automation.id && run.scheduledFor === scheduledFor
@@ -91,6 +92,7 @@ export function createAutomationRun(
     scheduledFor,
     status: 'pending',
     trigger,
+    ...(eventId ? { eventId } : {}),
     workspaceId: automation.workspaceId,
     workspaceDisplayName: operations.getWorkspaceDisplayName(automation.workspaceId),
     sessionKind: 'terminal',

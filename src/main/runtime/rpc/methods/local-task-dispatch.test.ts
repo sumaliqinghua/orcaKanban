@@ -70,6 +70,34 @@ describe('local task dispatch', () => {
     expect(f.store.get(f.task.id)?.status).toBe('Open')
     expect(f.store.get(f.task.id)?.sessions[0].tags).toEqual(['inbox'])
     expect(f.runtime.sendTerminalAgentPrompt.mock.calls[0][1]).toContain('原始需求')
+    expect(f.store.get(f.task.id)?.sessions[0].status).toBe('working')
+  })
+
+  it('associates the parent tab and records a retryable readiness failure', async () => {
+    const f = fixture()
+    f.runtime.createMobileSessionTerminal.mockResolvedValueOnce({
+      tab: { id: 'leaf-new', parentTabId: 'tab-parent', terminal: 'term_new' }
+    })
+    f.runtime.waitForTerminal.mockResolvedValueOnce({ satisfied: false })
+    const result = await f.dispatch()
+    expect(result.disposition).toBe('skipped_unverifiable')
+    expect(f.store.get(f.task.id)?.sessions[0]).toMatchObject({
+      id: 'tab-parent',
+      tabId: 'tab-parent',
+      status: 'idle',
+      manualNotes: expect.stringContaining('超时')
+    })
+    expect(f.runtime.sendTerminalAgentPrompt).not.toHaveBeenCalled()
+  })
+
+  it('records a retryable prompt rejection and only marks working after acceptance', async () => {
+    const f = fixture()
+    f.runtime.sendTerminalAgentPrompt.mockResolvedValueOnce({ accepted: false })
+    await expect(f.dispatch()).rejects.toThrow('Agent prompt was not accepted')
+    expect(f.store.get(f.task.id)?.sessions[0]).toMatchObject({
+      status: 'idle',
+      manualNotes: expect.stringContaining('Agent prompt was not accepted')
+    })
   })
   it('continues an idle Agent instead of treating the live process as busy', async () => {
     const f = fixture()

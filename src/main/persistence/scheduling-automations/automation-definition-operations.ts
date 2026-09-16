@@ -122,6 +122,7 @@ export function createAutomation(
     // persisting it makes the projection orphan a record this authority owns.
     runContext: contexts.runContext ?? input.runContext ?? null,
     sourceContext: contexts.sourceContext ?? input.sourceContext ?? null,
+    eventTrigger: input.eventTrigger ?? null,
     projectId: input.projectId,
     ...executionTarget,
     schedulerOwner,

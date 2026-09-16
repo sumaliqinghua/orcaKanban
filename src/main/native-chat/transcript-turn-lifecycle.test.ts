@@ -6,6 +6,28 @@ import {
 } from './transcript-turn-lifecycle'
 
 describe('native chat transcript turn lifecycle', () => {
+  it('preserves a provider failure separately from a completed turn boundary', () => {
+    expect(
+      decodeCodexTurnLifecycle(
+        JSON.stringify({
+          type: 'event_msg',
+          timestamp: '2026-09-13T00:00:00Z',
+          payload: {
+            type: 'task_complete',
+            turn_id: 'failed-turn',
+            error: {
+              message: 'exceeded retry limit, last status: 429 Too Many Requests'
+            }
+          }
+        }),
+        'fallback'
+      )
+    ).toMatchObject({
+      state: 'completed',
+      turnId: 'failed-turn',
+      error: 'exceeded retry limit, last status: 429 Too Many Requests'
+    })
+  })
   it('exposes a lifecycle decoder only for transcript formats with explicit boundaries', () => {
     expect(nativeChatTurnLifecycleDecoderForAgent('claude')).not.toBeNull()
     expect(nativeChatTurnLifecycleDecoderForAgent('openclaude')).not.toBeNull()

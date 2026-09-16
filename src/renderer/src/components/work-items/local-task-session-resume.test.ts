@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, expect, it, vi } from 'vitest'
 import { resumeLocalTaskSession } from './local-task-session-resume'
+import { AGENT_SESSION_METHODS } from '../../../../main/runtime/rpc/methods/agent-session'
 import type { WorkItem } from './mock-data'
 
 const mocks = vi.hoisted(() => ({
@@ -32,9 +33,10 @@ const onTaskChanged = vi.fn()
 beforeEach(() => {
   vi.resetAllMocks()
   mocks.host.mockReturnValue('local')
-  mocks.call.mockResolvedValue({
-    terminal: { tabId: 'host-restored', worktreeId: 'workspace' },
-    disposition: 'created'
+  mocks.call.mockImplementation(async (_target, method, params) => {
+    const definition = AGENT_SESSION_METHODS.find((entry) => entry.name === method)
+    definition!.params!.parse(params)
+    return { terminal: { tabId: 'host-restored', worktreeId: 'workspace' }, disposition: 'created' }
   })
   mocks.rebind.mockResolvedValue({ projectId: 'repo' })
   Object.defineProperty(window, 'api', {
@@ -58,7 +60,7 @@ it('restores the exact provider identity and binds only the host-returned tab', 
       worktree: 'id:workspace',
       agent: 'codex',
       providerSession: session.providerSession,
-      presentation: 'visible'
+      presentation: 'focused'
     },
     { timeoutMs: 30_000 }
   )
@@ -113,3 +115,22 @@ it('does not use the currently active workspace for a legacy local record', asyn
   ).rejects.toThrow('无法确认')
   expect(mocks.call).not.toHaveBeenCalled()
 })
+
+it.each(['local', 'ssh:connection', 'runtime:server'])(
+  'Cursor 恢复请求通过真实接口校验，执行主机为 %s',
+  async (hostId) => {
+    mocks.host.mockReturnValue(hostId)
+    const providerSession = { key: 'conversation_id' as const, id: 'cursor-conversation' }
+    await resumeLocalTaskSession({
+      sessionId: 'original',
+      session: { ...session, agentId: 'cursor', providerSession },
+      workspaceId: 'workspace',
+      onTaskChanged
+    })
+    expect(mocks.call.mock.calls[0]?.[2]).toMatchObject({
+      providerSession,
+      presentation: hostId === 'runtime:server' ? 'background' : 'focused'
+    })
+    expect(mocks.rebind).toHaveBeenCalledWith({ sessionId: 'original', tabId: 'host-restored' })
+  }
+)

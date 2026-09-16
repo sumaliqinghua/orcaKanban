@@ -76,7 +76,9 @@ export function useAutomationEditorActions({
       dayOfWeek: '1',
       customSchedule: '',
       missedRunGraceMinutes: '720',
-      scheduleWarning: null
+      scheduleWarning: null,
+      eventType: null,
+      eventStatus: 'Needs review'
     }
     const nextDraft = template
       ? {
@@ -87,7 +89,9 @@ export function useAutomationEditorActions({
           time: template.time ?? baseDraft.time,
           dayOfWeek: template.dayOfWeek ?? baseDraft.dayOfWeek,
           agentId: template.agentId ?? baseDraft.agentId,
-          missedRunGraceMinutes: template.missedRunGraceMinutes ?? baseDraft.missedRunGraceMinutes
+          missedRunGraceMinutes: template.missedRunGraceMinutes ?? baseDraft.missedRunGraceMinutes,
+          eventType: template.eventType ?? null,
+          eventStatus: template.eventStatus ?? 'Needs review'
         }
       : baseDraft
     setDraft(nextDraft)

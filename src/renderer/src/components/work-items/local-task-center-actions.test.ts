@@ -132,12 +132,12 @@ describe('local task center description action', () => {
   })
 
   it('resolves a stale workspace id by the task project path before opening it', async () => {
-    const closeWorkItemsPage = vi.fn()
+    const setActiveView = vi.fn()
     getState.mockReturnValue({
       activeWorktreeId: null,
       getKnownWorktreeById: () => undefined,
       allWorktrees: () => [{ id: 'repo::/tmp/project', path: '/tmp/project' }],
-      closeWorkItemsPage
+      setActiveView
     })
     activateWorktreeFromSidebar.mockResolvedValue(undefined)
     const actions = createLocalTaskCenterActions({
@@ -151,17 +151,17 @@ describe('local task center description action', () => {
     await Promise.resolve()
 
     expect(activateWorktreeFromSidebar).toHaveBeenCalledWith('repo::/tmp/project')
-    expect(closeWorkItemsPage).toHaveBeenCalledOnce()
+    expect(setActiveView).toHaveBeenCalledWith('terminal')
   })
 
   it('keeps the task center open when workspace activation fails', async () => {
-    const closeWorkItemsPage = vi.fn()
+    const setActiveView = vi.fn()
     const setLoadError = vi.fn()
     getState.mockReturnValue({
       activeWorktreeId: null,
       getKnownWorktreeById: () => ({ id: 'repo::/tmp/project' }),
       allWorktrees: () => [],
-      closeWorkItemsPage
+      setActiveView
     })
     activateWorktreeFromSidebar.mockResolvedValue(false)
     const actions = createLocalTaskCenterActions({
@@ -174,7 +174,7 @@ describe('local task center description action', () => {
     actions.openWorkspace()
     await Promise.resolve()
 
-    expect(closeWorkItemsPage).not.toHaveBeenCalled()
+    expect(setActiveView).not.toHaveBeenCalled()
     expect(setLoadError).toHaveBeenCalledWith('当前任务的 workspace 不可用')
   })
 })

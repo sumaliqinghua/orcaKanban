@@ -23,7 +23,8 @@ it('persists a resumed working turn before its new prompt arrives', () => {
   persistLocalTaskAgentTurn('original-tab', event({ prompt: '' }))
   expect(updateSessionOutput).toHaveBeenCalledWith({
     sessionId: 'original-tab',
-    sessionStatus: 'working'
+    sessionStatus: 'working',
+    agentId: 'codex'
   })
 })
 it('persists working status alongside provider identity without requiring prompt text', () => {
@@ -32,14 +33,16 @@ it('persists working status alongside provider identity without requiring prompt
   expect(updateSessionOutput).toHaveBeenCalledWith({
     sessionId: 'restored-tab',
     sessionStatus: 'working',
-    providerSession
+    providerSession,
+    agentId: 'codex'
   })
 })
 it('still persists completion without a prompt', () => {
   persistLocalTaskAgentTurn('original-tab', event({ state: 'done' }))
   expect(updateSessionOutput).toHaveBeenCalledWith({
     sessionId: 'original-tab',
-    sessionStatus: 'done'
+    sessionStatus: 'done',
+    agentId: 'codex'
   })
 })
 it('does not write an event with no resolved owner', () => {

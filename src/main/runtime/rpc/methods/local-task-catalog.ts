@@ -193,7 +193,7 @@ export const LOCAL_TASK_CATALOG_METHODS: readonly RpcAnyMethod[] = [
           activate: false,
           select: false
         })
-        const tabId = created.tab.id
+        const tabId = created.tab.parentTabId ?? created.tab.id
         const session = store.createSession({
           taskId: task.id,
           projectPath: params.projectPath,
@@ -203,26 +203,34 @@ export const LOCAL_TASK_CATALOG_METHODS: readonly RpcAnyMethod[] = [
           currentPrompt: prompt,
           agentId: params.agent as TuiAgent,
           tags: params.tag ? [params.tag] : [],
-          associationSource: params.purpose === 'execution' ? 'automation' : params.purpose
+          associationSource: params.purpose === 'execution' ? 'automation' : params.purpose,
+          initialStatus: 'idle'
         })
-        const updated = store.get(task.id, params.projectPath) ?? task
-        publishLocalTaskChange(updated)
         if (!created.tab.terminal) {
+          const failed = store.updateSessionOutput({ sessionId: session.id, sessionStatus: 'idle', manualNotes: '派发失败：Agent 终端未就绪，可重新派发。' })
+          publishLocalTaskChange(failed)
           throw new Error('Agent terminal is not ready')
         }
-        const ready = await runtime.waitForTerminal(created.tab.terminal, {
-          condition: 'tui-idle',
-          timeoutMs: 10_000,
-          signal
-        })
-        if (!ready.satisfied) {
-          return { disposition: 'skipped_unverifiable', sessionId: session.id }
+        try {
+          const ready = await runtime.waitForTerminal(created.tab.terminal, {
+            condition: 'tui-idle', timeoutMs: 10_000, signal
+          })
+          if (!ready.satisfied) {
+            const failed = store.updateSessionOutput({ sessionId: session.id, sessionStatus: 'idle', manualNotes: '派发失败：等待 Agent 终端就绪超时，可重新派发。' })
+            publishLocalTaskChange(failed)
+            return { disposition: 'skipped_unverifiable', task: failed, sessionId: session.id }
+          }
+          const sent = await runtime.sendTerminalAgentPrompt(created.tab.terminal, prompt, { signal })
+          if (!sent.accepted) throw new Error('Agent prompt was not accepted')
+          const updated = store.updateSessionOutput({ sessionId: session.id, prompt, sessionStatus: 'working', manualNotes: null })
+          publishLocalTaskChange(updated)
+          return { disposition: 'created' as const, task: updated, sessionId: session.id }
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error)
+          const failed = store.updateSessionOutput({ sessionId: session.id, sessionStatus: 'idle', manualNotes: `派发失败：${reason}。可重新派发。` })
+          publishLocalTaskChange(failed)
+          throw error
         }
-        const sent = await runtime.sendTerminalAgentPrompt(created.tab.terminal, prompt, { signal })
-        if (!sent.accepted) {
-          throw new Error('Agent prompt was not accepted')
-        }
-        return { disposition: 'created' as const, task: updated, sessionId: session.id }
       } finally {
         dispatchingTasks.delete(task.id)
       }

@@ -167,7 +167,17 @@ export async function saveOrcaAutomation(
     setupDecision,
     reuseSession: draft.workspaceMode === 'existing' && draft.reuseSession,
     timezone,
-    missedRunGraceMinutes
+    missedRunGraceMinutes,
+    eventTrigger: draft.eventType
+      ? {
+          eventType: draft.eventType,
+          projectId: draft.projectId || undefined,
+          workspaceId: draft.workspaceId || undefined,
+          ...(draft.eventType === 'local_task.status_changed' && draft.eventStatus
+            ? { status: draft.eventStatus }
+            : {})
+        }
+      : null
   }
   if (!currentAutomation || currentAutomation.rrule !== rrule) {
     updates.rrule = rrule
@@ -188,7 +198,17 @@ export async function saveOrcaAutomation(
     timezone,
     rrule,
     dtstart: updates.dtstart ?? time.now,
-    missedRunGraceMinutes
+    missedRunGraceMinutes,
+    eventTrigger: draft.eventType
+      ? {
+          eventType: draft.eventType,
+          projectId: draft.projectId || undefined,
+          workspaceId: draft.workspaceId || undefined,
+          ...(draft.eventType === 'local_task.status_changed' && draft.eventStatus
+            ? { status: draft.eventStatus }
+            : {})
+        }
+      : null
   }
 
   const destinationResult = resolveAutomationEditDestination({

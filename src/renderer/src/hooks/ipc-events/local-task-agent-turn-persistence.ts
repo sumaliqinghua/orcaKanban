@@ -1,4 +1,5 @@
 import type { AgentStatusIpcPayload } from '../../../../shared/agent-status-types'
+import { isTuiAgent } from '../../../../shared/tui-agent-config'
 
 export function persistLocalTaskAgentTurn(
   ownerTabId: string | undefined,
@@ -14,6 +15,7 @@ export function persistLocalTaskAgentTurn(
   }
   void updateSessionOutput({
     sessionId: ownerTabId,
+    ...(isTuiAgent(data.agentType) ? { agentId: data.agentType } : {}),
     ...(data.providerSession ? { providerSession: data.providerSession } : {}),
     ...(data.prompt?.trim() || hasLifecycleState
       ? { sessionStatus: data.state === 'done' ? ('done' as const) : ('working' as const) }

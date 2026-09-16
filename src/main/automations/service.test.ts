@@ -135,6 +135,47 @@ describe('AutomationService', () => {
     )
   })
 
+  it('dispatches an event automation once for a matching local task event', async () => {
+    vi.setSystemTime(new Date('2026-05-13T08:00:00Z'))
+    const store = await createStore()
+    store.addRepo(makeRepo())
+    const automation = store.createAutomation({
+      name: 'Inbox clarification',
+      prompt: 'Clarify the inbox task',
+      agentId: 'claude',
+      projectId: 'r1',
+      workspaceMode: 'existing',
+      workspaceId: 'wt1',
+      timezone: 'UTC',
+      rrule: 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0',
+      dtstart: Date.now(),
+      eventTrigger: { eventType: 'local_task.intake_changed', projectId: 'r1' }
+    })
+    const send = vi.fn()
+    const service = new AutomationService(store)
+    service.setWebContents({ isDestroyed: () => false, send } as never)
+    service.setRendererReady()
+    await service.triggerEvent({
+      eventType: 'local_task.intake_changed',
+      eventId: 'task-1:inbox',
+      projectId: 'r1',
+      workspaceId: 'wt1',
+      taskId: 'task-1'
+    })
+    await service.triggerEvent({
+      eventType: 'local_task.intake_changed',
+      eventId: 'task-1:inbox',
+      projectId: 'r1',
+      workspaceId: 'wt1',
+      taskId: 'task-1'
+    })
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(store.listAutomationRuns(automation.id)[0]).toMatchObject({
+      trigger: 'event',
+      eventId: 'task-1:inbox'
+    })
+  })
+
   it('skips dispatch when the selected project host setup is gone', async () => {
     vi.setSystemTime(new Date('2026-05-13T08:00:00Z'))
     const store = await createStore()

@@ -22,6 +22,7 @@ import { AutomationSetupDecisionField } from './AutomationSetupDecisionField'
 import { AutomationWorkspaceField } from './AutomationWorkspaceField'
 import { AutomationLocalTaskScopeField } from './AutomationLocalTaskScopeField'
 import { AutomationDestinationField } from './AutomationDestinationField'
+import type { AutomationEventType } from '../../../../shared/automations-types'
 import type { AutomationCreateDestinationControl } from './use-automation-create-destination'
 import type { AutomationDraft } from './AutomationEditorDialog'
 
@@ -212,12 +213,57 @@ export function AutomationEditorSettingsSidebar({
             />
           </div>
         </div>
+        {!isHermesTarget ? (
+          <Field
+            className="mb-4"
+            labelClassName={AUTOMATION_EDITOR_SECTION_LABEL_CLASS}
+            label="事件触发（可选）"
+          >
+            <select
+              value={draft.eventType ?? ''}
+              onChange={(event) =>
+                onDraftChange((current) => ({
+                  ...current,
+                  eventType: (event.target.value || null) as AutomationEventType | null
+                }))
+              }
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value="">仅按定时或手动运行</option>
+              <option value="local_task.intake_changed">任务进入收件箱</option>
+              <option value="local_task.status_changed">任务变为待审阅</option>
+              <option value="local_task.reopened">任务重新打开</option>
+              <option value="agent_session.completed">Agent 会话完成</option>
+            </select>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              事件自动化仍使用下方提示词；只在状态真正变化时运行。
+            </p>
+            {draft.eventType === 'local_task.status_changed' ? (
+              <select
+                value={draft.eventStatus ?? 'Needs review'}
+                onChange={(event) =>
+                  onDraftChange((current) => ({
+                    ...current,
+                    eventStatus: event.target.value as AutomationDraft['eventStatus']
+                  }))
+                }
+                className="mt-2 h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+                aria-label="目标任务状态"
+              >
+                <option value="Open">Open</option>
+                <option value="In progress">In progress</option>
+                <option value="Needs review">Needs review</option>
+                <option value="Done">Done</option>
+              </select>
+            ) : null}
+          </Field>
+        ) : null}
         <Field
           className="mb-4"
           labelClassName={AUTOMATION_EDITOR_SECTION_LABEL_CLASS}
           label={translate(
             'auto.components.automations.AutomationEditorDialog.c4b19094c2',
-            'Schedule'
+            draft.eventType ? '日程（事件触发时不使用）' : 'Schedule'
           )}
         >
           <AutomationSchedulePicker

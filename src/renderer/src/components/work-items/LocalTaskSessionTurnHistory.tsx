@@ -1,5 +1,6 @@
 import { MessageCircle, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { LocalTaskSessionDisclosure } from './LocalTaskSessionDisclosure'
 
 export type LocalTaskSessionTurnView = {
   id: string
@@ -26,17 +27,18 @@ export function LocalTaskSessionTurnHistory({
         会话历史
       </div>
       {currentPrompt ? (
-        <div className="rounded-md border border-sky-500/25 bg-sky-500/10 p-2.5">
-          <div className="mb-1 text-[10px] font-medium text-sky-700 dark:text-sky-300">
-            最近请求
-          </div>
+        <LocalTaskSessionDisclosure title="最近请求" preview={currentPrompt}>
           <div className="whitespace-pre-wrap leading-relaxed text-foreground">{currentPrompt}</div>
-        </div>
+        </LocalTaskSessionDisclosure>
       ) : null}
       {orderedTurns.length ? (
         <div className="space-y-1.5">
-          {orderedTurns.map((turn) => (
-            <div key={turn.id} className="rounded-md border border-border/70 bg-muted/20 p-2.5">
+          {orderedTurns.map((turn, index) => (
+            <LocalTaskSessionDisclosure
+              key={turn.id}
+              title={`第 ${orderedTurns.length - index} 轮问答`}
+              preview={turn.prompt}
+            >
               <div className="mb-1 flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
                 <MessageCircle className="size-3" />
                 用户问题
@@ -52,7 +54,7 @@ export function LocalTaskSessionTurnHistory({
               <div className="max-h-28 overflow-y-auto whitespace-pre-wrap leading-relaxed text-muted-foreground scrollbar-sleek">
                 {turn.summary || '本轮没有保存小结。'}
               </div>
-            </div>
+            </LocalTaskSessionDisclosure>
           ))}
         </div>
       ) : !currentPrompt ? (

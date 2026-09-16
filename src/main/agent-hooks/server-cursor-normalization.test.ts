@@ -27,6 +27,27 @@ afterEach(() => {
 })
 
 describe('Cursor hook normalization', () => {
+  it.each(['beforeSubmitPrompt', 'stop', 'afterAgentResponse'])(
+    '从 %s 事件保留可恢复对话编号，忽略进程会话编号',
+    (hookEventName) => {
+      const result = _internals.normalizeHookPayload(
+        'cursor',
+        buildBody({
+          hook_event_name: hookEventName,
+          conversation_id: 'cursor-conversation',
+          session_id: 'cursor-process-session',
+          prompt: 'continue',
+          status: 'completed'
+        }),
+        'production'
+      )
+      expect(result?.providerSession).toEqual({
+        key: 'conversation_id',
+        id: 'cursor-conversation'
+      })
+    }
+  )
+
   it('beforeSubmitPrompt maps to working and captures the prompt', () => {
     const result = _internals.normalizeHookPayload(
       'cursor',

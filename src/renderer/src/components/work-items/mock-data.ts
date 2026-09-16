@@ -1,3 +1,5 @@
+import type { LocalTaskSessionRetry } from '../../../../shared/local-task-session-retry'
+
 export type WorkItemStatus = 'Open' | 'In progress' | 'Needs review' | 'Done'
 export type StepStatus = 'todo' | 'doing' | 'done' | 'canceled'
 export type FollowUpStatus = 'open' | 'active' | 'resolved'
@@ -26,6 +28,7 @@ export type WorkItem = {
   subtasks: Subtask[]
   latestOutput: { session: string; text: string }
   sessionsList: {
+    retry?: LocalTaskSessionRetry | null
     id?: string
     tabId?: string
     providerSession?: AgentProviderSessionMetadata

@@ -1,6 +1,8 @@
 import type { TuiAgent } from './tui-agent'
 import type { SetupDecision } from './worktree/create-types'
 import type { TaskSourceContext, WorkspaceRunContext } from './task-source-context'
+import type { AutomationEventTrigger } from './automation-event-types'
+export type { AutomationEventTrigger, AutomationEventType } from './automation-event-types'
 
 export type AutomationWorkspaceMode = 'existing' | 'new_per_run'
 export type AutomationExecutionMode = 'prompt' | 'open_local_tasks'
@@ -18,7 +20,7 @@ export type AutomationRunStatus =
   | 'skipped_unavailable'
   | 'skipped_needs_interactive_auth'
   | 'dispatch_failed'
-export type AutomationRunTrigger = 'scheduled' | 'manual'
+export type AutomationRunTrigger = 'scheduled' | 'manual' | 'event'
 
 /** Statuses a run can never leave; only these are safe to evict from history. */
 export function isFinalAutomationRunStatus(status: AutomationRunStatus): boolean {
@@ -110,6 +112,7 @@ export type Automation = {
   /** Why: task/provider data can come from a different host/account than the
    *  workspace run target, so automations persist it separately. */
   sourceContext?: TaskSourceContext | null
+  eventTrigger?: AutomationEventTrigger | null
   /** @deprecated Legacy repo-id compatibility field. New code should persist
    *  runContext and use getAutomationRunRepoId() for fallback reads. */
   projectId: string
@@ -146,6 +149,7 @@ export type AutomationRun = {
   scheduledFor: number
   status: AutomationRunStatus
   trigger: AutomationRunTrigger
+  eventId?: string
   workspaceId: string | null
   /** Why: run history must remain understandable after the backing workspace
    *  is deleted and its live metadata is gone. */
@@ -197,6 +201,7 @@ export type AutomationCreateInput = {
   agentId: TuiAgent
   runContext?: WorkspaceRunContext | null
   sourceContext?: TaskSourceContext | null
+  eventTrigger?: AutomationEventTrigger | null
   /** @deprecated Legacy repo-id compatibility field required for older stored
    *  automations and clients. Pair it with runContext for new writes. */
   projectId: string

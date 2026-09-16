@@ -179,15 +179,25 @@ export async function executeWorktreeCreation(
   let activation: ActivateAndRevealResult | false = false
   let primaryTabId: string | null
   if (shouldActivateOnCompletion) {
-    activation = activateAndRevealWorktree(worktree.id, {
-      sidebarRevealBehavior: 'auto',
-      ...(result.setup ? { setup: result.setup } : {}),
-      ...(result.defaultTabs ? { defaultTabs: result.defaultTabs } : {}),
-      ...(startupOpt ? { startup: startupOpt } : {}),
-      ...(preparedRequest.issueCommand ? { issueCommand: preparedRequest.issueCommand } : {}),
-      ...(backendSpawned ? { backendStartupTerminalSpawned: true } : {}),
-      ...(structuredLaunch ? { providesInitialSurface: true } : {})
-    })
+    try {
+      activation = activateAndRevealWorktree(worktree.id, {
+        sidebarRevealBehavior: 'auto',
+        ...(result.setup ? { setup: result.setup } : {}),
+        ...(result.defaultTabs ? { defaultTabs: result.defaultTabs } : {}),
+        ...(startupOpt ? { startup: startupOpt } : {}),
+        ...(preparedRequest.issueCommand ? { issueCommand: preparedRequest.issueCommand } : {}),
+        ...(backendSpawned ? { backendStartupTerminalSpawned: true } : {}),
+        ...(structuredLaunch ? { providesInitialSurface: true } : {})
+      })
+    } catch (error) {
+      const message = getWorkspaceCreateErrorToastMessage(formatWorkspaceCreateError(error))
+      useAppStore
+        .getState()
+        .updatePendingWorktreeCreation(creationId, { status: 'error', error: message })
+      clearWorktreeCreationCompletion(creationId)
+      toast.error(message)
+      return
+    }
     primaryTabId = activation === false ? null : activation.primaryTabId
   } else {
     // The user moved on. Seed the worktree's terminal + setup in the background
@@ -196,21 +206,32 @@ export async function executeWorktreeCreation(
     const hasExplicitTerminalWork = Boolean(
       startupOpt || result.setup || preparedRequest.issueCommand || result.defaultTabs
     )
-    primaryTabId =
-      structuredLaunch && !hasExplicitTerminalWork
-        ? null
-        : ensureWorktreeHasInitialTerminal(
-            useAppStore.getState(),
-            worktree.id,
-            startupOpt,
-            result.setup,
-            preparedRequest.issueCommand,
-            result.defaultTabs,
-            {
-              activateCreatedTabs: false,
-              ...(backendSpawned ? { backendStartupTerminalSpawned: true } : {})
-            }
-          )
+    try {
+      primaryTabId =
+        structuredLaunch && !hasExplicitTerminalWork
+          ? null
+          : ensureWorktreeHasInitialTerminal(
+              useAppStore.getState(),
+              worktree.id,
+              startupOpt,
+              result.setup,
+              preparedRequest.issueCommand,
+              result.defaultTabs,
+              {
+                activateCreatedTabs: false,
+                ...(backendSpawned ? { backendStartupTerminalSpawned: true } : {})
+              }
+            )
+    } catch (error) {
+      const message = getWorkspaceCreateErrorToastMessage(formatWorkspaceCreateError(error))
+      useAppStore.getState().updatePendingWorktreeCreation(creationId, {
+        status: 'error',
+        error: message
+      })
+      clearWorktreeCreationCompletion(creationId)
+      toast.error(message)
+      return
+    }
   }
 
   let structuredLaunchAccepted = structuredLaunch

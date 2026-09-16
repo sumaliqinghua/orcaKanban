@@ -96,7 +96,7 @@ export function createSession(
     title: text(args.title, '自动创建会话'),
     currentPrompt: requestedPrompt,
     turns: [],
-    status: 'working',
+    status: args.initialStatus ?? 'working',
     latestOutput: null,
     manualNotes: null,
     createdAt,

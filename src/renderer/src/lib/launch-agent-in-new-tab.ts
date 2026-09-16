@@ -116,6 +116,7 @@ function launchAgentInNewTabInternal(
     .allWorktrees?.()
     .find((entry: { id: string; repoId: string; path?: string }) => entry.id === worktreeId)
   const repo = worktree ? store.repos?.find((entry) => entry.id === worktree.repoId) : null
+  const worktreeSshConnectionId = getConnectionIdFromState(store, worktreeId)
   if (launchSource === 'task_page' && worktree && store.activeWorktreeId !== worktreeId) {
     // Task-center launches must make the requested workspace current before
     // creating the tab; otherwise the Agent tab is backgrounded behind the
@@ -246,7 +247,11 @@ function launchAgentInNewTabInternal(
           hasExplicitTuiLaunchCustomization(store.settings, agent),
         initialSessionOptions: startupPlan.sessionOptions
       })
-  if (launchRoute === 'structured-native-chat' && isAgentSessionHandleProvider(agent)) {
+  if (
+    launchRoute === 'structured-native-chat' &&
+    isAgentSessionHandleProvider(agent) &&
+    launchSource !== 'task_page'
+  ) {
     const structuredLaunch = startStructuredAgentLaunch(worktreeId, agent, {
       prompt: trimmedPrompt,
       ...(promptDelivery === 'submit-after-ready' ? { promptDelivery } : {}),

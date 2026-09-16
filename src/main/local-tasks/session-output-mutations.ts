@@ -22,7 +22,8 @@ export function updateSessionOutput(
   }
   const updatedAt = time()
   const metadataOnly =
-    (args.tags !== undefined ||
+    (args.agentId !== undefined ||
+      args.tags !== undefined ||
       args.providerSession !== undefined ||
       args.manualNotes !== undefined) &&
     args.prompt === undefined &&
@@ -45,6 +46,7 @@ export function updateSessionOutput(
             args.tags === undefined
               ? session.tags
               : [...new Set(args.tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 20),
+          agentId: args.agentId ?? session.agentId,
           providerSession: args.providerSession ?? session.providerSession,
           currentPrompt: prompt || session.currentPrompt,
           turns:
@@ -58,7 +60,9 @@ export function updateSessionOutput(
                 : session.status
               : args.sessionStatus === 'working'
                 ? ('working' as const)
-                : ('done' as const),
+                : args.sessionStatus === 'idle'
+                  ? ('idle' as const)
+                  : ('done' as const),
           latestOutput: textValue || session.latestOutput,
           manualNotes:
             args.manualNotes === undefined ? session.manualNotes : args.manualNotes?.trim() || null,

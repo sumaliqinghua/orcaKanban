@@ -55,10 +55,15 @@ export function decodeCodexTurnLifecycle(
       : payload.type === CODEX_EVENT_TURN_ABORTED
         ? 'interrupted'
         : 'completed'
+  const error =
+    payload.type === CODEX_EVENT_TURN_COMPLETE
+      ? (extractString(asRecord(payload.error)?.message) ?? extractString(payload.error))
+      : null
   return {
     state,
     turnId: extractString(payload.turn_id) ?? fallbackId,
-    timestamp: lifecycleTimestamp(record.timestamp)
+    timestamp: lifecycleTimestamp(record.timestamp),
+    ...(error ? { error: error.slice(0, 2_000) } : {})
   }
 }
 

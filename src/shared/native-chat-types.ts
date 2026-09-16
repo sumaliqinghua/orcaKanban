@@ -126,6 +126,8 @@ export type NativeChatTurnLifecycle = {
   turnId: string
   /** Provider timestamp; null only when the transcript omitted one. */
   timestamp: number | null
+  /** 提供方明确返回的本轮错误；结束不等同于执行成功。 */
+  error?: string
 }
 
 export const NATIVE_CHAT_SESSION_STATUSES = [

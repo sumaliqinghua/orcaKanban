@@ -24,6 +24,7 @@ import type {
 } from '../../shared/kanban-ai-record'
 
 export type LocalTaskApi = {
+  stopSessionRetry: (sessionId: string) => Promise<LocalTask>
   list: (args?: {
     projectId?: string
     projectPath?: string

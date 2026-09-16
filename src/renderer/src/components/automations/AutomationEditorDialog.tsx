@@ -6,13 +6,15 @@ import type {
   AutomationSchedulePreset,
   AutomationExecutionMode,
   AutomationLocalTaskScope,
-  AutomationWorkspaceMode
+  AutomationWorkspaceMode,
+  AutomationEventType
 } from '../../../../shared/automations-types'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import type { OrcaHooks } from '../../../../shared/orca-yaml-hook-types'
 import type { ProjectHostSetup } from '../../../../shared/project-types'
 import type { Repo } from '../../../../shared/repo-types'
 import type { TuiAgent } from '../../../../shared/tui-agent'
+import type { LocalTaskStatus } from '../../../../shared/local-task-types'
 import type { SetupDecision } from '../../../../shared/worktree/create-types'
 import type { Worktree } from '../../../../shared/worktree/types'
 import { closeUnfocusedMonacoFindOrPreventDialogDismiss } from '@/components/editor/monaco-find-widget'
@@ -56,6 +58,8 @@ export type AutomationDraft = {
   customSchedule: string
   missedRunGraceMinutes: string
   scheduleWarning: string | null
+  eventType?: AutomationEventType | null
+  eventStatus?: LocalTaskStatus | null
 }
 
 export type AutomationCreateTarget = 'orca' | 'hermes'

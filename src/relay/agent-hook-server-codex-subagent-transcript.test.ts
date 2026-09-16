@@ -24,6 +24,34 @@ describe('RelayAgentHookServer Codex subagent transcript polling', () => {
     dirs.length = 0
   })
 
+  it('forwards a root failure without a Stop hook or child agents', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'relay-codex-root-failure-'))
+    dirs.push(dir)
+    const path = join(dir, 'rollout.jsonl')
+    writeFileSync(path, '')
+    const forward = vi.fn<(envelope: AgentHookRelayEnvelope) => void>()
+    const server = new RelayAgentHookServer({ endpointDir: dir, forward })
+    await server.start()
+    try {
+      const { port, token } = server.getCoordinates()
+      await fetch(`http://127.0.0.1:${port}/hook/codex`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Orca-Agent-Hook-Token': token },
+        body: JSON.stringify({ paneKey: PANE_KEY, tabId: 'tab-1', worktreeId: 'folder:remote',
+          payload: { hook_event_name: 'UserPromptSubmit', session_id: 'root-session', transcript_path: path }
+        })
+      })
+      expect(forward.mock.calls.at(-1)?.[0].payload.state).toBe('working')
+      appendFileSync(path, line({ type: 'event_msg', timestamp: new Date().toISOString(),
+        payload: { type: 'task_complete', turn_id: 'turn-1', error: { message: 'exceeded retry limit, last status: 429 Too Many Requests' } }
+      }))
+      await vi.waitFor(() => {
+        expect(forward.mock.calls.at(-1)?.[0].payload.state).toBe('done')
+        expect(forward.mock.calls.at(-1)?.[0].hookEventName).toBe('Stop')
+      }, { timeout: 2500 })
+    } finally { server.stop() }
+  })
+
   it('forwards completion discovered from a child rollout', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'relay-hook-codex-subagent-'))
     dirs.push(dir)

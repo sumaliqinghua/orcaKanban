@@ -17,6 +17,7 @@ import {
 } from '../../../../shared/tui-agent-selection'
 import { translate } from '@/i18n/i18n'
 import { TUI_AGENT_CONFIG } from '../../../../shared/tui-agent-config'
+import { useStructuredAgentLaunchStatus } from '@/lib/structured-agent-session-launch'
 
 export type QuickLaunchAgentMenuItemsProps = {
   worktreeId: string

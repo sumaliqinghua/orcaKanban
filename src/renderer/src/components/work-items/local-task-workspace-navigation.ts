@@ -54,7 +54,8 @@ export function openLocalTaskWorkspace(args: {
       if (reveal) {
         activateTabAndFocusPane(reveal.tabId, reveal.leafId)
       }
-      useAppStore.getState().closeWorkItemsPage()
+      // 跳转应显示目标终端，不能恢复进入任务中心前的其他页面。
+      useAppStore.getState().setActiveView('terminal')
     })
     .catch((error: unknown) =>
       args.setLoadError(error instanceof Error ? error.message : 'workspace 打开失败')

@@ -142,7 +142,9 @@ export function useAutomationsPageLocalState(store: AutomationsPageStoreState) {
     dayOfWeek: '1',
     customSchedule: '',
     missedRunGraceMinutes: '720',
-    scheduleWarning: null
+    scheduleWarning: null,
+    eventType: null,
+    eventStatus: 'Needs review'
   })
   const draftRef = useRef(draft)
   // Keep async editor actions on the latest draft before they can run.

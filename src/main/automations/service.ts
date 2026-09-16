@@ -3,6 +3,7 @@ import type { Store } from '../persistence'
 import {
   isFinalAutomationRunStatus,
   type Automation,
+  type AutomationEventType,
   type AutomationDispatchResult,
   type AutomationPrecheckResult,
   type AutomationRun
@@ -25,6 +26,7 @@ import type {
   PublishAutomationsChanged
 } from '../../shared/runtime-client-events'
 import { dispatchAutomationRun } from './dispatch-run'
+import { dispatchAutomationEvent } from './event-dispatch'
 
 const DEFAULT_TICK_MS = 60 * 1000
 
@@ -132,6 +134,24 @@ export class AutomationService {
     return await this.requestDispatch(automation, run, this.resolveTarget(automation))
   }
 
+  async triggerEvent(args: {
+    eventType: AutomationEventType
+    eventId: string
+    projectId: string
+    workspaceId: string | null
+    taskId: string
+    status?: string
+  }): Promise<void> {
+    await dispatchAutomationEvent({
+      ...args,
+      automations: this.store.listAutomations(),
+      runs: this.runs,
+      listRuns: (id) => this.store.listAutomationRuns(id),
+      resolveTarget: (automation) => this.resolveTarget(automation),
+      requestDispatch: (automation, run, target) => this.requestDispatch(automation, run, target)
+    })
+  }
+
   /** The run-history row doc:94 pairs with the typed refusal an execute fence throws. */
   recordRefusedRun(automationId: string): void {
     const automation = this.store.listAutomations().find((entry) => entry.id === automationId)
@@ -228,7 +248,7 @@ export class AutomationService {
     try {
       const now = Date.now()
       for (const automation of this.store.listAutomations()) {
-        if (!automation.enabled || automation.nextRunAt > now) {
+        if (automation.eventTrigger || !automation.enabled || automation.nextRunAt > now) {
           continue
         }
         await this.evaluateAutomation(automation, now)

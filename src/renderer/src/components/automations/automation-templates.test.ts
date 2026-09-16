@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getAutomationTemplates } from './automation-templates'
 
 describe('automation templates', () => {
-  it('includes only the two prompt-driven task assistant templates', () => {
+  it('includes the task assistant and daily review templates', () => {
     const templates = getAutomationTemplates()
     const advisorTemplates = templates.filter(
       (template) =>
@@ -11,9 +11,22 @@ describe('automation templates', () => {
 
     expect(advisorTemplates.map((template) => template.id)).toEqual([
       'kanban-inbox-clarification-hourly',
-      'kanban-stale-task-review-daily'
+      'kanban-stale-task-review-daily',
+      'kanban-workflow-review-daily',
+      'kanban-knowledge-review-daily',
+      'kanban-daily-progress-report',
+      'kanban-automation-health-daily'
     ])
-    expect(advisorTemplates.every((template) => template.prompt.includes('automation:'))).toBe(true)
+    expect(
+      advisorTemplates
+        .filter((template) => template.id.includes('inbox') || template.id.includes('stale'))
+        .every((template) => template.prompt.includes('automation:'))
+    ).toBe(true)
+    expect(
+      advisorTemplates.find((template) => template.id === 'kanban-inbox-clarification-hourly')
+    ).toMatchObject({
+      eventType: 'local_task.intake_changed'
+    })
     expect(
       advisorTemplates.every((template) => !template.prompt.includes('kanban-result.mjs'))
     ).toBe(true)
@@ -31,6 +44,7 @@ describe('automation templates', () => {
       time: '09:30'
     })
     expect(template?.prompt).toContain('Open')
+    expect(template?.prompt).toContain('主动拆解目标')
   })
 
   it('provides editable schedule defaults for the existing automation draft', () => {
@@ -45,5 +59,17 @@ describe('automation templates', () => {
       preset: 'daily',
       time: '10:00'
     })
+    expect(
+      templates.find((template) => template.id === 'kanban-workflow-review-daily')
+    ).toMatchObject({ preset: 'daily', time: '18:00' })
+    expect(
+      templates.find((template) => template.id === 'kanban-knowledge-review-daily')
+    ).toMatchObject({ preset: 'daily', time: '19:00' })
+    expect(
+      templates.find((template) => template.id === 'kanban-daily-progress-report')
+    ).toMatchObject({ preset: 'daily', time: '09:00' })
+    expect(
+      templates.find((template) => template.id === 'kanban-automation-health-daily')
+    ).toMatchObject({ preset: 'daily', time: '08:30', localTaskScope: 'all_local_projects' })
   })
 })

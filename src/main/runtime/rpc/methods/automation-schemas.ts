@@ -165,6 +165,20 @@ export const AutomationCreate = z.object({
   dtstart: requiredNumber('Missing trigger start time'),
   enabled: OptionalBoolean,
   missedRunGraceMinutes: OptionalPositiveInt,
+  eventTrigger: z
+    .object({
+      eventType: z.enum([
+        'local_task.intake_changed',
+        'local_task.status_changed',
+        'local_task.reopened',
+        'agent_session.completed'
+      ]),
+      projectId: OptionalString,
+      workspaceId: OptionalString,
+      status: z.enum(['Open', 'In progress', 'Needs review', 'Done']).optional()
+    })
+    .nullable()
+    .optional(),
   destination: Destination
 })
 
@@ -188,7 +202,21 @@ const AutomationUpdateFields = z.object({
   rrule: AutomationSchedule.optional(),
   dtstart: requiredNumber('Missing trigger start time').optional(),
   enabled: OptionalBoolean,
-  missedRunGraceMinutes: OptionalPositiveInt
+  missedRunGraceMinutes: OptionalPositiveInt,
+  eventTrigger: z
+    .object({
+      eventType: z.enum([
+        'local_task.intake_changed',
+        'local_task.status_changed',
+        'local_task.reopened',
+        'agent_session.completed'
+      ]),
+      projectId: OptionalString,
+      workspaceId: OptionalString,
+      status: z.enum(['Open', 'In progress', 'Needs review', 'Done']).optional()
+    })
+    .nullable()
+    .optional()
 })
 
 export const AutomationUpdate = z.object({

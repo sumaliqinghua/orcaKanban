@@ -17,26 +17,26 @@ const item = {
 beforeEach(() => vi.resetAllMocks())
 
 it('focuses the mapped session instead of the workspace active terminal', async () => {
-  const closeWorkItemsPage = vi.fn()
+  const setActiveView = vi.fn()
   mocks.getState.mockReturnValue({
     getKnownWorktreeById: () => ({ id: 'workspace' }),
     tabsByWorktree: { workspace: [{ id: 'other' }, { id: 'restored' }] },
-    closeWorkItemsPage
+    setActiveView
   })
   mocks.activate.mockResolvedValue(true)
   openLocalTaskWorkspace({ item, request: 'original', setLoadError: vi.fn() })
   await Promise.resolve()
   expect(mocks.focus).toHaveBeenCalledWith('restored', null)
-  expect(closeWorkItemsPage).toHaveBeenCalledOnce()
+  expect(setActiveView).toHaveBeenCalledWith('terminal')
 })
 
 it('does not bind a newly seeded unrelated terminal to missing session history', async () => {
-  const closeWorkItemsPage = vi.fn()
+  const setActiveView = vi.fn()
   const setLoadError = vi.fn()
   const state = {
     getKnownWorktreeById: () => ({ id: 'workspace' }),
     tabsByWorktree: { workspace: [] as { id: string }[] },
-    closeWorkItemsPage
+    setActiveView
   }
   mocks.getState.mockReturnValue(state)
   mocks.activate.mockImplementation(async () => {
@@ -46,6 +46,6 @@ it('does not bind a newly seeded unrelated terminal to missing session history',
   openLocalTaskWorkspace({ item, request: 'original', setLoadError })
   await Promise.resolve()
   expect(mocks.focus).not.toHaveBeenCalled()
-  expect(closeWorkItemsPage).not.toHaveBeenCalled()
+  expect(setActiveView).not.toHaveBeenCalled()
   expect(setLoadError).toHaveBeenCalled()
 })

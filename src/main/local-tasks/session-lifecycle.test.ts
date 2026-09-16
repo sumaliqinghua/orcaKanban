@@ -43,6 +43,40 @@ describe('task session lifecycle', () => {
     expect(store.accept(task.id).status).toBe('Done')
   })
 
+  it('emits the inbox event for a newly created inbox task but not ordinary edits', () => {
+    const events: { eventType: string; eventId: string }[] = []
+    store.setOnEvent((event) => events.push(event))
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: root,
+      description: '收件箱触发测试',
+      intakeState: 'inbox'
+    })
+    expect(events).toEqual([expect.objectContaining({ eventType: 'local_task.intake_changed' })])
+    expect(events[0]?.eventId).toContain(task.id)
+    store.update(task.id, { description: '仅修改描述' }, root)
+    expect(events).toHaveLength(1)
+  })
+
+  it('emits deterministic events for inbox, review, reopen, and session completion edges', () => {
+    const events: { eventType: string; eventId: string }[] = []
+    store.setOnEvent((event) => events.push(event))
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '事件' })
+    store.update(task.id, { intakeState: 'inbox' }, root)
+    store.createSession({ taskId: task.id, sessionId: 'event-session' })
+    store.updateSessionOutput({ sessionId: 'event-session', sessionStatus: 'done' })
+    store.update(task.id, { archived: true }, root)
+    store.restore(task.id, root)
+    expect(events.map((event) => event.eventType)).toEqual([
+      'local_task.intake_changed',
+      'local_task.status_changed',
+      'local_task.status_changed',
+      'agent_session.completed',
+      'local_task.reopened'
+    ])
+    expect(new Set(events.map((event) => event.eventId)).size).toBe(events.length)
+  })
+
   it('does not let a completion report override another working session', () => {
     const task = store.create({ projectId: 'orca', projectPath: root, description: '并行报告' })
     store.createSession({ taskId: task.id, sessionId: 'a' })

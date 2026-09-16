@@ -61,14 +61,15 @@ export function movePaneKeyedRecord<T>(
 }
 
 export function removePaneKeys<T>(
-  record: Record<string, T>,
+  record: Record<string, T> | null | undefined,
   paneKeys: ReadonlySet<string>
 ): Record<string, T> {
-  const matchingKeys = Object.keys(record).filter((key) => paneKeys.has(key))
+  const safeRecord = record ?? {}
+  const matchingKeys = Object.keys(safeRecord).filter((key) => paneKeys.has(key))
   if (matchingKeys.length === 0) {
-    return record
+    return safeRecord
   }
-  const next = { ...record }
+  const next = { ...safeRecord }
   for (const key of matchingKeys) {
     delete next[key]
   }
@@ -76,12 +77,12 @@ export function removePaneKeys<T>(
 }
 
 export function removePaneKeysByTabPrefix<T>(
-  record: Record<string, T>,
+  record: Record<string, T> | null | undefined,
   tabPrefix: string,
   extraPaneKeys: ReadonlySet<string> = new Set()
 ): Record<string, T> {
   const prefix = `${tabPrefix}:`
-  const matchingKeys = Object.keys(record).filter(
+  const matchingKeys = Object.keys(record ?? {}).filter(
     (key) => key.startsWith(prefix) || extraPaneKeys.has(key)
   )
   return removePaneKeys(record, new Set(matchingKeys))

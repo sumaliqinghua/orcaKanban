@@ -506,6 +506,17 @@ describe('floating workspace auto-ack against the attention dot', () => {
 })
 
 describe('computeLapsedManualUnreadProtections', () => {
+  it('treats an unhydrated manual-unread map as empty', () => {
+    const lapsed = computeLapsedManualUnreadProtections(
+      {
+        agentStatusByPaneKey: {},
+        retainedAgentsByPaneKey: {},
+        manuallyUnreadTurnsByPaneKey: undefined as never
+      },
+      new Set()
+    )
+    expect(lapsed).toEqual([])
+  })
   const paneKey = makePaneKey('tab-1', CODEX_LEAF_ID)
   const otherPaneKey = makePaneKey('tab-1', OTHER_LEAF_ID)
 
