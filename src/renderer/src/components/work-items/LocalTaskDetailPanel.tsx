@@ -17,6 +17,7 @@ import { LocalTaskAgentPicker } from './LocalTaskAgentPicker'
 import { LocalTaskLabelSuggestions } from './LocalTaskLabelSuggestions'
 import { LocalTaskLinkedSessionCard } from './LocalTaskLinkedSessionCard'
 import { LocalTaskSubtaskCreateDialog } from './LocalTaskSubtaskCreateDialog'
+import { LocalTaskChecklist } from './LocalTaskChecklist'
 import { LocalTaskSubtaskBlock } from './LocalTaskSubtaskBlock'
 import { LocalTaskReportButton } from './LocalTaskReportButton'
 import type { TuiAgent } from '../../../../shared/tui-agent'
@@ -161,6 +162,7 @@ export function DetailPanel({
           <span>·</span>
           <span>{item.workspace}</span>
         </div>
+        <LocalTaskChecklist key={item.id} item={item} onTaskChanged={onTaskChanged} />
         <section className="mt-6">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-xs font-semibold">
@@ -179,6 +181,7 @@ export function DetailPanel({
                   key={subtask.id}
                   subtask={subtask}
                   sessions={item.sessionsList}
+                  onOpenSession={onOpenSession}
                   onComplete={() => onCompleteSubtask(subtask.id)}
                   onEditStep={(stepId) => onEditStep(subtask.id, stepId)}
                 />

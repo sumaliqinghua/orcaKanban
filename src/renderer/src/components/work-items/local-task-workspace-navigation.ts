@@ -1,3 +1,4 @@
+import { parsePaneKey } from '../../../../shared/stable-pane-id'
 import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { activateWorktreeFromSidebar } from '@/lib/sidebar-worktree-activation'
 import { useAppStore } from '@/store'
@@ -49,7 +50,10 @@ export function openLocalTaskWorkspace(args: {
           args.setLoadError('原会话终端已不可用，请从会话历史恢复原会话。')
           return
         }
-        activateTabAndFocusPane(tabId, null)
+        const boundPane = session?.terminalBinding
+          ? parsePaneKey(session.terminalBinding.paneKey)
+          : null
+        activateTabAndFocusPane(tabId, boundPane?.tabId === tabId ? boundPane.leafId : null)
       }
       if (reveal) {
         activateTabAndFocusPane(reveal.tabId, reveal.leafId)

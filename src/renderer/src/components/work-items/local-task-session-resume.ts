@@ -1,3 +1,9 @@
+import { toRemoteRuntimePtyId } from '../../../../shared/remote-runtime-pty-id'
+import { parsePaneKey } from '../../../../shared/stable-pane-id'
+import {
+  waitForLocalTaskTerminalBinding,
+  hasLocalTaskTerminalBinding
+} from './local-task-terminal-binding'
 import { useAppStore } from '@/store'
 import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
 import { refreshWebRuntimeSessionTabsSnapshot } from '@/runtime/web-runtime-session'
@@ -48,19 +54,48 @@ export async function resumeLocalTaskSession(args: {
   if (!tabId) {
     throw new Error('执行主机未返回原会话的终端标识。')
   }
-  const task = await window.api.localTasks.rebindSessionTab({ sessionId, tabId })
-  args.onTaskChanged(task)
   if (host.kind === 'runtime') {
     await refreshWebRuntimeSessionTabsSnapshot(host.environmentId, result.terminal.worktreeId, {
       afterCurrentInFlight: true,
       errorMode: 'throw'
     })
   }
+  const pane = result.terminal.paneKey ? parsePaneKey(result.terminal.paneKey) : null
+  if (!pane || pane.tabId !== tabId || !result.terminal.ptyId) {
+    throw new Error('执行主机未返回可验证的原会话窗格，请更新执行主机后重试。')
+  }
+  const terminalBinding = {
+    paneKey: result.terminal.paneKey!,
+    ptyId:
+      host.kind === 'runtime'
+        ? toRemoteRuntimePtyId(result.terminal.handle, host.environmentId)
+        : result.terminal.ptyId,
+    executionHostId:
+      host.kind === 'runtime' ? host.id : (result.terminal.executionHostId ?? host.id)
+  }
+  if (
+    host.kind !== 'runtime' &&
+    !hasLocalTaskTerminalBinding(
+      useAppStore.getState(),
+      result.terminal.worktreeId,
+      tabId,
+      terminalBinding
+    )
+  ) {
+    // 本机 RPC 也可后台创建；按返回的终端句柄挂载界面，不能借用当前活动标签。
+    await callRuntimeRpc({ kind: 'local' }, 'terminal.focus', {
+      terminal: result.terminal.handle,
+      navigation: 'host'
+    })
+  }
+  await waitForLocalTaskTerminalBinding(result.terminal.worktreeId, tabId, terminalBinding)
+  const task = await window.api.localTasks.rebindSessionTab({ sessionId, tabId, terminalBinding })
+  args.onTaskChanged(task)
   return {
     repoId: task.projectId,
     worktreeId: result.terminal.worktreeId,
-    executionHostId: result.terminal.executionHostId ?? host.id,
+    executionHostId: terminalBinding.executionHostId,
     tabId,
-    leafId: null
+    leafId: pane.leafId
   }
 }

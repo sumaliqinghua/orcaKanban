@@ -43,3 +43,27 @@ it('does not trust an unverified terminal when the provider identity is recorded
     })
   ).toBe(false)
 })
+
+it('恢复接口确认的终端在没有新事件时仍能匹配，但替换进程后失效', () => {
+  const restored = {
+    ...session,
+    workspaceId: 'workspace',
+    terminalBinding: { paneKey, ptyId: 'restored-pty', executionHostId: 'local' as const }
+  }
+  const restoredState = {
+    agentStatusByPaneKey: {},
+    sleepingAgentSessionsByPaneKey: {},
+    tabsByWorktree: { workspace: [{ id: 'mapped-tab' }] },
+    terminalLayoutsByTabId: {
+      'mapped-tab': { ptyIdsByLeafId: { '11111111-1111-4111-8111-111111111111': 'restored-pty' } }
+    }
+  }
+  expect(localTaskSessionMatchesTab(restored, restoredState)).toBe(true)
+  expect(
+    localTaskSessionMatchesTab(restored, { ...restoredState, ...state('different-provider') })
+  ).toBe(false)
+  restoredState.terminalLayoutsByTabId['mapped-tab'].ptyIdsByLeafId[
+    '11111111-1111-4111-8111-111111111111'
+  ] = 'replacement'
+  expect(localTaskSessionMatchesTab(restored, restoredState)).toBe(false)
+})

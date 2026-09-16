@@ -1,3 +1,4 @@
+import { localTaskSessionTerminalCard } from './local-task-session-terminal-card'
 import { useEffect, useRef, useState } from 'react'
 import { PanelRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -39,7 +40,7 @@ function LocalTaskSessionPreview({
       (candidate) =>
         candidate.tabId === tabId &&
         localTaskSessionMatchesTab(session, useAppStore.getState(), candidate.paneKey)
-    ) ?? null
+    ) ?? localTaskSessionTerminalCard(session, useAppStore.getState())
   const ptyIdsByTabId = useAppStore((state) => state.ptyIdsByTabId)
   const hasLiveTerminal = matchesTab && (ptyIdsByTabId[tabId]?.length ?? 0) > 0
   const [historyLoading, setHistoryLoading] = useState(false)

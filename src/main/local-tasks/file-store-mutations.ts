@@ -9,6 +9,7 @@ import type {
   ReportLocalTaskCompletedArgs,
   UpdateLocalTaskArgs
 } from '../../shared/local-task-types'
+import { applyChecklistChange, requireChecklistConversion } from './checklist-mutations'
 import { findTaskWithSession } from './file-store-index'
 import { localTaskDirectory, LOCAL_TASK_RECORDS_FILE_NAME } from './task-context-paths'
 import { appendRecord } from './task-context-file-io'
@@ -43,6 +44,9 @@ export function updateTask(
   const reopenAfterClarification = organizingInboxTask && current.status === 'Needs review'
   return store.writeTask({
     ...current,
+    ...(updates.checklistChange
+      ? { checklist: applyChecklistChange(current.checklist ?? [], updates.checklistChange) }
+      : {}),
     projectPath: updates.projectPath?.trim() || current.projectPath,
     workspaceId: updates.workspaceId?.trim() || current.workspaceId,
     workspaceLabel: updates.workspaceLabel?.trim() || current.workspaceLabel,
@@ -74,9 +78,13 @@ export function createSession(
   if (existing) {
     return existing
   }
+  const checklistItem = args.sourceChecklistItemId
+    ? requireChecklistConversion(task, args.sourceChecklistItemId, args.associationSource)
+    : undefined
   const requestedPrompt = args.currentPrompt?.trim() || args.initialPrompt?.trim() || null
   const duplicate = task.sessions.find(
     (session) =>
+      !checklistItem &&
       session.status === 'working' &&
       requestedPrompt !== null &&
       session.currentPrompt?.trim() === requestedPrompt
@@ -107,7 +115,7 @@ export function createSession(
   const nonExecutionSession = isNonExecutionSession(session)
   const status = nonExecutionSession ? task.status : 'In progress'
   const defaultSubtaskIndex =
-    !nonExecutionSession && task.sessions.every(isNonExecutionSession)
+    !checklistItem && !nonExecutionSession && task.sessions.every(isNonExecutionSession)
       ? task.subtasks.findIndex((subtask) => subtask.sessionId === null)
       : -1
   let subtasks = task.subtasks.map((subtask, index) =>
@@ -117,7 +125,7 @@ export function createSession(
     subtasks = [
       {
         id: `ltsub_${randomUUID()}`,
-        title: text(args.title, requestedPrompt ?? '关联会话'),
+        title: checklistItem?.title ?? text(args.title, requestedPrompt ?? '关联会话'),
         status: 'todo' as const,
         sessionId,
         steps: [],
@@ -129,6 +137,9 @@ export function createSession(
   }
   store.writeTask({
     ...task,
+    ...(checklistItem
+      ? { checklist: task.checklist!.filter((item) => item.id !== checklistItem.id) }
+      : {}),
     subtasks,
     sessions: [session, ...task.sessions],
     clarificationSessionId:

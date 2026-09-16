@@ -1,3 +1,7 @@
+import type {
+  LocalTaskChecklistItem,
+  LocalTaskTerminalBinding
+} from '../../../../shared/local-task-types'
 import type { LocalTaskSessionRetry } from '../../../../shared/local-task-session-retry'
 
 export type WorkItemStatus = 'Open' | 'In progress' | 'Needs review' | 'Done'
@@ -25,11 +29,13 @@ export type WorkItem = {
   updated: string
   sessions: number
   activeSessions: number
+  checklist?: LocalTaskChecklistItem[]
   subtasks: Subtask[]
   latestOutput: { session: string; text: string }
   sessionsList: {
     retry?: LocalTaskSessionRetry | null
     id?: string
+    terminalBinding?: LocalTaskTerminalBinding
     tabId?: string
     providerSession?: AgentProviderSessionMetadata
     livenessUnverifiable?: boolean

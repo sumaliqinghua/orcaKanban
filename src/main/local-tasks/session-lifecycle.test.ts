@@ -104,6 +104,20 @@ describe('task session lifecycle', () => {
     )
   })
 
+  it('保存恢复终端绑定，重读后仍可用，再次仅绑定标签时清除旧终端证据', () => {
+    const task = store.create({ projectId: 'orca', projectPath: root, description: '恢复绑定' })
+    store.createSession({ taskId: task.id, sessionId: 'original' })
+    const terminalBinding = {
+      paneKey: 'restored:11111111-1111-4111-8111-111111111111',
+      ptyId: 'restored-pty',
+      executionHostId: 'local' as const
+    }
+    store.rebindSessionTab({ sessionId: 'original', tabId: 'restored', terminalBinding })
+    expect(store.get(task.id)?.sessions[0]?.terminalBinding).toEqual(terminalBinding)
+    store.rebindSessionTab({ sessionId: 'original', tabId: 'another' })
+    expect(store.get(task.id)?.sessions[0]?.terminalBinding).toBeUndefined()
+  })
+
   it('does not finish a batch on working events or manual notes', () => {
     const task = store.create({ projectId: 'orca', projectPath: root, description: '执行批次' })
     const batch = store.startBatch([{ taskId: task.id, projectPath: root }])

@@ -1,3 +1,4 @@
+import type { ExecutionHostId } from './execution-host'
 import type { TuiAgent } from './tui-agent'
 import type { AgentProviderSessionMetadata } from './agent-session-resume'
 import type { LocalTaskSessionRetry } from './local-task-session-retry'
@@ -10,6 +11,17 @@ export type LocalTaskExecutionState = 'idle' | 'queued' | 'running' | 'needs_rev
 export type LocalTaskRunStatus = 'queued' | 'running' | 'needs_review' | 'failed'
 export type LocalTaskSubtaskStatus = 'todo' | 'doing' | 'done'
 export type LocalTaskStepStatus = 'todo' | 'doing' | 'done' | 'canceled'
+
+export type LocalTaskChecklistItem = {
+  id: string
+  title: string
+  completed: boolean
+}
+
+export type LocalTaskChecklistChange =
+  | { action: 'add'; title: string }
+  | { action: 'update'; itemId: string; title?: string; completed?: boolean }
+  | { action: 'delete'; itemId: string }
 
 export type LocalTaskStep = {
   id: string
@@ -28,7 +40,15 @@ export type LocalTaskSubtask = {
   updatedAt: number
 }
 
+export type LocalTaskTerminalBinding = {
+  paneKey: string
+  ptyId: string
+  executionHostId: ExecutionHostId
+}
+
 export type LocalTaskSession = {
+  /** 原会话恢复成功时由执行主机确认的终端，仅在布局仍匹配时使用。 */
+  terminalBinding?: LocalTaskTerminalBinding
   retry?: LocalTaskSessionRetry | null
   id: string
   tags?: string[]
@@ -100,6 +120,7 @@ export type LocalTask = {
   clarificationRequested: boolean
   clarificationSessionId: string | null
   runs: LocalTaskRun[]
+  checklist?: LocalTaskChecklistItem[]
   subtasks: LocalTaskSubtask[]
   sessions: LocalTaskSession[]
   latestOutput: { sessionId: string; text: string; updatedAt: number } | null
@@ -126,6 +147,7 @@ export type CreateLocalTaskArgs = {
 }
 
 export type UpdateLocalTaskArgs = {
+  checklistChange?: LocalTaskChecklistChange
   projectPath?: string
   workspaceId?: string
   workspaceLabel?: string
@@ -174,6 +196,7 @@ export type UpdateLocalTaskRunArgs = {
 }
 
 export type CreateLocalTaskSessionArgs = {
+  sourceChecklistItemId?: string
   taskId: string
   tags?: string[]
   providerSession?: AgentProviderSessionMetadata
@@ -201,6 +224,7 @@ export type UpdateLocalTaskSessionOutputArgs = {
 }
 
 export type RebindLocalTaskSessionTabArgs = {
+  terminalBinding?: LocalTaskTerminalBinding
   sessionId: string
   tabId: string
 }

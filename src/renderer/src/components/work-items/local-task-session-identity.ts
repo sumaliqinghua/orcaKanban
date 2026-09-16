@@ -1,3 +1,7 @@
+import {
+  hasLocalTaskTerminalBinding,
+  type LocalTaskTerminalBindingState
+} from './local-task-terminal-binding'
 import type { AppState } from '@/store/types'
 import { agentProviderSessionsEqual } from '../../../../shared/agent-session-resume'
 import { parsePaneKey } from '../../../../shared/stable-pane-id'
@@ -5,7 +9,8 @@ import type { WorkItem } from './mock-data'
 
 export function localTaskSessionMatchesTab(
   session: WorkItem['sessionsList'][number],
-  state: Pick<AppState, 'agentStatusByPaneKey' | 'sleepingAgentSessionsByPaneKey'>,
+  state: Pick<AppState, 'agentStatusByPaneKey' | 'sleepingAgentSessionsByPaneKey'> &
+    Partial<LocalTaskTerminalBindingState>,
   paneKey?: string
 ): boolean {
   if (!session.providerSession) {
@@ -27,6 +32,25 @@ export function localTaskSessionMatchesTab(
           entry.providerSession
         )
     )
+  }
+  if (
+    session.terminalBinding &&
+    session.workspaceId &&
+    tabId &&
+    (!paneKey || paneKey === session.terminalBinding.paneKey) &&
+    state.tabsByWorktree &&
+    state.terminalLayoutsByTabId &&
+    hasLocalTaskTerminalBinding(
+      {
+        tabsByWorktree: state.tabsByWorktree,
+        terminalLayoutsByTabId: state.terminalLayoutsByTabId
+      },
+      session.workspaceId,
+      tabId,
+      session.terminalBinding
+    )
+  ) {
+    return true
   }
   return Object.entries(state.sleepingAgentSessionsByPaneKey ?? {}).some(
     ([key, entry]) =>

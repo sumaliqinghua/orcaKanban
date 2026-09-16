@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input'
 import { QuickLaunchAgentMenuItems } from '@/components/tab-bar/QuickLaunchButton'
 import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
 import { useAppStore } from '@/store'
-import type { LocalTask } from '../../../../shared/local-task-types'
+import type { LocalTask, LocalTaskChecklistItem } from '../../../../shared/local-task-types'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import { buildLocalTaskSubtaskPrompt } from './local-task-agent-prompt'
 import type { WorkItem } from './mock-data'
@@ -29,21 +29,36 @@ const NEW_SESSION = '__new__'
 
 export function LocalTaskSubtaskCreateDialog({
   item,
-  onTaskChanged
+  onTaskChanged,
+  checklistItem,
+  disabled = false,
+  initiallyOpen = false,
+  onClosed
 }: {
   item: WorkItem
+  checklistItem?: LocalTaskChecklistItem
+  disabled?: boolean
+  initiallyOpen?: boolean
+  onClosed?: () => void
   onTaskChanged: (task: LocalTask) => void
 }): React.JSX.Element {
-  const activeWorktreeId = useAppStore((state) => state.activeWorktreeId)
-  const worktreeId = item.workspaceId === 'local' ? activeWorktreeId : item.workspaceId
+  const worktreeId = useAppStore((state) =>
+    item.workspaceId === 'local'
+      ? state
+          .allWorktrees()
+          .find(
+            (workspace) => workspace.path === item.projectPath && workspace.repoId === item.project
+          )?.id
+      : item.workspaceId
+  )
   const activeGroupId = useAppStore((state) =>
     worktreeId
       ? (state.activeGroupIdByWorktree[worktreeId] ?? state.groupsByWorktree[worktreeId]?.[0]?.id)
       : undefined
   )
   const initialAssignment = NEW_SESSION
-  const [open, setOpen] = useState(false)
-  const [title, setTitle] = useState('')
+  const [open, setOpen] = useState(initiallyOpen)
+  const [title, setTitle] = useState(checklistItem?.title ?? '')
   const [sessionId, setSessionId] = useState(initialAssignment)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -55,7 +70,7 @@ export function LocalTaskSubtaskCreateDialog({
     setSubmitting(next)
   }
   const openDialog = (): void => {
-    setTitle('')
+    setTitle(checklistItem?.title ?? '')
     setSessionId(NEW_SESSION)
     setError(null)
     setSubmissionState(false)
@@ -65,6 +80,7 @@ export function LocalTaskSubtaskCreateDialog({
   }
   const close = (): void => {
     setOpen(false)
+    onClosed?.()
     setTitle('')
     setSessionId(initialAssignment)
     setError(null)
@@ -96,7 +112,7 @@ export function LocalTaskSubtaskCreateDialog({
           localTaskRoot: item.projectPath
         })
         if (!launch?.tabId) {
-          throw new Error('子任务已创建但 Agent 会话未能在当前窗口启动')
+          throw new Error('Agent 会话未能在目标工作区启动')
         }
         targetSessionId = launch.tabId
         try {
@@ -105,9 +121,10 @@ export function LocalTaskSubtaskCreateDialog({
             projectPath: item.projectPath,
             sessionId: targetSessionId,
             workspaceId: item.workspaceId,
-            title: `子任务 · ${title.trim()}`,
+            title: `子任务 · ${title.trim()}`.slice(0, 500),
             currentPrompt: request,
-            associationSource: 'task-center'
+            associationSource: 'task-center',
+            ...(checklistItem ? { sourceChecklistItemId: checklistItem.id } : {})
           })
         } catch (cause) {
           useAppStore.getState().closeTab(targetSessionId, {
@@ -118,7 +135,7 @@ export function LocalTaskSubtaskCreateDialog({
         }
         setCreatedSessionId(targetSessionId)
       }
-      if (!subtaskId) {
+      if (!subtaskId && !checklistItem) {
         const taskWithSubtask = await window.api.localTasks.createSubtask({
           taskId: item.id,
           projectPath: item.projectPath,
@@ -139,8 +156,15 @@ export function LocalTaskSubtaskCreateDialog({
       if (!task) {
         throw new Error('任务已不存在')
       }
-      onTaskChanged(task)
+      if (
+        checklistItem &&
+        (task.checklist?.some((entry) => entry.id === checklistItem.id) ||
+          !task.subtasks.some((entry) => entry.sessionId === targetSessionId))
+      ) {
+        throw new Error('待办尚未转换，请重试或更新 Orca 后重试')
+      }
       close()
+      onTaskChanged(task)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '关联会话创建失败')
       setSubmissionState(false)
@@ -157,23 +181,33 @@ export function LocalTaskSubtaskCreateDialog({
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="xs" className="h-6 gap-1 px-1.5 text-[10px]">
-          <Plus className="size-3" />
-          新增子任务
-        </Button>
-      </DialogTrigger>
+      {initiallyOpen ? null : (
+        <DialogTrigger asChild>
+          <Button
+            variant="ghost"
+            size="xs"
+            disabled={disabled}
+            className="h-6 shrink-0 gap-1 px-1.5 text-xs"
+          >
+            {checklistItem ? null : <Plus className="size-3" />}
+            {checklistItem ? '转为子任务' : '新增子任务'}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>新增子任务</DialogTitle>
+          <DialogTitle>{checklistItem ? '转为子任务' : '新增子任务'}</DialogTitle>
           <DialogDescription>
-            子任务只保留勾选和执行步骤，并由一个关联会话顺序处理。
+            {checklistItem
+              ? '选择 Agent 后开始执行，待办会移入子任务列表。'
+              : '子任务只保留勾选和执行步骤，并由一个关联会话顺序处理。'}
           </DialogDescription>
         </DialogHeader>
         <Input
           autoFocus
           value={title}
-          disabled={submitting || createdSubtaskId !== null}
+          disabled={submitting || createdSubtaskId !== null || checklistItem !== undefined}
+          maxLength={500}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="例如：制作 Import Settings 校验工具"
         />
@@ -188,7 +222,16 @@ export function LocalTaskSubtaskCreateDialog({
             <option value={NEW_SESSION}>新建关联会话…</option>
           </select>
         </label>
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        {!worktreeId ? (
+          <p className="text-xs text-muted-foreground">
+            先为任务选择并打开工作区，再创建执行会话。
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
+        ) : null}
         <DialogFooter>
           <Button variant="outline" disabled={submitting} onClick={close}>
             取消

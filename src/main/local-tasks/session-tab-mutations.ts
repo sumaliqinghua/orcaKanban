@@ -22,7 +22,9 @@ export function rebindSessionTab(
   return store.writeTask({
     ...task,
     sessions: task.sessions.map((session) =>
-      session.id === args.sessionId ? { ...session, tabId } : session
+      session.id === args.sessionId
+        ? { ...session, tabId, terminalBinding: args.terminalBinding }
+        : session
     ),
     updatedAt: Date.now()
   })

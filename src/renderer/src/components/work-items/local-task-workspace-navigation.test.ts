@@ -49,3 +49,29 @@ it('does not bind a newly seeded unrelated terminal to missing session history',
   expect(setActiveView).not.toHaveBeenCalled()
   expect(setLoadError).toHaveBeenCalled()
 })
+
+it('恢复后的分屏会话使用已确认的窗格，不使用标签当前的其他窗格', async () => {
+  const leafId = '11111111-1111-4111-8111-111111111111'
+  const boundItem = {
+    ...item,
+    sessionsList: [
+      {
+        ...item.sessionsList[0]!,
+        terminalBinding: {
+          paneKey: `restored:${leafId}`,
+          ptyId: 'pty',
+          executionHostId: 'local' as const
+        }
+      }
+    ]
+  }
+  mocks.getState.mockReturnValue({
+    getKnownWorktreeById: () => ({ id: 'workspace' }),
+    tabsByWorktree: { workspace: [{ id: 'restored' }] },
+    setActiveView: vi.fn()
+  })
+  mocks.activate.mockResolvedValue(true)
+  openLocalTaskWorkspace({ item: boundItem, request: 'original', setLoadError: vi.fn() })
+  await Promise.resolve()
+  expect(mocks.focus).toHaveBeenCalledWith('restored', leafId)
+})

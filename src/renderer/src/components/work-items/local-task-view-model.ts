@@ -33,6 +33,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     updated: new Date(task.updatedAt).toLocaleString(),
     sessions: executionSessions.length,
     activeSessions,
+    checklist: task.checklist ?? [],
     subtasks: task.subtasks.map(mapSubtask),
     latestOutput: task.latestOutput
       ? {
@@ -46,6 +47,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
       retry: session.retry,
       id: session.id,
       tabId: session.tabId,
+      terminalBinding: session.terminalBinding,
       providerSession: session.providerSession,
       title: session.title,
       currentPrompt: session.currentPrompt,

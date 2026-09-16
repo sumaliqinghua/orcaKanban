@@ -1,9 +1,23 @@
 import { z } from 'zod'
+import { parseExecutionHostId } from '../../shared/execution-host'
+import { parsePaneKey } from '../../shared/stable-pane-id'
 import { LOCAL_TASK_STATUSES } from '../../shared/local-task-types'
 import { isTuiAgent } from '../../shared/tui-agent-config'
 
 const id = z.string().trim().min(1).max(200)
 const shortText = z.string().trim().min(1).max(500)
+const checklistChange = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('add'), title: shortText }).strict(),
+  z
+    .object({
+      action: z.literal('update'),
+      itemId: id,
+      title: shortText.optional(),
+      completed: z.boolean().optional()
+    })
+    .strict(),
+  z.object({ action: z.literal('delete'), itemId: id }).strict()
+])
 const longText = z.string().trim().min(1).max(100_000)
 const taskStatus = z.enum(LOCAL_TASK_STATUSES)
 const providerSession = z
@@ -59,6 +73,7 @@ export const updateLocalTaskArgsSchema = z
     projectPath: z.string().trim().min(1).max(4_096).optional(),
     updates: z
       .object({
+        checklistChange: checklistChange.optional(),
         projectPath: z.string().trim().min(1).max(4_096).optional(),
         workspaceId: id.optional(),
         workspaceLabel: shortText.optional(),
@@ -76,6 +91,7 @@ export const updateLocalTaskArgsSchema = z
 
 export const createLocalTaskSessionArgsSchema = z
   .object({
+    sourceChecklistItemId: id.optional(),
     tags: z.array(shortText).max(20).optional(),
     providerSession: providerSession.optional(),
     taskId: id,
@@ -104,7 +120,32 @@ export const updateLocalTaskSessionOutputArgsSchema = z
   })
   .strict()
 
-export const rebindLocalTaskSessionTabArgsSchema = z.object({ sessionId: id, tabId: id }).strict()
+export const rebindLocalTaskSessionTabArgsSchema = z
+  .object({
+    sessionId: id,
+    tabId: id,
+    terminalBinding: z
+      .object({
+        paneKey: z
+          .string()
+          .min(1)
+          .max(1024)
+          .refine((value) => parsePaneKey(value) !== null),
+        ptyId: z.string().min(1).max(32768),
+        executionHostId: z
+          .string()
+          .refine((value) => parseExecutionHostId(value) !== null)
+          .transform((value) => parseExecutionHostId(value)!.id)
+      })
+      .strict()
+      .optional()
+  })
+  .strict()
+  .refine(
+    (value) =>
+      !value.terminalBinding || parsePaneKey(value.terminalBinding.paneKey)?.tabId === value.tabId,
+    '恢复窗格必须属于目标标签页'
+  )
 
 export const createLocalTaskSubtaskArgsSchema = z
   .object({

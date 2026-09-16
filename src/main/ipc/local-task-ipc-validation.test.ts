@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   acceptLocalTaskArgsSchema,
+  rebindLocalTaskSessionTabArgsSchema,
   createLocalTaskArgsSchema,
   createLocalTaskSessionArgsSchema,
   createLocalTaskSubtaskArgsSchema,
@@ -227,4 +228,21 @@ describe('local task IPC validation', () => {
       })
     ).toThrow()
   })
+})
+
+it('恢复绑定接受新增可选字段，拒绝不属于目标标签的窗格', () => {
+  const args = {
+    sessionId: 'original',
+    tabId: 'restored',
+    terminalBinding: {
+      paneKey: 'restored:11111111-1111-4111-8111-111111111111',
+      ptyId: 'pty',
+      executionHostId: 'local'
+    }
+  }
+  expect(rebindLocalTaskSessionTabArgsSchema.parse(args)).toEqual(args)
+  expect(() => rebindLocalTaskSessionTabArgsSchema.parse({ ...args, tabId: 'other' })).toThrow()
+  expect(
+    rebindLocalTaskSessionTabArgsSchema.parse({ sessionId: 'original', tabId: 'restored' })
+  ).toEqual({ sessionId: 'original', tabId: 'restored' })
 })
