@@ -7,16 +7,18 @@ export function LocalTaskSessionDisclosure({
   title,
   preview,
   children,
-  className
+  className,
+  defaultOpen = false
 }: {
   title: string
   preview?: string
   children: ReactNode
   className?: string
+  defaultOpen?: boolean
 }): React.JSX.Element {
   return (
     <Collapsible
-      defaultOpen
+      defaultOpen={defaultOpen}
       className={cn('rounded-md border border-border/70 bg-muted/20', className)}
     >
       <CollapsibleTrigger className="group flex w-full min-w-0 items-center gap-2 rounded-md p-2.5 text-left text-[10px] font-medium text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

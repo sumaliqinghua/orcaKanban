@@ -93,18 +93,9 @@ export function LocalTaskLinkedSessionCard({
       {session.retry ? (
         <LocalTaskSessionRetryNotice sessionId={sessionId} retry={session.retry} />
       ) : null}
-      {session.currentPrompt ? (
-        <div className="border-t border-border/50 px-2.5 py-1.5 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
-          当前：{session.currentPrompt}
-        </div>
-      ) : null}
       {historyExpanded ? (
         <div className="border-t border-border/60 p-2">
-          <LocalTaskSessionTurnHistory
-            currentPrompt={session.currentPrompt}
-            turns={session.turns}
-            compact
-          />
+          <LocalTaskSessionTurnHistory turns={session.turns} compact />
         </div>
       ) : null}
     </div>

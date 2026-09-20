@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Textarea } from '@/components/ui/textarea'
 import { LocalTaskSessionTurnHistory } from './LocalTaskSessionTurnHistory'
-import { LocalTaskSessionDisclosure } from './LocalTaskSessionDisclosure'
 
 export function LocalTaskSessionHistory({
   session,
@@ -103,18 +102,7 @@ export function LocalTaskSessionHistory({
           />
         </div>
       ) : null}
-      {session.latestOutput ? (
-        <LocalTaskSessionDisclosure
-          title="本会话执行摘要"
-          preview={session.latestOutput}
-          className="text-xs"
-        >
-          <div className="whitespace-pre-wrap leading-relaxed text-foreground">
-            {session.latestOutput}
-          </div>
-        </LocalTaskSessionDisclosure>
-      ) : null}
-      <LocalTaskSessionTurnHistory currentPrompt={session.currentPrompt} turns={session.turns} />
+      <LocalTaskSessionTurnHistory turns={session.turns} />
     </div>
   )
 }
