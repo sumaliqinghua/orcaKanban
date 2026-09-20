@@ -41,6 +41,11 @@ export const AUTOMATION_EDITOR_SEGMENTED_ITEM_CLASS =
 export type AutomationDraft = {
   name: string
   prompt: string
+  sourceTemplate?: {
+    templateId: string
+    templateVersion: string
+    templatePrompt: string
+  } | null
   executionMode?: AutomationExecutionMode
   localTaskScope?: AutomationLocalTaskScope
   agentId: TuiAgent

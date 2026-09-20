@@ -144,10 +144,20 @@ export const AutomationRuns = z.object({
   cursor: OptionalString
 })
 
+const AutomationTemplateSource = z
+  .object({
+    templateId: requiredString('Missing template id'),
+    templateVersion: requiredString('Missing template version'),
+    templatePrompt: requiredString('Missing template prompt')
+  })
+  .nullable()
+  .optional()
+
 export const AutomationCreate = z.object({
   creationKey: OptionalString,
   name: requiredString('Missing automation name'),
   prompt: requiredString('Missing automation prompt'),
+  sourceTemplate: AutomationTemplateSource,
   executionMode: AutomationExecutionMode,
   localTaskScope: AutomationLocalTaskScope,
   precheck: AutomationPrecheck,
@@ -185,6 +195,7 @@ export const AutomationCreate = z.object({
 const AutomationUpdateFields = z.object({
   name: OptionalString,
   prompt: OptionalString,
+  sourceTemplate: AutomationTemplateSource,
   executionMode: AutomationExecutionMode,
   localTaskScope: AutomationLocalTaskScope,
   precheck: AutomationPrecheck,

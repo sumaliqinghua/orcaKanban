@@ -2,11 +2,11 @@ import { z } from 'zod'
 import { LOCAL_TASK_CATALOG_METHODS } from './local-task-catalog'
 import { getLocalTaskStore } from '../../../local-tasks/store'
 import { publishLocalTaskChange } from '../../../local-tasks/change-notifications'
-import type {
-  LocalTask,
-  LocalTaskCurrentContext,
-  LocalTaskSession
-} from '../../../../shared/local-task-types'
+import {
+  buildLocalTaskCurrentContext,
+  buildLocalTaskReferenceDetail
+} from '../../../../shared/local-task-reference-context'
+import type { LocalTask, LocalTaskSession } from '../../../../shared/local-task-types'
 import { defineMethod, InvalidArgumentError, type RpcAnyMethod } from '../core'
 
 const Id = z.string().trim().min(1).max(512)
@@ -23,6 +23,7 @@ const CreateSubtask = Context.extend({
   title: z.string().trim().min(1).max(1_000),
   steps: z.array(z.string().trim().min(1).max(1_000)).max(100).optional()
 })
+const CurrentContext = Context.extend({ referenceSubtaskId: Id.optional() })
 const UpdateSubtask = Context.extend({
   subtaskId: Id,
   status: z.enum(['todo', 'doing', 'done']).optional(),
@@ -34,7 +35,10 @@ const UpdateStep = Context.extend({
   title: z.string().trim().min(1).max(1_000).optional(),
   status: z.enum(['todo', 'doing', 'done', 'canceled']).optional()
 })
-const UpdateDescription = Context.extend({ description: Description })
+const UpdateDescription = Context.extend({
+  description: Description,
+  expectedRevision: z.number().int().optional()
+})
 const ReportCompleted = Context.extend({
   sessionId: Id,
   latestOutput: z.string().trim().max(100_000).optional(),
@@ -110,42 +114,38 @@ function result(task: LocalTask): { task: LocalTask } {
   return { task }
 }
 
-function currentContext(
-  task: LocalTask,
-  session: LocalTaskSession | null
-): LocalTaskCurrentContext {
-  return {
-    task: { id: task.id, title: task.title },
-    session: session
-      ? {
-          id: session.id,
-          title: session.title,
-          status: session.status
-        }
-      : null,
-    assignedSubtasks: session
-      ? task.subtasks.filter((subtask) => subtask.sessionId === session.id)
-      : []
-  }
-}
-
 export const LOCAL_TASK_METHODS: readonly RpcAnyMethod[] = [
   ...LOCAL_TASK_CATALOG_METHODS,
   defineMethod({
     name: 'localTask.current',
-    params: Context,
+    params: CurrentContext,
     handler: (params) => {
       const { task, session } = ensureContext(params, false)
-      return currentContext(task, session)
+      const context = buildLocalTaskCurrentContext(task, session)
+      if (params.referenceSubtaskId) {
+        const subtask = requireSubtask(task, params.referenceSubtaskId)
+        context.reference = buildLocalTaskReferenceDetail(task, subtask)
+      }
+      return context
     }
   }),
   defineMethod({
     name: 'localTask.updateDescription',
     params: UpdateDescription,
     handler: (params) => {
-      ensureContext(params)
+      const { task } = ensureContext(params)
+      const currentRevision = task.descriptionRevision ?? task.updatedAt
+      if (params.expectedRevision !== undefined && params.expectedRevision !== currentRevision) {
+        throw new InvalidArgumentError(
+          'Task description changed since it was last read. Read the current description and write again.'
+        )
+      }
       return result(
-        getLocalTaskStore().updateDescription(params.taskId, params.description, params.projectPath)
+        getLocalTaskStore().update(
+          params.taskId,
+          { description: params.description },
+          params.projectPath
+        )
       )
     }
   }),

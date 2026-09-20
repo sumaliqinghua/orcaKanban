@@ -2,6 +2,8 @@ import type { TuiAgent } from './tui-agent'
 import type { SetupDecision } from './worktree/create-types'
 import type { TaskSourceContext, WorkspaceRunContext } from './task-source-context'
 import type { AutomationEventTrigger } from './automation-event-types'
+import type { AutomationTemplateSource } from './automation-template-source'
+import type { AutomationPrecheck } from './automation-run-usage'
 export type { AutomationEventTrigger, AutomationEventType } from './automation-event-types'
 
 export type AutomationWorkspaceMode = 'existing' | 'new_per_run'
@@ -35,62 +37,16 @@ export function isFinalAutomationRunStatus(status: AutomationRunStatus): boolean
 }
 
 export type AutomationSchedulePreset = 'hourly' | 'daily' | 'weekdays' | 'weekly' | 'custom'
-export type AutomationRunUsageProvider = 'claude' | 'codex'
-export type AutomationRunUsageStatus = 'known' | 'unavailable'
-export type AutomationRunUsageAttribution = 'provider_session_time_window'
-export type AutomationRunUsageUnavailableReason =
-  | 'run_not_finished'
-  | 'provider_unsupported'
-  | 'remote_usage_unavailable'
-  | 'usage_not_enabled'
-  | 'scan_failed'
-  | 'no_matching_session'
-  | 'ambiguous_session'
-
-export type AutomationRunUsage = {
-  status: AutomationRunUsageStatus
-  provider: AutomationRunUsageProvider | null
-  model: string | null
-  inputTokens: number | null
-  outputTokens: number | null
-  cacheReadTokens: number | null
-  cacheWriteTokens: number | null
-  reasoningOutputTokens: number | null
-  totalTokens: number | null
-  estimatedCostUsd: number | null
-  estimatedCostSource: 'api_equivalent' | null
-  providerSessionId: string | null
-  attribution: AutomationRunUsageAttribution | null
-  collectedAt: number
-  unavailableReason: AutomationRunUsageUnavailableReason | null
-  unavailableMessage: string | null
-}
-
-export type AutomationRunOutputSnapshot = {
-  format: 'plain_text'
-  content: string
-  capturedAt: number
-  truncated: boolean
-}
-
-export type AutomationPrecheck = {
-  command: string
-  timeoutSeconds: number
-}
-
-export type AutomationPrecheckResult = {
-  command: string
-  exitCode: number | null
-  timedOut: boolean
-  durationMs: number
-  stdout: string
-  stderr: string
-  stdoutTruncated: boolean
-  stderrTruncated: boolean
-  error: string | null
-  startedAt: number
-  completedAt: number
-}
+export type {
+  AutomationRunUsageProvider,
+  AutomationRunUsageStatus,
+  AutomationRunUsageAttribution,
+  AutomationRunUsageUnavailableReason,
+  AutomationRunUsage,
+  AutomationRunOutputSnapshot,
+  AutomationPrecheck,
+  AutomationPrecheckResult
+} from './automation-run-usage'
 
 export type Automation = {
   id: string
@@ -98,6 +54,7 @@ export type Automation = {
   creationKey?: string
   name: string
   prompt: string
+  sourceTemplate?: AutomationTemplateSource | null
   executionMode?: AutomationExecutionMode
   /** Scope used by Open local task automations. Missing means the selected workspace. */
   localTaskScope?: AutomationLocalTaskScope
@@ -195,6 +152,7 @@ export type AutomationCreateInput = {
   creationKey?: string
   name: string
   prompt: string
+  sourceTemplate?: AutomationTemplateSource | null
   executionMode?: AutomationExecutionMode
   localTaskScope?: AutomationLocalTaskScope
   precheck?: AutomationPrecheck | null

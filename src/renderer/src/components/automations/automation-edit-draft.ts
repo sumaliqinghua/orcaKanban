@@ -23,6 +23,7 @@ export function buildAutomationEditDraft(automation: Automation): AutomationDraf
   return {
     name: automation.name,
     prompt: automation.prompt,
+    sourceTemplate: automation.sourceTemplate ?? null,
     executionMode: automation.executionMode ?? 'prompt',
     localTaskScope: automation.localTaskScope ?? 'workspace',
     agentId: automation.agentId,

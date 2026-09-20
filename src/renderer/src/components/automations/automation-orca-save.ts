@@ -157,6 +157,7 @@ export async function saveOrcaAutomation(
   const updates: AutomationUpdateInput = {
     name: draft.name,
     prompt: draft.prompt,
+    sourceTemplate: draft.sourceTemplate ?? null,
     precheck,
     agentId: draft.agentId,
     runContext,
@@ -186,6 +187,7 @@ export async function saveOrcaAutomation(
   const createInput: AutomationCreateInput = {
     name: draft.name,
     prompt: draft.prompt,
+    sourceTemplate: draft.sourceTemplate ?? null,
     precheck,
     agentId: draft.agentId,
     runContext,

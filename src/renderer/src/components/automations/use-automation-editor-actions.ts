@@ -85,6 +85,11 @@ export function useAutomationEditorActions({
           ...baseDraft,
           name: template.name,
           prompt: template.prompt,
+          sourceTemplate: {
+            templateId: template.id,
+            templateVersion: template.version ?? 'unversioned',
+            templatePrompt: template.prompt
+          },
           preset: template.preset,
           time: template.time ?? baseDraft.time,
           dayOfWeek: template.dayOfWeek ?? baseDraft.dayOfWeek,

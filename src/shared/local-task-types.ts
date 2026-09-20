@@ -2,6 +2,10 @@ import type { ExecutionHostId } from './execution-host'
 import type { TuiAgent } from './tui-agent'
 import type { AgentProviderSessionMetadata } from './agent-session-resume'
 import type { LocalTaskSessionRetry } from './local-task-session-retry'
+import type {
+  LocalTaskSubtaskReference,
+  LocalTaskReferenceDetail
+} from './local-task-reference-types'
 
 export const LOCAL_TASK_STATUSES = ['Open', 'In progress', 'Needs review', 'Done'] as const
 
@@ -33,6 +37,7 @@ export type LocalTaskStep = {
 export type LocalTaskSubtask = {
   id: string
   title: string
+  description?: string
   status: LocalTaskSubtaskStatus
   sessionId: string | null
   steps: LocalTaskStep[]
@@ -103,6 +108,8 @@ export type LocalTask = {
   projectPath: string
   title: string
   description: string
+  /** Only changes when the task description is written. */
+  descriptionRevision?: number
   status: LocalTaskStatus
   workspaceId: string
   workspaceLabel: string
@@ -128,9 +135,12 @@ export type LocalTask = {
 }
 
 export type LocalTaskCurrentContext = {
-  task: Pick<LocalTask, 'id' | 'title'>
+  task: Pick<LocalTask, 'id' | 'title'> &
+    Partial<Pick<LocalTask, 'description'>> & { descriptionRevision?: number }
   session: Pick<LocalTaskSession, 'id' | 'title' | 'status'> | null
   assignedSubtasks: LocalTaskSubtask[]
+  referenceSubtasks?: LocalTaskSubtaskReference[]
+  reference?: LocalTaskReferenceDetail
 }
 
 export type CreateLocalTaskArgs = {
@@ -282,6 +292,7 @@ export type LocalTaskToolContext = {
 }
 
 export type LocalTaskToolUpdateDescriptionArgs = LocalTaskToolContext & {
+  expectedRevision?: number
   description: string
 }
 

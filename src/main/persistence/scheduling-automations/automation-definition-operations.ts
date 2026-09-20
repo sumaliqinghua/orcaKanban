@@ -113,6 +113,7 @@ export function createAutomation(
     ...(input.creationKey ? { creationKey: input.creationKey } : {}),
     name: input.name.trim() || 'Untitled automation',
     prompt: input.prompt,
+    ...(input.sourceTemplate ? { sourceTemplate: input.sourceTemplate } : {}),
     executionMode: input.executionMode ?? 'prompt',
     localTaskScope,
     precheck: normalizeAutomationPrecheck(input.precheck),

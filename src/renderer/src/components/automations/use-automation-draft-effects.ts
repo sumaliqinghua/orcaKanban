@@ -128,6 +128,11 @@ export function useAutomationDraftEffects({
         ...current,
         name: template.name,
         prompt: template.prompt,
+        sourceTemplate: {
+          templateId: template.id,
+          templateVersion: template.version ?? 'unversioned',
+          templatePrompt: template.prompt
+        },
         preset: template.preset,
         time: template.time ?? current.time,
         dayOfWeek: template.dayOfWeek ?? current.dayOfWeek,

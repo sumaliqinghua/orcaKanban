@@ -19,6 +19,8 @@ import { getAutomationHostDetailDisplay } from './automation-host-detail-display
 import { getAutomationSourceDisplay } from './automation-source-display'
 import { translate } from '@/i18n/i18n'
 import { AutomationPromptDisclosure } from './AutomationPromptDisclosure'
+import { getAutomationTemplates } from './automation-templates'
+import { compareAutomationTemplateSource } from '../../../../shared/automation-template-source'
 
 type AutomationDetailProps = {
   automation: Automation | null
@@ -144,6 +146,15 @@ export function AutomationDetail({
     hostLabelById
   })
   const runNowDisabled = runNowAvailability?.canRunNow === false
+
+  const templateComparison = compareAutomationTemplateSource(automation, getAutomationTemplates())
+  const templateStatusLabel = {
+    unknown: 'No saved template source',
+    custom: 'Saved from a template that is no longer listed',
+    current: 'Matches the current template prompt',
+    'prompt-edited': 'Prompt edited after applying a template',
+    'template-updated': 'Template prompt changed after this automation was saved'
+  }[templateComparison.status]
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -315,6 +326,22 @@ export function AutomationDetail({
           )}
           value={usageCoverage}
         />
+      </div>
+
+      <div className="rounded-md border border-border/50 bg-muted/20 px-4 py-3 shadow-sm">
+        <div className="text-[11px] font-medium uppercase text-muted-foreground">
+          Template source
+        </div>
+        <div className="mt-1 text-sm font-medium">{templateStatusLabel}</div>
+        {templateComparison.templateId ? (
+          <div className="mt-1 text-xs text-muted-foreground">
+            {templateComparison.templateId}
+            {templateComparison.savedVersion ? ` · saved ${templateComparison.savedVersion}` : ''}
+            {templateComparison.currentVersion
+              ? ` · current ${templateComparison.currentVersion}`
+              : ''}
+          </div>
+        ) : null}
       </div>
 
       <AutomationPromptDisclosure

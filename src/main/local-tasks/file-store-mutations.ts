@@ -52,6 +52,10 @@ export function updateTask(
     workspaceLabel: updates.workspaceLabel?.trim() || current.workspaceLabel,
     title: updates.title?.trim() || current.title,
     description: updates.description?.trim() || current.description,
+    descriptionRevision:
+      updates.description?.trim() && updates.description.trim() !== current.description
+        ? time()
+        : current.descriptionRevision,
     status: reopenAfterClarification ? 'Open' : nextStatus,
     archivedAt:
       updates.archived === true ? time() : updates.archived === false ? null : current.archivedAt,
@@ -119,13 +123,21 @@ export function createSession(
       ? task.subtasks.findIndex((subtask) => subtask.sessionId === null)
       : -1
   let subtasks = task.subtasks.map((subtask, index) =>
-    index === defaultSubtaskIndex ? { ...subtask, sessionId, updatedAt: createdAt } : subtask
+    index === defaultSubtaskIndex
+      ? {
+          ...subtask,
+          description: requestedPrompt ?? subtask.description,
+          sessionId,
+          updatedAt: createdAt
+        }
+      : subtask
   )
   if (!nonExecutionSession && defaultSubtaskIndex === -1) {
     subtasks = [
       {
         id: `ltsub_${randomUUID()}`,
         title: checklistItem?.title ?? text(args.title, requestedPrompt ?? '关联会话'),
+        description: requestedPrompt ?? checklistItem?.title ?? text(args.title, '关联会话'),
         status: 'todo' as const,
         sessionId,
         steps: [],
@@ -137,6 +149,7 @@ export function createSession(
   }
   store.writeTask({
     ...task,
+    descriptionRevision: task.descriptionRevision ?? task.createdAt,
     ...(checklistItem
       ? { checklist: task.checklist!.filter((item) => item.id !== checklistItem.id) }
       : {}),
@@ -161,6 +174,8 @@ export function createSubtask(
   const subtask = {
     id: `ltsub_${randomUUID()}`,
     title: text(args.title, '未命名子任务'),
+    description:
+      task.sessions.find((session) => session.id === args.sessionId)?.currentPrompt ?? args.title,
     status: 'todo' as const,
     sessionId: args.sessionId ?? null,
     steps: (args.steps ?? []).map((title) => ({

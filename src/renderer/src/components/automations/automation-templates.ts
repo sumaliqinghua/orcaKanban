@@ -10,6 +10,7 @@ import { createLocalizedCatalog } from '@/i18n/localized-catalog'
 
 export type AutomationTemplate = {
   id: string
+  version?: string
   category: string
   label: string
   description: string
@@ -29,6 +30,7 @@ export type AutomationTemplate = {
 export const getAutomationTemplates = createLocalizedCatalog((): AutomationTemplate[] => [
   {
     id: 'kanban-open-local-tasks-daily',
+    version: '2026-09-10',
     category: translate(
       'auto.components.automations.automation.templates.kanbanAdvisor.openLocalTasks.category',
       'Kanban advisor'
@@ -160,6 +162,7 @@ export const getAutomationTemplates = createLocalizedCatalog((): AutomationTempl
   },
   {
     id: 'kanban-inbox-clarification-hourly',
+    version: '2026-09-15',
     category: translate(
       'auto.components.automations.automation.templates.kanbanAdvisor.requirementClarification.category',
       'Kanban advisor'
@@ -186,6 +189,7 @@ export const getAutomationTemplates = createLocalizedCatalog((): AutomationTempl
   },
   {
     id: 'kanban-stale-task-review-daily',
+    version: '2026-09-10',
     category: translate(
       'auto.components.automations.automation.templates.kanbanAdvisor.candidateTask.category',
       'Kanban advisor'

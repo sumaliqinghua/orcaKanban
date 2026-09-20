@@ -25,7 +25,8 @@ describe('automation templates', () => {
     expect(
       advisorTemplates.find((template) => template.id === 'kanban-inbox-clarification-hourly')
     ).toMatchObject({
-      eventType: 'local_task.intake_changed'
+      eventType: 'local_task.intake_changed',
+      version: '2026-09-15'
     })
     expect(
       advisorTemplates.every((template) => !template.prompt.includes('kanban-result.mjs'))

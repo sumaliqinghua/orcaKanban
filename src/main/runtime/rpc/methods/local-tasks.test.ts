@@ -48,7 +48,7 @@ function call(name: string, params: Record<string, unknown>): unknown {
   if (!method || 'stream' in method) {
     throw new Error(`Missing local task method: ${name}`)
   }
-  return method.handler(params, { runtime: {} as never })
+  return method.handler(method.params!.parse(params), { runtime: {} as never })
 }
 
 afterEach(() => {
@@ -64,36 +64,51 @@ describe('local task Agent RPC', () => {
     const first = store.create({ projectId: 'orca', intakeState: 'inbox', description: '一' })
     const second = store.create({ projectId: 'orca', intakeState: 'inbox', description: '二' })
     const session = store.createSession({ taskId: first.id, associationSource: 'clarification' })
-    expect(() => call('localTask.setSessionTags', {
-      taskId: second.id, sessionId: session.id, tags: ['review']
-    })).toThrow('Session does not belong')
+    expect(() =>
+      call('localTask.setSessionTags', {
+        taskId: second.id,
+        sessionId: session.id,
+        tags: ['review']
+      })
+    ).toThrow('Session does not belong')
     call('localTask.setSessionTags', { taskId: first.id, sessionId: session.id, tags: ['review'] })
     expect(store.get(first.id)?.sessions[0].tags).toEqual(['review'])
   })
 
   it('lists only registered local project tasks', () => {
     const store = setupStore()
-    const local = store.create({ projectId: 'local-project', intakeState: 'inbox', description: '本机' })
+    const local = store.create({
+      projectId: 'local-project',
+      intakeState: 'inbox',
+      description: '本机'
+    })
     store.create({ projectId: 'remote-project', intakeState: 'inbox', description: '远程' })
     store.create({ projectId: 'missing-project', intakeState: 'inbox', description: '已移除' })
     const method = registry.get('localTask.list')!
-    if ('stream' in method) throw new Error('Expected unary method')
-    const result = method.handler({}, { runtime: {
-      listRepos: () => [
-        { id: 'local-project' },
-        { id: 'remote-project', connectionId: 'ssh-one' }
-      ]
-    } as never })
+    if ('stream' in method) {
+      throw new Error('Expected unary method')
+    }
+    const result = method.handler(
+      {},
+      {
+        runtime: {
+          listRepos: () => [
+            { id: 'local-project' },
+            { id: 'remote-project', connectionId: 'ssh-one' }
+          ]
+        } as never
+      }
+    )
     expect(result).toEqual({ tasks: [local] })
   })
 
-  it('binds the current session lazily and returns only its subtask context', () => {
+  it('provides parent goals and sibling summaries while keeping assignments separate', () => {
     const store = setupStore()
     const task = store.create({
       projectId: 'orca',
       projectPath: rootOf(store),
       title: '资源诊断父任务',
-      description: '不应下发的完整父任务描述',
+      description: '父任务已确认的目标',
       workspaceId: 'wt-1'
     })
 
@@ -117,7 +132,12 @@ describe('local task Agent RPC', () => {
       worktreeId: 'wt-1'
     }) as LocalTaskCurrentContext
 
-    expect(result.task).toEqual({ id: task.id, title: '资源诊断父任务' })
+    expect(result.task).toEqual({
+      id: task.id,
+      title: '资源诊断父任务',
+      description: '父任务已确认的目标',
+      descriptionRevision: store.get(task.id)?.descriptionRevision ?? store.get(task.id)?.updatedAt
+    })
     expect(result.session).toEqual({
       id: 'tab-1',
       title: 'Agent 会话',
@@ -125,9 +145,80 @@ describe('local task Agent RPC', () => {
     })
     expect(result.assignedSubtasks).toHaveLength(1)
     expect(result.assignedSubtasks[0]?.sessionId).toBe('tab-1')
-    expect(JSON.stringify(result)).not.toContain('不应下发的完整父任务描述')
-    expect(JSON.stringify(result)).not.toContain('不相关子任务')
+    expect(result.referenceSubtasks).toEqual([
+      expect.objectContaining({ title: '不相关子任务', sessionId: 'other-tab' })
+    ])
+    expect(result.reference).toBeUndefined()
+    const before = structuredClone(store.get(task.id))
+    const selected = call('localTask.current', {
+      taskId: task.id,
+      sessionId: 'tab-1',
+      referenceSubtaskId: result.referenceSubtasks![0].id
+    }) as LocalTaskCurrentContext
+    expect(selected.reference?.savedTurns).toEqual([])
+    expect(selected.reference?.historySource).toBe('saved-turns')
+    expect(selected.reference?.historyIsComplete).toBe(false)
+    expect(JSON.stringify(selected.reference)).not.toContain('latestOutput')
+    expect(store.get(task.id)).toEqual(before)
+    const foreign = store.create({
+      projectId: 'orca',
+      intakeState: 'inbox',
+      description: '另一个父任务'
+    })
+    expect(() =>
+      call('localTask.current', {
+        taskId: task.id,
+        sessionId: 'tab-1',
+        referenceSubtaskId: foreign.subtasks[0].id
+      })
+    ).toThrow('does not belong')
+    expect(() =>
+      call('localTask.updateSubtask', {
+        taskId: task.id,
+        sessionId: 'tab-1',
+        subtaskId: selected.reference!.subtask.id,
+        status: 'done'
+      })
+    ).toThrow('another Agent session')
     expect(store.get(task.id)?.sessions).toHaveLength(2)
+  })
+
+  it('returns a description revision and rejects a stale description write', () => {
+    const store = setupStore()
+    const task = store.create({
+      projectId: 'orca',
+      projectPath: rootOf(store),
+      description: '只关注 iOS',
+      workspaceId: 'wt-1'
+    })
+    const current = call('localTask.current', {
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: 'tab-1',
+      worktreeId: 'wt-1'
+    }) as LocalTaskCurrentContext
+    expect(current.task.descriptionRevision).toBe(
+      store.get(task.id)?.descriptionRevision ?? store.get(task.id)?.updatedAt
+    )
+    expect(() =>
+      call('localTask.updateDescription', {
+        taskId: task.id,
+        projectPath: rootOf(store),
+        sessionId: 'tab-1',
+        worktreeId: 'wt-1',
+        description: '过期写回',
+        expectedRevision: task.updatedAt - 1
+      })
+    ).toThrow('Task description changed')
+    const updated = call('localTask.updateDescription', {
+      taskId: task.id,
+      projectPath: rootOf(store),
+      sessionId: 'tab-1',
+      worktreeId: 'wt-1',
+      description: '只关注 iOS 和确认后的验收',
+      expectedRevision: current.task.descriptionRevision
+    }) as { task: { description: string } }
+    expect(updated.task.description).toBe('只关注 iOS 和确认后的验收')
   })
 
   it('updates AI subtasks and enters review after reporting work', () => {

@@ -39,14 +39,25 @@ export const LOCAL_TASK_HANDLERS: Record<string, CommandHandler> = {
     })
     printResult(result, json, formatLocalTask)
   },
-  'local-task current': async ({ client, json }) => {
-    const result = await client.call('localTask.current', await resolveLocalTaskContext(client))
+  'local-task current': async ({ client, flags, json }) => {
+    const referenceSubtaskId = getOptionalStringFlag(flags, 'reference')
+    const result = await client.call('localTask.current', {
+      ...(await resolveLocalTaskContext(client)),
+      ...(referenceSubtaskId ? { referenceSubtaskId } : {})
+    })
     printResult(result, json, formatLocalTask)
   },
   'local-task update-description': async ({ client, flags, json }) => {
+    const expectedRevisionFlag = getOptionalStringFlag(flags, 'expected-revision')
+    const expectedRevision =
+      expectedRevisionFlag === undefined ? undefined : Number(expectedRevisionFlag)
+    if (expectedRevision !== undefined && !Number.isInteger(expectedRevision)) {
+      throw new Error('expected-revision must be an integer')
+    }
     const result = await client.call('localTask.updateDescription', {
       ...(await resolveLocalTaskContext(client)),
-      description: getRequiredStringFlag(flags, 'description')
+      description: getRequiredStringFlag(flags, 'description'),
+      ...(expectedRevision === undefined ? {} : { expectedRevision })
     })
     printResult(result, json, formatLocalTask)
   },

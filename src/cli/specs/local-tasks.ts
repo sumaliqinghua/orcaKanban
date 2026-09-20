@@ -24,15 +24,17 @@ export const LOCAL_TASK_COMMAND_SPECS: CommandSpec[] = [
   },
   {
     path: ['local-task', 'current'],
-    summary: "Read the current Agent session's assigned subtask context",
-    usage: 'orca local-task current [--json]',
-    allowedFlags: [...GLOBAL_FLAGS]
+    summary:
+      'Read parent goals and sibling subtask summaries; optionally read one reference session snapshot',
+    usage: 'orca local-task current [--reference <subtask-id>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'reference']
   },
   {
     path: ['local-task', 'update-description'],
     summary: 'Update the bound local task description',
-    usage: 'orca local-task update-description --description <text> [--json]',
-    allowedFlags: [...GLOBAL_FLAGS, 'description']
+    usage:
+      'orca local-task update-description --description <text> [--expected-revision <n>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'description', 'expected-revision']
   },
   {
     path: ['local-task', 'subtask-create'],
