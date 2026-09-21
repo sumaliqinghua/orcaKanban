@@ -3,7 +3,12 @@ import type { SetupDecision } from './worktree/create-types'
 import type { TaskSourceContext, WorkspaceRunContext } from './task-source-context'
 import type { AutomationEventTrigger } from './automation-event-types'
 import type { AutomationTemplateSource } from './automation-template-source'
-import type { AutomationPrecheck } from './automation-run-usage'
+import type {
+  AutomationPrecheck,
+  AutomationPrecheckResult,
+  AutomationRunOutputSnapshot,
+  AutomationRunUsage
+} from './automation-run-usage'
 export type { AutomationEventTrigger, AutomationEventType } from './automation-event-types'
 
 export type AutomationWorkspaceMode = 'existing' | 'new_per_run'
