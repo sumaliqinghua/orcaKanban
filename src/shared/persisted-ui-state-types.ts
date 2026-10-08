@@ -1,3 +1,4 @@
+import type { SidebarWorkspaceContent } from './sidebar-workspace-content'
 import type { ReleaseChannel } from './release-channel'
 import type { WorkspaceCleanupUIState } from './workspace-cleanup'
 import type { FeatureTipId } from './feature-tips'
@@ -93,6 +94,7 @@ export type PersistedUIState = {
   worktreeCardProperties: WorktreeCardProperty[]
   /** One-shot migration flag for deriving card properties from the two worktree card modes. */
   _worktreeCardModeDefaulted?: boolean
+  sidebarWorkspaceContent?: SidebarWorkspaceContent
   agentActivityDisplayMode?: AgentActivityDisplayMode
   workspaceStatuses?: WorkspaceStatusDefinition[]
   workspaceBoardOpacity?: number

@@ -1,3 +1,4 @@
+import { normalizeSidebarWorkspaceContent } from '../../../../shared/sidebar-workspace-content'
 import { normalizeAutoRenameBranchFromWorkDefaultOn } from '../../../../shared/auto-rename-branch-from-work-settings'
 import {
   getDefaultSettings,
@@ -46,6 +47,9 @@ export function mergeWebUIState(
     ),
     _worktreeCardModeDefaulted:
       safeUpdates._worktreeCardModeDefaulted ?? base._worktreeCardModeDefaulted,
+    sidebarWorkspaceContent: normalizeSidebarWorkspaceContent(
+      safeUpdates.sidebarWorkspaceContent ?? base.sidebarWorkspaceContent
+    ),
     agentActivityDisplayMode: normalizeAgentActivityDisplayMode(
       safeUpdates.agentActivityDisplayMode ?? base.agentActivityDisplayMode
     ),
@@ -66,6 +70,7 @@ export function mergeHostWebUIState(
   // PersistedUIState, so Pick would accept a literal that silently skipped a newly added member.
   const pinned = {
     automationHostFilter: local.automationHostFilter,
+    sidebarWorkspaceContent: local.sidebarWorkspaceContent,
     hideWorkspacesFromOtherDevices: local.hideWorkspacesFromOtherDevices === true,
     manualRepoOrder: local.manualRepoOrder,
     workspaceHostOrder: local.workspaceHostOrder,

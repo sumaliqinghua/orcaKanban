@@ -1,3 +1,4 @@
+import type { ExecutionHostId } from '../../../shared/execution-host'
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store'
 import { lazyWithRetry } from '@/lib/lazy-with-retry'
@@ -40,6 +41,8 @@ const HostedAddRepoDialog = lazyWithRetry(() => import('@/components/sidebar/Add
 
 type ComposerModalData = {
   prefilledName?: string
+  initialTaskWorkspaceId?: string
+  initialTaskWorkspaceHostId?: ExecutionHostId
   initialRepoId?: string
   initialEphemeralVmRecipeId?: string
   initialProjectGroupId?: string

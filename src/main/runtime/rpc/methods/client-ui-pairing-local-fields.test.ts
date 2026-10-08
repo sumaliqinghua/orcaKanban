@@ -51,6 +51,7 @@ describe('client UI RPC pairing-local field seams', () => {
     agentsCompactMode: false,
     agentsReadFilter: 'unread',
     agentsGroupBy: 'project',
+    sidebarWorkspaceContent: 'tasks',
     activityClearedAtByPaneKey: { 'tab-1:leaf-1': 123 },
     manuallyUnreadTurnsByPaneKey: { 'tab-1:leaf-1': 321 }
   }

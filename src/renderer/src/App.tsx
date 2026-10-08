@@ -1,3 +1,4 @@
+import { LocalTaskCatalogProvider } from './components/work-items/LocalTaskCatalogProvider'
 import { useCallback, useEffect } from 'react'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -94,7 +95,9 @@ function App(): React.JSX.Element {
           <DocPreviewExternalLinkConfirmation />
           <LinkRoutingPreferenceDialogProvider>
             <AppBackgroundServices />
-            <AppWorkspaceShell layout={layout} floatingWorkspace={floatingWorkspace} />
+            <LocalTaskCatalogProvider>
+              <AppWorkspaceShell layout={layout} floatingWorkspace={floatingWorkspace} />
+            </LocalTaskCatalogProvider>
             <AppRootSurfaces
               floatingWorkspace={floatingWorkspace}
               onboardingGate={onboardingGate}

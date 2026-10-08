@@ -1,3 +1,4 @@
+import { useTaskProjectCollapse } from './use-task-project-collapse'
 import React, { useCallback, useMemo } from 'react'
 import { useAppStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
@@ -119,8 +120,17 @@ const WorktreeList = React.memo(function WorktreeList({
     defaultHostId,
     agentSendTargetWorktreeId
   })
-  const effectiveCollapsedGroups = useEffectiveCollapsedGroups({
+  const taskCollapse = useTaskProjectCollapse({
     collapsedGroups,
+    toggleGroup,
+    groupBy,
+    repoMap,
+    projectGrouping,
+    projectGroups,
+    folderWorkspaces
+  })
+  const effectiveCollapsedGroups = useEffectiveCollapsedGroups({
+    collapsedGroups: taskCollapse.collapsedGroups,
     agentSendTargetWorktreeId,
     groupBy,
     pinnedDisplayPolicy,
@@ -291,7 +301,7 @@ const WorktreeList = React.memo(function WorktreeList({
         groupBy={groupBy}
         pinnedDisplayPolicy={pinnedDisplayPolicy}
         projectOrderBy={projectOrderBy}
-        toggleGroup={toggleGroup}
+        toggleGroup={taskCollapse.toggleGroup}
         collapsedGroups={effectiveCollapsedGroups}
         handleCreateForRepo={handleCreateForRepo}
         handleOpenRepoSettings={handleOpenRepoSettings}

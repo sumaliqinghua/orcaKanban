@@ -1,3 +1,4 @@
+import { normalizeSidebarWorkspaceContent } from '../../../shared/sidebar-workspace-content'
 import type { PersistedState } from '../../../shared/persisted-state-types'
 import {
   getDefaultUIState,
@@ -49,6 +50,7 @@ export function getPersistedUI(
       state.ui?.rightSidebarTab
     ),
     worktreeCardProperties: normalizeWorktreeCardProperties(state.ui?.worktreeCardProperties),
+    sidebarWorkspaceContent: normalizeSidebarWorkspaceContent(state.ui?.sidebarWorkspaceContent),
     agentActivityDisplayMode: normalizeAgentActivityDisplayMode(state.ui?.agentActivityDisplayMode),
     workspaceStatuses: normalizeWorkspaceStatuses(state.ui?.workspaceStatuses),
     workspaceBoardOpacity: clampWorkspaceBoardOpacity(state.ui?.workspaceBoardOpacity),

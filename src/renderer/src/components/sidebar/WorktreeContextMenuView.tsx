@@ -1,3 +1,5 @@
+import { useAppStore } from '@/store'
+import { openLocalTaskComposer } from '../work-items/open-local-task-composer'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +15,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Copy,
+  ListPlus,
   Bell,
   BellOff,
   CircleX,
@@ -151,7 +154,14 @@ export default function WorktreeContextMenuView({ model }: { model: WorktreeCont
           }}
           onMouseUpCapture={suppressOpeningPointerEvent}
           onClickCapture={suppressOpeningPointerEvent}
-          onCloseAutoFocus={handleCloseAutoFocus}
+          onCloseAutoFocus={(event) => {
+            // 新建任务弹窗接管焦点，菜单关闭不能重新聚焦工作区列表。
+            if (useAppStore.getState().activeModal === 'new-workspace-composer') {
+              event.preventDefault()
+            } else {
+              handleCloseAutoFocus(event)
+            }
+          }}
         >
           <DropdownMenuLabel className="px-2 py-1 text-[11px] font-medium text-muted-foreground">
             {translate('auto.components.sidebar.WorktreeContextMenu.workspaceSection', 'Workspace')}
@@ -160,6 +170,15 @@ export default function WorktreeContextMenuView({ model }: { model: WorktreeCont
             <DropdownMenuItem onSelect={handleRename} disabled={isDeleting}>
               <Pencil className="size-3.5" />
               {translate('auto.components.sidebar.WorktreeContextMenu.439fa94d53', 'Update')}
+            </DropdownMenuItem>
+          )}
+          {!isMultiContext && (
+            <DropdownMenuItem
+              onSelect={() => openLocalTaskComposer(worktree.repoId, worktree)}
+              disabled={isDeleting}
+            >
+              <ListPlus className="size-3.5" />
+              新建任务
             </DropdownMenuItem>
           )}
           <WorktreeStatusMenuItems

@@ -1,3 +1,4 @@
+import { SidebarWorkspaceContentMenu } from './SidebarWorkspaceContentMenu'
 import { useMemo, type JSX } from 'react'
 import { useAppStore } from '@/store'
 import {
@@ -114,6 +115,7 @@ export function WorkspaceOptionsMenuItems({
           'Workspace options'
         )}
       </DropdownMenuLabel>
+      <SidebarWorkspaceContentMenu />
       {/* Why: host + project filters share one section and the same single-row
           shell as Sort by (label left, value right) so the menu stays flat. */}
       {(showHostScopeControls || repos.length > 1) && (

@@ -152,6 +152,7 @@ const UiUpdateFields = z
     editorFontZoomLevel: z.number().finite().optional(),
     worktreeCardProperties: WorktreeCardProperties.optional(),
     _worktreeCardModeDefaulted: z.boolean().optional(),
+    sidebarWorkspaceContent: z.enum(['sessions', 'tasks']).optional(),
     agentActivityDisplayMode: AgentActivityDisplayMode.optional(),
     workspaceStatuses: z.array(WorkspaceStatusDefinition).optional(),
     workspaceBoardOpacity: z.number().finite().optional(),

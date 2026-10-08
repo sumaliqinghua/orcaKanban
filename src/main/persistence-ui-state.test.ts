@@ -79,6 +79,18 @@ describe('Store', () => {
   })
   // ── UI state ───────────────────────────────────────────────────────
 
+  it('persists task sidebar mode across reload and preserves it on unrelated writes', async () => {
+    const store = await createStore()
+    expect(store.getUI().sidebarWorkspaceContent).toBe('sessions')
+    store.updateUI({ sidebarWorkspaceContent: 'tasks' })
+    store.updateUI({ sidebarWidth: 400 })
+    store.flush()
+    const reloaded = await createStore()
+    expect(reloaded.getUI().sidebarWorkspaceContent).toBe('tasks')
+    reloaded.updateUI({ sidebarWorkspaceContent: 'unknown' as never })
+    expect(reloaded.getUI().sidebarWorkspaceContent).toBe('sessions')
+  })
+
   it('updateUI merges partial updates', async () => {
     const store = await createStore()
     store.updateUI({ sidebarWidth: 400 })

@@ -22,6 +22,7 @@ const SidebarHeader = React.memo(function SidebarHeader({
   useTranslation()
   const sidebarBody = useAppStore((s) => s.sidebarBody ?? 'workspaces')
   const groupBy = useAppStore((s) => s.groupBy)
+  const taskMode = useAppStore((s) => s.sidebarWorkspaceContent === 'tasks')
   const setSidebarBody = useAppStore((s) => s.setSidebarBody)
   const updateSettings = useAppStore((s) => s.updateSettings)
   const agentsViewActive = sidebarBody === 'agents'
@@ -50,6 +51,7 @@ const SidebarHeader = React.memo(function SidebarHeader({
           data-sidebar-section-title={groupBy === 'repo' ? 'projects' : 'workspaces'}
         >
           {sidebarTitle}
+          {taskMode && !agentsViewActive ? ' · 任务' : ''}
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-1">

@@ -1,3 +1,7 @@
+import {
+  normalizeSidebarWorkspaceContent,
+  type SidebarWorkspaceContent
+} from '../../../../shared/sidebar-workspace-content'
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import { normalizeRightSidebarRoute } from '../right-sidebar-route'
@@ -966,6 +970,8 @@ export type UISlice = {
   _worktreeCardModeDefaulted: boolean
   setWorktreeCardMode: (mode: WorktreeCardMode) => void
   setWorktreeCardProperties: (properties: readonly WorktreeCardProperty[]) => void
+  sidebarWorkspaceContent: SidebarWorkspaceContent
+  setSidebarWorkspaceContent: (value: SidebarWorkspaceContent) => void
   agentActivityDisplayMode: AgentActivityDisplayMode
   setAgentActivityDisplayMode: (mode: AgentActivityDisplayMode) => void
   workspaceStatuses: WorkspaceStatusDefinition[]
@@ -2286,6 +2292,12 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
       .set({ worktreeCardProperties: normalized, _worktreeCardModeDefaulted: false })
       .catch(console.error)
   },
+  sidebarWorkspaceContent: 'sessions',
+  setSidebarWorkspaceContent: (value) => {
+    const normalized = normalizeSidebarWorkspaceContent(value)
+    window.api.ui.set({ sidebarWorkspaceContent: normalized }).catch(console.error)
+    set({ sidebarWorkspaceContent: normalized })
+  },
   agentActivityDisplayMode: DEFAULT_AGENT_ACTIVITY_DISPLAY_MODE,
   setAgentActivityDisplayMode: (mode) => {
     const normalized = normalizeAgentActivityDisplayMode(mode)
@@ -2636,6 +2648,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         editorFontZoomLevel: ui.editorFontZoomLevel ?? 0,
         worktreeCardProperties: normalizeWorktreeCardProperties(ui.worktreeCardProperties),
         _worktreeCardModeDefaulted: ui._worktreeCardModeDefaulted === true,
+        sidebarWorkspaceContent: normalizeSidebarWorkspaceContent(ui.sidebarWorkspaceContent),
         agentActivityDisplayMode: normalizeAgentActivityDisplayMode(ui.agentActivityDisplayMode),
         workspaceStatuses: normalizeWorkspaceStatuses(ui.workspaceStatuses),
         workspaceBoardOpacity: clampWorkspaceBoardOpacity(ui.workspaceBoardOpacity),

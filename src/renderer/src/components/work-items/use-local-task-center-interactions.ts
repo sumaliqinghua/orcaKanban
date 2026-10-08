@@ -1,3 +1,4 @@
+import { openLocalTaskComposer } from './open-local-task-composer'
 import { useCallback } from 'react'
 import { useAppStore } from '@/store'
 import { TOGGLE_WORKSPACE_BOARD_EVENT } from '@/components/sidebar/useWorkspaceBoardPanel'
@@ -37,17 +38,7 @@ export function useLocalTaskCenterInteractions({
   toggleExpanded: (id: string) => void
 } {
   const openTaskComposer = useCallback((): void => {
-    useAppStore.getState().openModal('new-workspace-composer', {
-      localTaskMode: true,
-      localTaskDraft: {
-        title: '',
-        description: '',
-        intakeState: 'ready',
-        clarificationRequested: false
-      },
-      ...(createProjectId !== 'local' ? { initialRepoId: createProjectId } : {}),
-      telemetrySource: 'sidebar'
-    })
+    openLocalTaskComposer(createProjectId)
   }, [createProjectId])
 
   const openWorkspaceBoard = useCallback((): void => {

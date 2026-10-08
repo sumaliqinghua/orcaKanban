@@ -1,8 +1,12 @@
 import { ChevronRight } from 'lucide-react'
+import {
+  ProjectBoardSection,
+  ProjectTaskCreateButton,
+  useProjectBoardGroups
+} from './ProjectBoardSection'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { getTaskPerspectiveStatus, type WorkItem } from './mock-data'
-import { STATUS_ORDER } from './mock-data'
+import { getTaskPerspectiveStatus, STATUS_ORDER, type WorkItem } from './mock-data'
 import { StatusBadge, StatusIcon, SubtaskCard, WorkItemCard } from './work-item-pieces'
 
 export function ListView({
@@ -14,7 +18,7 @@ export function ListView({
   onQuickCreate
 }: {
   items: WorkItem[]
-  selected: WorkItem
+  selected: WorkItem | null
   onSelect: (id: string) => void
   expandedIds: ReadonlySet<string>
   onToggleExpanded: (id: string) => void
@@ -58,7 +62,7 @@ export function ListView({
                 }}
                 className={cn(
                   'min-w-[860px] grid min-h-12 w-full grid-cols-[28px_minmax(220px,1fr)_140px_140px_220px_100px] items-center px-4 py-3 hover:bg-accent',
-                  item.id === selected.id && 'bg-accent/60'
+                  item.id === selected?.id && 'bg-accent/60'
                 )}
               >
                 <Button
@@ -147,7 +151,7 @@ export function SubtaskListView({
   onQuickCreate
 }: {
   items: WorkItem[]
-  selected: WorkItem
+  selected: WorkItem | null
   onSelect: (id: string) => void
   onQuickCreate: () => void
 }): React.JSX.Element {
@@ -183,7 +187,7 @@ export function SubtaskListView({
               onClick={() => onSelect(item.id)}
               className={cn(
                 'min-w-[860px] grid w-full grid-cols-[minmax(240px,1fr)_140px_140px_220px_100px] items-center border-b border-border/70 px-4 py-3 text-left last:border-0 hover:bg-accent',
-                item.id === selected.id && 'bg-accent/60'
+                item.id === selected?.id && 'bg-accent/60'
               )}
             >
               <span className="flex min-w-0 items-center gap-2">
@@ -235,22 +239,40 @@ export function SubtaskListView({
 export function BoardView({
   items,
   selected,
-  onSelect
+  onSelect,
+  groupByProject = false,
+  projectOptions,
+  onCreateProjectTask
 }: {
   items: WorkItem[]
-  selected: WorkItem
+  selected: WorkItem | null
   onSelect: (id: string) => void
+  /** 全部项目筛选时在状态列内按项目分组。 */
+  groupByProject?: boolean
+  projectOptions?: readonly { id: string; label: string }[]
+  onCreateProjectTask?: (projectId: string) => void
 }): React.JSX.Element {
+  const projectGroups = useProjectBoardGroups(items, projectOptions)
+
   return (
     <div className="scrollbar-sleek flex min-h-0 flex-1 gap-3 overflow-x-auto px-6 pb-6">
       {STATUS_ORDER.map((status) => {
         const columnItems = items.filter((item) => getTaskPerspectiveStatus(item) === status)
+        const renderCard = (item: WorkItem): React.JSX.Element => (
+          <WorkItemCard
+            key={item.id}
+            item={item}
+            selected={item.id === selected?.id}
+            onSelect={() => onSelect(item.id)}
+          />
+        )
         return (
           <section
             key={status}
-            className="flex min-w-[236px] max-w-[280px] flex-1 flex-col rounded-lg border border-border/70 bg-muted/20"
+            aria-label={status}
+            className="flex min-h-0 min-w-[236px] max-w-[280px] flex-1 flex-col rounded-lg border border-border/70 bg-muted/20"
           >
-            <header className="flex items-center gap-2 border-b border-border/60 px-3 py-2.5">
+            <header className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2.5">
               <StatusIcon status={status} />
               <span className="text-xs font-semibold">{status}</span>
               <span className="ml-auto rounded-full bg-background px-1.5 text-[10px] tabular-nums text-muted-foreground">
@@ -258,14 +280,31 @@ export function BoardView({
               </span>
             </header>
             <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
-              {columnItems.map((item) => (
-                <WorkItemCard
-                  key={item.id}
-                  item={item}
-                  selected={item.id === selected.id}
-                  onSelect={() => onSelect(item.id)}
-                />
-              ))}
+              {groupByProject
+                ? projectGroups.map(([project, projectItems]) => {
+                    const name =
+                      projectOptions?.find((option) => option.id === project)?.label ?? project
+                    const projectColumnItems = projectItems.filter(
+                      (item) => getTaskPerspectiveStatus(item) === status
+                    )
+                    if (projectColumnItems.length === 0) {
+                      return null
+                    }
+                    return (
+                      <ProjectBoardSection key={project} name={name} items={projectColumnItems}>
+                        <div className="flex flex-col gap-2 border-t border-border/60 p-2">
+                          {projectColumnItems.map(renderCard)}
+                          {status === 'Open' && onCreateProjectTask ? (
+                            <ProjectTaskCreateButton
+                              name={name}
+                              onCreate={() => onCreateProjectTask(project)}
+                            />
+                          ) : null}
+                        </div>
+                      </ProjectBoardSection>
+                    )
+                  })
+                : columnItems.map(renderCard)}
               {columnItems.length === 0 ? (
                 <div className="flex min-h-24 items-center justify-center text-[11px] text-muted-foreground/60">
                   暂无本地任务
@@ -285,7 +324,7 @@ export function SubtaskBoardView({
   onSelect
 }: {
   items: WorkItem[]
-  selected: WorkItem
+  selected: WorkItem | null
   onSelect: (id: string) => void
 }): React.JSX.Element {
   const cards = items.flatMap((item) => item.subtasks.map((subtask) => ({ item, subtask })))
@@ -313,7 +352,7 @@ export function SubtaskBoardView({
                   key={`${item.id}:${subtask.id}`}
                   item={item}
                   subtask={subtask}
-                  selected={item.id === selected.id}
+                  selected={item.id === selected?.id}
                   onSelect={() => onSelect(item.id)}
                 />
               ))}

@@ -31,6 +31,7 @@ export function localTaskToViewModel(task: LocalTask): WorkItem {
     projectPath: task.projectPath,
     project: task.projectId,
     updated: new Date(task.updatedAt).toLocaleString(),
+    updatedAt: task.updatedAt,
     sessions: executionSessions.length,
     activeSessions,
     checklist: task.checklist ?? [],
@@ -114,13 +115,14 @@ export function reconcileWorkItemSessionLiveness(
       ? cards.some((card) => card.dotState === 'working')
       : matchesSession && liveSessionIds.has(tabId)
     if (working) {
-      return { ...session, status: 'working' as const }
+      return { ...session, status: 'working' as const, livenessUnverifiable: false }
     }
     const card = cards?.find((candidate) => candidate.dotState !== 'done') ?? cards?.[0]
     if (card) {
       return {
         ...session,
-        status: card.dotState === 'done' ? ('done' as const) : ('idle' as const)
+        status: card.dotState === 'done' ? ('done' as const) : ('idle' as const),
+        livenessUnverifiable: false
       }
     }
     if (session.status !== 'working' || withinStartGrace) {
@@ -136,6 +138,10 @@ export function reconcileWorkItemSessionLiveness(
       session.associationSource !== 'task-report' && session.associationSource !== 'clarification'
   )
   const activeSessions = executionSessions.filter((session) => session.status === 'working').length
-  const status = resolveLocalTaskStatus(item.status, executionSessions)
+  // 断线只能说明无法核实，不足以把进行中的任务推进到待审阅。
+  const status =
+    activeSessions === 0 && executionSessions.some((session) => session.livenessUnverifiable)
+      ? item.status
+      : resolveLocalTaskStatus(item.status, executionSessions)
   return { ...item, status, activeSessions, sessionsList }
 }

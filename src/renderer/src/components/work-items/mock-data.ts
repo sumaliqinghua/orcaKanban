@@ -27,6 +27,7 @@ export type WorkItem = {
   projectPath?: string
   project: string
   updated: string
+  updatedAt?: number
   sessions: number
   activeSessions: number
   checklist?: LocalTaskChecklistItem[]

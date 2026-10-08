@@ -462,6 +462,7 @@ describe('web UI preload API', () => {
   // the browser's for every field, so only the pin makes this pass.
   const browserLocalUiSamples: Record<PairingLocalUiField, unknown> = {
     automationHostFilter: { kind: 'host', hostKey: 'browser-local-host-key' },
+    sidebarWorkspaceContent: 'tasks',
     hideWorkspacesFromOtherDevices: true,
     manualRepoOrder: [{ hostId: 'runtime:web-env-1', repoId: 'repo-b' }],
     workspaceHostOrder: ['runtime:web-env-1', 'local'],
@@ -476,6 +477,7 @@ describe('web UI preload API', () => {
   }
   const hostUiSamples: Record<PairingLocalUiField, unknown> = {
     automationHostFilter: { kind: 'all' },
+    sidebarWorkspaceContent: 'sessions',
     hideWorkspacesFromOtherDevices: false,
     manualRepoOrder: [{ hostId: 'local', repoId: 'repo-a' }],
     workspaceHostOrder: ['local', 'ssh:box'],

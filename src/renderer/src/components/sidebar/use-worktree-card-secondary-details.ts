@@ -1,3 +1,4 @@
+import { useAppStore } from '@/store'
 import React, { useCallback } from 'react'
 import { toast } from 'sonner'
 
@@ -88,7 +89,9 @@ export function useWorktreeCardSecondaryDetails({
   const metaAutomationProvenance = showAutomation ? worktree.automationProvenance : null
   const metaCliProvenance = showCli ? worktree.cliProvenance : null
   const metaComment = showComment ? hoverComment : null
-  const showInlineAgentList = cardProps.includes('inline-agents') && (newCardStyle || !compactCards)
+  const taskMode = useAppStore((s) => s.sidebarWorkspaceContent === 'tasks')
+  const showInlineAgentList =
+    !taskMode && cardProps.includes('inline-agents') && (newCardStyle || !compactCards)
   const compactInlineAgentRows = useWorktreeAgentRows(
     worktree.id,
     showInlineAgentList && agentActivityDisplayMode === 'compact'

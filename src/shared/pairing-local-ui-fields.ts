@@ -9,6 +9,7 @@ export const PAIRING_LOCAL_UI_FIELDS = [
   // Its hostKey names authorities only the writing client can resolve — a paired
   // client's `desktop` is a different machine — and old hosts reject the unknown key.
   'automationHostFilter',
+  'sidebarWorkspaceContent',
   'hideWorkspacesFromOtherDevices',
   'manualRepoOrder',
   'workspaceHostOrder',

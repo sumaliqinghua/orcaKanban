@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocalTaskWorkspaceSelection } from './use-local-task-workspace-selection'
+import type { ExecutionHostId } from '../../../shared/execution-host'
+import { useCallback, useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { launchAgentBackgroundSession } from '@/lib/launch-agent-background-session'
 import { buildLocalTaskClarificationPrompt } from '@/components/work-items/local-task-clarification-prompt'
@@ -9,6 +11,8 @@ import type { Worktree } from '../../../shared/worktree/types'
 import type { WorkspaceSource as WorkspaceCreateTelemetrySource } from '../../../shared/workspace-source'
 
 type LocalTaskComposerModalData = {
+  initialTaskWorkspaceId?: string
+  initialTaskWorkspaceHostId?: ExecutionHostId
   initialRepoId?: string
   telemetrySource?: WorkspaceCreateTelemetrySource
   localTaskDraft?: {
@@ -75,14 +79,8 @@ export function useLocalTaskComposer({
     [taskLabels]
   )
   const [taskError, setTaskError] = useState<string | null>(null)
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
-  const taskWorkspaces = useMemo(
-    () =>
-      (useAppStore.getState().allWorktrees?.() ?? []).filter(
-        (workspace) => workspace.repoId === cardProps.repoId && !workspace.isArchived
-      ),
-    [cardProps.repoId]
-  )
+  const { taskProjectId, taskWorkspaces, selectedWorkspaceId, setSelectedWorkspaceId } =
+    useLocalTaskWorkspaceSelection(cardProps, modalData, creatingWorkspace)
 
   const startClarification = useCallback(
     async (task: Awaited<ReturnType<typeof window.api.localTasks.create>>): Promise<void> => {
@@ -129,19 +127,6 @@ export function useLocalTaskComposer({
     []
   )
 
-  useEffect(() => {
-    if (
-      creatingWorkspace ||
-      taskWorkspaces.some((workspace) => workspace.id === selectedWorkspaceId)
-    ) {
-      return
-    }
-    const active = useAppStore.getState().activeWorktreeId
-    const preferred = taskWorkspaces.find((workspace) => workspace.id === active)
-    const main = taskWorkspaces.find((workspace) => workspace.isMainWorktree)
-    setSelectedWorkspaceId(preferred?.id ?? main?.id ?? taskWorkspaces[0]?.id ?? 'local')
-  }, [creatingWorkspace, selectedWorkspaceId, taskWorkspaces])
-
   const createTaskDirectly = useCallback((): void => {
     const description = taskDescription.trim()
     if (!description) {
@@ -149,12 +134,24 @@ export function useLocalTaskComposer({
       return
     }
     const state = useAppStore.getState()
-    const repoId = cardProps.repoId || modalData.initialRepoId || state.activeRepoId || 'local'
+    const repoId = taskProjectId || modalData.initialRepoId || state.activeRepoId || 'local'
     const workspaceId = selectedWorkspaceId || 'local'
+    const targetHostId =
+      workspaceId === modalData.initialTaskWorkspaceId
+        ? (modalData.initialTaskWorkspaceHostId ?? cardProps.selectedRepoExecutionHostId)
+        : cardProps.selectedRepoExecutionHostId
     const workspace =
       workspaceId === 'local'
         ? null
-        : state.getKnownWorktreeById(workspaceId, state.activeWorkspaceExecutionHostId ?? undefined)
+        : taskWorkspaces.find(
+            (candidate) =>
+              candidate.id === workspaceId &&
+              (!targetHostId || (candidate.hostId ?? 'local') === targetHostId)
+          )
+    if (workspaceId !== 'local' && !workspace) {
+      setTaskError('所选工作区已不可用，请重新选择')
+      return
+    }
     void window.api.localTasks
       .create({
         projectId: workspace?.repoId ?? repoId,
@@ -174,7 +171,11 @@ export function useLocalTaskComposer({
         setTaskError(error instanceof Error ? error.message : '本地任务创建失败')
       )
   }, [
-    cardProps.repoId,
+    taskProjectId,
+    taskWorkspaces,
+    modalData.initialTaskWorkspaceId,
+    modalData.initialTaskWorkspaceHostId,
+    cardProps.selectedRepoExecutionHostId,
     cardProps.selectedRepoPath,
     modalData.initialRepoId,
     onClose,

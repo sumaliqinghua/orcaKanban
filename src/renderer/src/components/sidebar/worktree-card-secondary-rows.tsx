@@ -1,3 +1,5 @@
+import { useAppStore } from '@/store'
+import { WorktreeCardTasks } from './WorktreeCardTasks'
 import React from 'react'
 import { AlertTriangle, ChevronDown, Workflow } from 'lucide-react'
 
@@ -17,6 +19,7 @@ export function WorktreeCardSecondaryRows({
   card: WorktreeCardController
   presentation: WorktreeCardPresentation
 }): React.JSX.Element {
+  const taskMode = useAppStore((s) => s.sidebarWorkspaceContent === 'tasks')
   const {
     worktree,
     repo,
@@ -64,12 +67,16 @@ export function WorktreeCardSecondaryRows({
       ) : null}
 
       {/* Why: counterbalance the card stack gap (-mt-1) so agents right after the title read as one header group. */}
-      {showInlineAgentList && (
-        <WorktreeCardAgents
-          worktreeId={worktree.id}
-          agents={agentActivityDisplayMode === 'compact' ? compactInlineAgentRows : undefined}
-          className={hasMetaRow || remoteBranchConflict ? 'mt-0' : '-mt-1'}
-        />
+      {taskMode ? (
+        <WorktreeCardTasks projectId={worktree.repoId} workspaceId={worktree.id} />
+      ) : (
+        showInlineAgentList && (
+          <WorktreeCardAgents
+            worktreeId={worktree.id}
+            agents={agentActivityDisplayMode === 'compact' ? compactInlineAgentRows : undefined}
+            className={hasMetaRow || remoteBranchConflict ? 'mt-0' : '-mt-1'}
+          />
+        )
       )}
 
       {showLineageChildChip && (

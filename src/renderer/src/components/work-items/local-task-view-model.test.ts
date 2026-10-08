@@ -57,6 +57,17 @@ describe('local task live session reconciliation', () => {
     })
     expect(result.sessionsList[0]).toMatchObject({ status: 'idle', livenessUnverifiable: true })
     expect(result.activeSessions).toBe(0)
+    expect(result.status).toBe('In progress')
+    const reconnected = reconcileWorkItemSessionLiveness(
+      result,
+      new Set(['session-1']),
+      NOW + 1_000,
+      {
+        dashboardCards: [{ tabId: 'session-1', dotState: 'working' }]
+      }
+    )
+    expect(reconnected.sessionsList[0]?.livenessUnverifiable).toBe(false)
+    expect(reconnected.activeSessions).toBe(1)
   })
 
   it('lets an explicit completed card override the startup grace period', () => {
